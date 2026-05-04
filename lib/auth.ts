@@ -20,6 +20,12 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  rateLimit: {
+    // Default in production is on; we disable it explicitly when E2E tests run
+    // (they create dozens of users in a tight loop). Re-enable when wiring up
+    // a real rate-limit store backed by Redis for prod.
+    enabled: process.env.DISABLE_AUTH_RATE_LIMIT !== 'true',
+  },
   plugins: [organization()],
 })
 
