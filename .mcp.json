@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "shadcn": {
+      "command": "bunx",
+      "args": ["-y", "shadcn@latest", "mcp"]
+    },
+    "postgres": {
+      "command": "bunx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres:postgres@localhost:5432/metamenu"
+      ]
+    },
+    "bun": {
+      "command": "bunx",
+      "args": ["-y", "mcp-bun@latest"]
+    }
+  }
+}
