@@ -22,10 +22,22 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b">
+      <header className="border-b border-border">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/dashboard" className="font-semibold">
-            Meta Menu
+          <Link
+            href="/dashboard"
+            className="inline-flex items-baseline gap-2 text-foreground no-underline"
+            aria-label="Meta Menu home"
+          >
+            <span
+              aria-hidden="true"
+              className="translate-y-[2px] font-serif text-[22px] italic leading-none text-brand"
+            >
+              ⁋
+            </span>
+            <span className="text-[15px] font-semibold tracking-tight">
+              Meta <em className="font-serif italic font-medium">Menu</em>
+            </span>
           </Link>
           <div className="flex items-center gap-4 text-sm">
             <UserLocaleSwitcher />

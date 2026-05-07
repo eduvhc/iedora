@@ -15,9 +15,10 @@ test.describe('Anonymous routing', () => {
     await expect(page).toHaveURL(/\/login\?next=%2Fonboarding$/)
   })
 
-  test('GET / redirects anonymous to /login', async ({ page }) => {
+  test('GET / serves the landing page to anonymous visitors', async ({ page }) => {
     await page.goto('/', { waitUntil: 'commit' })
-    await expect(page).toHaveURL(/\/login$/)
+    await expect(page).toHaveURL(/\/$/)
+    await expect(page.getByRole('link', { name: 'Meta Menu home' })).toBeVisible()
   })
 
   test('signup and login pages are publicly reachable', async ({ page }) => {

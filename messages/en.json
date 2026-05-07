@@ -4,8 +4,10 @@
     "language": "Language"
   },
   "Auth": {
+    "signupEyebrow": "at the table",
     "signupTitle": "Create your Meta Menu account",
     "signupSubtitle": "Start building digital menus for your restaurant.",
+    "loginEyebrow": "welcome back",
     "loginTitle": "Log in to Meta Menu",
     "loginSubtitle": "Welcome back.",
     "name": "Name",
@@ -24,6 +26,7 @@
     "invalidCredentials": "Invalid email or password"
   },
   "Onboarding": {
+    "eyebrow": "first course",
     "title": "Create your first restaurant",
     "subtitle": "You can rename or add more later. The slug is used in your public menu URL.",
     "restaurantName": "Restaurant name",
@@ -33,6 +36,7 @@
     "creating": "Creating…"
   },
   "Dashboard": {
+    "eyebrow": "your rooms",
     "title": "Restaurants",
     "newRestaurant": "New restaurant",
     "noRestaurants": "No restaurants yet",
@@ -41,6 +45,8 @@
     "published": "Published"
   },
   "Restaurant": {
+    "eyebrow": "your room",
+    "menuEyebrow": "your menu",
     "back": "Restaurants",
     "settings": "Settings",
     "qrCode": "QR code",
@@ -57,6 +63,7 @@
     "saving": "Saving…"
   },
   "Settings": {
+    "eyebrow": "the look",
     "title": "Settings",
     "subtitle": "Edit the restaurant identity and visual theme. Changes are live in the preview; save each section to publish.",
     "livePreview": "Live preview",
@@ -94,6 +101,7 @@
     }
   },
   "Qr": {
+    "eyebrow": "printed code",
     "title": "QR code",
     "subtitle": "Print this on table tents or stickers — scanning opens the menu at {url}.",
     "downloadSvg": "Download SVG",

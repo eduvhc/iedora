@@ -4,8 +4,10 @@
     "language": "Idioma"
   },
   "Auth": {
+    "signupEyebrow": "à mesa",
     "signupTitle": "Criar a tua conta no Meta Menu",
     "signupSubtitle": "Começa a construir menus digitais para o teu restaurante.",
+    "loginEyebrow": "bem-vindo de volta",
     "loginTitle": "Entrar no Meta Menu",
     "loginSubtitle": "Bem-vindo de volta.",
     "name": "Nome",
@@ -24,6 +26,7 @@
     "invalidCredentials": "Email ou palavra-passe inválidos"
   },
   "Onboarding": {
+    "eyebrow": "primeira sala",
     "title": "Cria o teu primeiro restaurante",
     "subtitle": "Podes mudar o nome ou adicionar mais tarde. O slug aparece no URL público do menu.",
     "restaurantName": "Nome do restaurante",
@@ -33,6 +36,7 @@
     "creating": "A criar…"
   },
   "Dashboard": {
+    "eyebrow": "as vossas salas",
     "title": "Restaurantes",
     "newRestaurant": "Novo restaurante",
     "noRestaurants": "Ainda sem restaurantes",
@@ -41,6 +45,8 @@
     "published": "Publicado"
   },
   "Restaurant": {
+    "eyebrow": "a vossa sala",
+    "menuEyebrow": "a vossa carta",
     "back": "Restaurantes",
     "settings": "Definições",
     "qrCode": "Código QR",
@@ -57,6 +63,7 @@
     "saving": "A guardar…"
   },
   "Settings": {
+    "eyebrow": "o aspecto",
     "title": "Definições",
     "subtitle": "Edita a identidade e o tema do restaurante. As alterações aparecem na pré-visualização; guarda cada secção para publicar.",
     "livePreview": "Pré-visualização",
@@ -94,6 +101,7 @@
     }
   },
   "Qr": {
+    "eyebrow": "código impresso",
     "title": "Código QR",
     "subtitle": "Imprime para mesas ou autocolantes — ao ler abre o menu em {url}.",
     "downloadSvg": "Descarregar SVG",

@@ -10,6 +10,7 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
+  --font-serif: var(--font-lora);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -29,6 +30,8 @@
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -49,38 +52,46 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  /* Meta Menu printed-carta palette — paper, ink, terracotta. */
+  --background: #f6f1e7;
+  --foreground: #1a1a17;
+  --card: #fbf8f1;
+  --card-foreground: #1a1a17;
+  --popover: #fbf8f1;
+  --popover-foreground: #1a1a17;
+  --primary: #1a1a17;
+  --primary-foreground: #f6f1e7;
+  --secondary: #efe9db;
+  --secondary-foreground: #1a1a17;
+  --muted: #efe9db;
+  --muted-foreground: #7a756b;
+  /* shadcn convention: --accent is for hover tints / focus rings.
+     Kept as a soft paper-2 so cards, dropdowns, and outline buttons
+     hover into a quiet ink-on-paper highlight, not a brand splash.
+     Brand terracotta is its own --brand token below. */
+  --accent: #ebe3cf;
+  --accent-foreground: #1a1a17;
+  --brand: #8a3a2a;
+  --brand-foreground: #ffffff;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --border: #d9d2c1;
+  --input: #d9d2c1;
+  --ring: #8a3a2a;
+  --chart-1: #8a3a2a;
+  --chart-2: #3d5a3a;
+  --chart-3: #9c6b2f;
+  --chart-4: #2a3a52;
+  --chart-5: #7a756b;
+  /* Square corners — printed-menu vocabulary. */
+  --radius: 0;
+  --sidebar: #efe9db;
+  --sidebar-foreground: #1a1a17;
+  --sidebar-primary: #1a1a17;
+  --sidebar-primary-foreground: #f6f1e7;
+  --sidebar-accent: #f6f1e7;
+  --sidebar-accent-foreground: #1a1a17;
+  --sidebar-border: #d9d2c1;
+  --sidebar-ring: #8a3a2a;
 }
 
 .dark {

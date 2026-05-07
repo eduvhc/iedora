@@ -8,16 +8,20 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
+        // Printed-carta invert: ink → paper on hover (matches landing .btn-primary)
+        default:
+          "bg-primary text-primary-foreground hover:bg-background hover:text-foreground hover:border-foreground aria-expanded:bg-background aria-expanded:text-foreground aria-expanded:border-foreground",
+        // Quiet hairline at rest, full ink/paper invert on hover (matches landing .btn-ghost)
         outline:
-          "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border-border bg-background hover:bg-foreground hover:text-background hover:border-foreground aria-expanded:bg-foreground aria-expanded:text-background aria-expanded:border-foreground",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "bg-secondary text-secondary-foreground hover:bg-foreground hover:text-background aria-expanded:bg-foreground aria-expanded:text-background",
+        // Restrained: subtle paper-2 tint, no invert
         ghost:
-          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
+          "hover:bg-accent hover:text-foreground aria-expanded:bg-accent aria-expanded:text-foreground",
         destructive:
-          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
-        link: "text-primary underline-offset-4 hover:underline",
+          "bg-destructive/10 text-destructive hover:bg-destructive hover:text-background focus-visible:border-destructive/40 focus-visible:ring-destructive/20",
+        link: "text-foreground underline-offset-4 hover:underline",
       },
       size: {
         default:

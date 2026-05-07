@@ -24,6 +24,9 @@ export default async function QrPage({
         >
           ← {r.name}
         </Link>
+        <span className="mt-1 block font-serif text-[13px] italic text-muted-foreground">
+          {t('eyebrow')}
+        </span>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">
           {t('title')}
         </h1>

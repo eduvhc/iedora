@@ -49,6 +49,9 @@ export function LoginForm() {
   return (
     <Card>
       <CardHeader>
+        <span className="font-serif text-[13px] italic text-muted-foreground">
+          {t('loginEyebrow')}
+        </span>
         <CardTitle as="h1">{t('loginTitle')}</CardTitle>
         <CardDescription>{t('loginSubtitle')}</CardDescription>
       </CardHeader>

@@ -52,6 +52,9 @@ export function SignupForm() {
   return (
     <Card>
       <CardHeader>
+        <span className="font-serif text-[13px] italic text-muted-foreground">
+          {t('signupEyebrow')}
+        </span>
         <CardTitle as="h1">{t('signupTitle')}</CardTitle>
         <CardDescription>{t('signupSubtitle')}</CardDescription>
       </CardHeader>

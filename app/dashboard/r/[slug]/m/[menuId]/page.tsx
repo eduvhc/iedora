@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { and, asc, eq, inArray } from 'drizzle-orm'
+import { getTranslations } from 'next-intl/server'
 import { requireRestaurantBySlug } from '@/lib/dal'
 import { db } from '@/lib/db'
 import { category, item, menu, restaurant } from '@/lib/db/schema'
@@ -58,6 +59,8 @@ export default async function MenuBuilderPage({
   for (const c of categories) itemsByCategory[c.id] = []
   for (const it of items) itemsByCategory[it.categoryId]?.push(it)
 
+  const t = await getTranslations('Restaurant')
+
   return (
     <div className="space-y-6">
       <div>
@@ -67,6 +70,9 @@ export default async function MenuBuilderPage({
         >
           ← {r.name}
         </Link>
+        <span className="mt-1 block font-serif text-[13px] italic text-muted-foreground">
+          {t('menuEyebrow')}
+        </span>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">{m.name}</h1>
       </div>
 
