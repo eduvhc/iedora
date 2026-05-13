@@ -1,16 +1,18 @@
-.PHONY: up down recreate tofu ansible ssh help \
+.PHONY: up down recreate tofu ansible ssh ssh-key help \
         kamal-setup kamal-deploy kamal-redeploy kamal-rollback kamal-logs kamal-app
 
 TOFU_DIR    := infra/tofu/environments/local
 ANSIBLE_DIR := infra/ansible
+SSH_KEY     := $(HOME)/.ssh/id_ed25519
 
 help:  ## Mostra esta ajuda
 	@echo "Infra (servidor):"
-	@echo "  make up             - Provisiona servidor local (Tofu + Ansible)"
+	@echo "  make up             - Provisiona servidor local (SSH key + Tofu + Ansible)"
 	@echo "  make down           - Destrói servidor local"
 	@echo "  make recreate       - Destrói e recria do zero"
 	@echo "  make tofu           - Apenas Tofu apply"
 	@echo "  make ansible        - Apenas Ansible playbook"
+	@echo "  make ssh-key        - Gera SSH key (idempotente)"
 	@echo "  make ssh            - SSH para o servidor"
 	@echo ""
 	@echo "App (Kamal):"
@@ -23,15 +25,23 @@ help:  ## Mostra esta ajuda
 
 up: tofu ansible  ## Provisiona servidor local completo
 
-down:  ## Destrói servidor local
+down: ssh-key  ## Destrói servidor local
 	cd $(TOFU_DIR) && tofu destroy -auto-approve
 
 recreate: down up  ## Destrói e recria do zero
 
-tofu:  ## Aplica configuração Tofu
+ssh-key: $(SSH_KEY)  ## Gera SSH key se não existir (idempotente)
+
+$(SSH_KEY):
+	@mkdir -p $(HOME)/.ssh
+	@chmod 700 $(HOME)/.ssh
+	@echo "Gerando SSH key em $(SSH_KEY)..."
+	@ssh-keygen -t ed25519 -f $(SSH_KEY) -N "" -C "meta-menu-deploy"
+
+tofu: ssh-key  ## Aplica configuração Tofu
 	cd $(TOFU_DIR) && tofu init -upgrade && tofu apply -auto-approve
 
-ansible:  ## Corre playbook Ansible
+ansible: ssh-key  ## Corre playbook Ansible
 	cd $(ANSIBLE_DIR) && ANSIBLE_HOST_KEY_CHECKING=false ansible-playbook setup.yml -i inventory/local.ini
 
 ssh:  ## SSH para o servidor local
