@@ -136,16 +136,20 @@ See `AGENTS.md` for the full conventions document used by AI coding assistants �
 
 ## Self-hosting
 
-`infra/` provisiona um servidor Ubuntu (Docker localmente, Hetzner em prod) com OpenTofu + Ansible. Um único comando, mesma stack em Linux/macOS/Windows-via-WSL:
+Pipeline em duas camadas — primeiro provisiona o servidor, depois deploya a app:
 
 ```bash
-make up        # provisiona servidor local
-make down      # destrói
-make recreate  # destrói e recria
-make ssh       # SSH para o servidor
+# Servidor (Tofu + Ansible) — local em Docker, prod em Hetzner
+make up                # provisiona servidor local
+make ssh               # SSH para o servidor
+
+# App (Kamal) — build + push + deploy zero-downtime
+make kamal-setup       # 1.ª vez: bootstrap + accessories
+make kamal-deploy      # deploys subsequentes
 ```
 
-Detalhes (arquitetura, pré-requisitos por SO, troubleshooting, nota sobre Docker Desktop WSL Integration no Windows) em **[`docs/infra.md`](docs/infra.md)**.
+- **[`docs/infra.md`](docs/infra.md)** — provisionamento do servidor (arquitetura, pré-requisitos por SO, troubleshooting, nota sobre Docker Desktop WSL Integration)
+- **[`docs/deploy.md`](docs/deploy.md)** — deploy da app com Kamal (Dockerfile, accessories, secrets, comandos)
 
 ## License
 

@@ -1,0 +1,21 @@
+.git
+.github
+.next
+node_modules
+.env
+.env.local
+.env.*.local
+.DS_Store
+*.log
+
+# Infra & docs não vão para a imagem da app
+infra/
+docs/
+tests/
+playwright-report/
+test-results/
+
+# IDE / Claude
+.vscode/
+.idea/
+.claude/
