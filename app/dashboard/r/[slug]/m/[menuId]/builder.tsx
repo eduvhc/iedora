@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   DndContext,
@@ -41,15 +41,18 @@ export function MenuBuilder({
 }) {
   const router = useRouter()
   const [categories, setCategories] = useState<BuilderCategory[]>(initialCategories)
+  const [prevInitial, setPrevInitial] = useState(initialCategories)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [pending, startTransition] = useTransition()
 
-  // After a server action calls revalidatePath + router.refresh, the page
-  // re-renders with fresh `initialCategories`. Sync local state to it so
-  // optimistic-only inserts (e.g. drag reorders) don't drift from the DB.
-  useEffect(() => {
+  // After a server action calls revalidateRestaurant + router.refresh, the
+  // page re-renders with fresh `initialCategories`. Sync local state via a
+  // render-phase update — React's recommended pattern over `useEffect` for
+  // "reset state when a prop changes" (https://react.dev/learn/you-might-not-need-an-effect#resetting-all-state-when-a-prop-changes).
+  if (initialCategories !== prevInitial) {
+    setPrevInitial(initialCategories)
     setCategories(initialCategories)
-  }, [initialCategories])
+  }
 
   // 8px activation distance prevents click-to-edit from triggering a drag.
   // KeyboardSensor with sortableKeyboardCoordinates makes the list accessible

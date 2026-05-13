@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   DndContext,
@@ -60,21 +60,27 @@ export function SortableCategory({
 
   const router = useRouter()
   const [items, setItems] = useState<BuilderItem[]>(category.items)
+  const [prevItems, setPrevItems] = useState(category.items)
   const [editingName, setEditingName] = useState(false)
   const [name, setName] = useState(category.name)
+  const [prevName, setPrevName] = useState(category.name)
   const [newItemName, setNewItemName] = useState('')
   const [newItemPrice, setNewItemPrice] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [pending, startTransition] = useTransition()
 
-  // Sync local items state with the latest server-rendered prop after every
-  // mutation triggers router.refresh() upstream.
-  useEffect(() => {
+  // Sync local state with the server-rendered prop after a mutation triggers
+  // router.refresh() upstream. Render-phase update over `useEffect` — React's
+  // recommended pattern for "reset state when a prop changes" (see
+  // https://react.dev/learn/you-might-not-need-an-effect).
+  if (category.items !== prevItems) {
+    setPrevItems(category.items)
     setItems(category.items)
-  }, [category.items])
-  useEffect(() => {
+  }
+  if (category.name !== prevName) {
+    setPrevName(category.name)
     setName(category.name)
-  }, [category.name])
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
