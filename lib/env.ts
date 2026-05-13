@@ -43,8 +43,8 @@ const serverSchema = z.object({
   S3_ACCESS_KEY: z.string().min(1),
   S3_SECRET_KEY: z.string().min(1),
   S3_BUCKET: z.string().min(1),
-  // Optional CDN override. When unset, lib/storage derives a path-style URL
-  // from S3_ENDPOINT + S3_BUCKET (MinIO/LocalStack default).
+  // Optional CDN override. When unset, features/upload derives a path-style
+  // URL from S3_ENDPOINT + S3_BUCKET (MinIO/LocalStack default).
   S3_PUBLIC_URL: z.url().optional(),
 })
 

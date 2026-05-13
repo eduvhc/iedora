@@ -28,7 +28,7 @@ const optionalText = z
   .transform((v) => (v === '' ? null : v))
 
 // Logo/banner are managed by the ImageUpload component (uploads commit
-// directly via lib/upload/actions). This action only handles textual identity.
+// directly via features/upload/actions). This action only handles textual identity.
 const identitySchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(120),
   description: optionalText,

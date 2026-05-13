@@ -89,7 +89,7 @@ jobs:
       #     MinIO image with a self-booting entrypoint.
       # LocalStack auto-boots S3 on :4566; the SDK works as long as the
       # client is created with `forcePathStyle: true` (it already is in
-      # `lib/storage/s3-storage.ts`). Local dev still uses the real
+      # `features/upload/adapters/s3.ts`). Local dev still uses the real
       # `minio/minio` from docker-compose while its cached tag pulls.
       localstack:
         image: localstack/localstack:4

@@ -29,8 +29,9 @@ export type PresignedUpload = {
   expiresInSeconds: number
 }
 
-// Storage interface — server actions depend on this, never on a concrete SDK.
-// Swap MinIO for R2/S3 in prod by changing only lib/storage/index.ts.
+// Storage interface — this is the slice's port. Implementations live under
+// `./adapters/`. Server actions depend on this, never on a concrete SDK.
+// Swap MinIO for R2/S3 in prod by changing only `./adapters/factory.ts`.
 export interface Storage {
   presignPut(key: string, req: PresignedUploadRequest): Promise<PresignedUpload>
   delete(key: string): Promise<void>

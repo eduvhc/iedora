@@ -9,7 +9,7 @@ import {
   type PresignedUpload,
   type PresignedUploadRequest,
   type Storage,
-} from './types'
+} from '../types'
 
 export type S3StorageConfig = {
   endpoint: string

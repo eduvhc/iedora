@@ -4,7 +4,7 @@ import {
   PutBucketCorsCommand,
   PutBucketPolicyCommand,
 } from '@aws-sdk/client-s3'
-import type { S3Storage } from './s3-storage'
+import type { S3Storage } from './s3'
 
 let bootstrapped = false
 

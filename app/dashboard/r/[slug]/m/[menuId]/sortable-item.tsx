@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/shared/ui/dialog'
-import { ImageUpload } from '@/components/upload/image-upload'
+import { ImageUpload } from '@/features/upload/ui/image-upload'
 import { LocalizedFields } from '@/features/i18n/ui/localized-fields'
 import type { LanguageCode, LocalizedText } from '@/features/i18n'
 import { deleteItem, updateItem } from './actions'

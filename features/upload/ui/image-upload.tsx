@@ -2,9 +2,9 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { Button } from '@/shared/ui/button'
-import { commitAsset, clearAsset, requestUploadUrl } from '@/lib/upload/actions'
-import { TARGET_CONSTRAINTS } from '@/lib/storage/targets'
-import type { AssetTarget } from '@/lib/storage/types'
+import { commitAsset, clearAsset, requestUploadUrl } from '@/features/upload/actions'
+import { TARGET_CONSTRAINTS } from '@/features/upload/targets'
+import type { AssetTarget } from '@/features/upload/types'
 
 export function ImageUpload({
   target,

@@ -1,10 +1,7 @@
 import 'server-only'
 import { ensureBucket } from './bootstrap'
-import { S3Storage } from './s3-storage'
-import type { Storage } from './types'
-
-export type { AssetTarget, AssetTargetKind, PresignedUpload, Storage } from './types'
-export { TARGET_CONSTRAINTS, buildKey, extensionForMime } from './targets'
+import { S3Storage } from './s3'
+import type { Storage } from '../types'
 
 function readEnv(name: string): string {
   const v = process.env[name]

@@ -8,7 +8,7 @@ import { Label } from '@/shared/ui/label'
 import { Input } from '@/shared/ui/input'
 import { Textarea } from '@/shared/ui/textarea'
 import { Separator } from '@/shared/ui/separator'
-import { ImageUpload } from '@/components/upload/image-upload'
+import { ImageUpload } from '@/features/upload/ui/image-upload'
 import { LocalizedFields } from '@/features/i18n/ui/localized-fields'
 import { MenuRenderer } from '@/components/menu/menu-renderer'
 import type { PublicMenu, PublicRestaurant } from '@/components/menu/types'
@@ -299,7 +299,7 @@ function IdentitySection({
   const tc = useTranslations('Common')
 
   // Save button only tracks text fields. Logo/banner are persisted directly
-  // by the ImageUpload component via lib/upload/actions, so they don't
+  // by the ImageUpload component via features/upload/actions, so they don't
   // contribute to the dirty state here.
   const dirty =
     value.name !== initial.name ||
