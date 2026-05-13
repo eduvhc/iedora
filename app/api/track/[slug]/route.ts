@@ -5,7 +5,7 @@ import {
   isLanguageCode,
   pickLanguage,
   type LanguageCode,
-} from '@/lib/i18n'
+} from '@/features/i18n'
 import { loadRestaurantSnapshot } from '@/lib/menu/cached'
 import { incrementDailyView } from '@/lib/metrics'
 

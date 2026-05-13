@@ -11,8 +11,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/shared/ui/dialog'
-import { LocalizedFields } from '@/components/i18n/localized-fields'
-import type { LanguageCode, LocalizedText } from '@/lib/i18n'
+import { LocalizedFields } from '@/features/i18n/ui/localized-fields'
+import type { LanguageCode, LocalizedText } from '@/features/i18n'
 import { updateCategoryTranslations } from './actions'
 
 // Opens from a "Translate" button next to the category title. Renders only

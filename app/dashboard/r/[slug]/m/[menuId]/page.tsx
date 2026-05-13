@@ -5,7 +5,7 @@ import { getTranslations } from 'next-intl/server'
 import { requireRestaurantBySlug } from '@/features/auth'
 import { db } from '@/lib/db'
 import { category, item, menu, restaurant } from '@/lib/db/schema'
-import type { LanguageCode } from '@/lib/i18n'
+import type { LanguageCode } from '@/features/i18n'
 import { MenuBuilder } from './builder'
 
 export default async function MenuBuilderPage({

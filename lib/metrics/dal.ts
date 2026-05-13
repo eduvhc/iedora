@@ -3,7 +3,7 @@ import { cache } from 'react'
 import { and, count, eq, gte, inArray, lte, max, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { dailyView, item, menu, restaurant } from '@/lib/db/schema'
-import type { LanguageCode } from '@/lib/i18n'
+import type { LanguageCode } from '@/features/i18n'
 
 export type AnalyticsRange = 'today' | '7d' | '30d'
 

@@ -8,9 +8,9 @@ import { requireRestaurantBySlug } from '@/features/auth'
 import { db } from '@/lib/db'
 import { restaurant, type RestaurantTheme } from '@/lib/db/schema'
 import { FONTS, HEX_PATTERN, LAYOUTS } from '@/components/menu/theme'
-import { LANGUAGE_CODES } from '@/lib/i18n'
-import type { LanguageCode } from '@/lib/i18n'
-import { localizedSchema, pruneLocalized } from '@/lib/i18n/server'
+import { LANGUAGE_CODES } from '@/features/i18n'
+import type { LanguageCode } from '@/features/i18n'
+import { localizedSchema, pruneLocalized } from '@/features/i18n/server'
 
 const themeSchema = z.object({
   layout: z.enum(LAYOUTS.map((l) => l.id) as [string, ...string[]]),

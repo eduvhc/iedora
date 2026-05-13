@@ -7,8 +7,8 @@ import { z } from 'zod'
 import { requireRestaurantBySlug } from '@/features/auth'
 import { db } from '@/lib/db'
 import { category, item, menu } from '@/lib/db/schema'
-import type { LocalizedText } from '@/lib/i18n'
-import { localizedSchema, pruneLocalized } from '@/lib/i18n/server'
+import type { LocalizedText } from '@/features/i18n'
+import { localizedSchema, pruneLocalized } from '@/features/i18n/server'
 
 // Every menu mutation invalidates both the admin builder view and the public
 // /r/[slug] page so visitors see fresh data on next request.

@@ -3,7 +3,7 @@
 import { useTransition } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
-import { LANGUAGE_META, type LanguageCode } from '@/lib/i18n'
+import { LANGUAGE_META, type LanguageCode } from '@/features/i18n'
 import { setUserLocale } from './actions'
 
 // Compact native <select>. We deliberately don't pull in a fancy dropdown —

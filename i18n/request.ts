@@ -1,6 +1,6 @@
 import { cookies, headers } from 'next/headers'
 import { getRequestConfig } from 'next-intl/server'
-import { LANGUAGE_CODES, type LanguageCode } from '@/lib/i18n'
+import { LANGUAGE_CODES, type LanguageCode } from '@/features/i18n'
 
 // next-intl is the *UI strings* layer for the admin dashboard. Content i18n
 // (item names, descriptions, etc.) lives in lib/i18n and is unrelated.

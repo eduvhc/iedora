@@ -4,7 +4,7 @@ import { unstable_cache, updateTag } from 'next/cache'
 import { getRestaurantMenusWithCounts, type MenuWithCounts } from '@/lib/dashboard/queries'
 import { db } from '@/lib/db'
 import { restaurant, type RestaurantTheme } from '@/lib/db/schema'
-import type { LanguageCode, LocalizedText } from '@/lib/i18n'
+import type { LanguageCode, LocalizedText } from '@/features/i18n'
 import { loadMenuTree, type RawMenu } from './load-tree'
 
 /**

@@ -8,7 +8,7 @@ import {
   getLanguage,
   localizedNullable,
   pickLanguage,
-} from '@/lib/i18n'
+} from '@/features/i18n'
 import { loadRestaurantSnapshot } from '@/lib/menu/cached'
 import { localizeTree } from '@/lib/menu/load-tree'
 import { MenuRenderer } from '@/components/menu/menu-renderer'

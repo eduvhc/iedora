@@ -6,7 +6,7 @@ import {
   type LocalizedText,
   localized,
   localizedNullable,
-} from '@/lib/i18n'
+} from '@/features/i18n'
 import type { PublicMenu } from '@/components/menu/types'
 
 // Single source of truth for "fetch a restaurant's menu/category/item tree".

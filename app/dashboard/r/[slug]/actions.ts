@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { requireRestaurantBySlug } from '@/features/auth'
 import { db } from '@/lib/db'
 import { category, item, menu, restaurant } from '@/lib/db/schema'
-import type { LanguageCode } from '@/lib/i18n'
+import type { LanguageCode } from '@/features/i18n'
 import {
   SAMPLE_MENU,
   SAMPLE_MENU_NAME,

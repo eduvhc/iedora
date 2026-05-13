@@ -30,7 +30,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/shared/ui/dialog'
-import type { LanguageCode } from '@/lib/i18n'
+import type { LanguageCode } from '@/features/i18n'
 import {
   createItem,
   deleteCategory,

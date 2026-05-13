@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { Textarea } from '@/shared/ui/textarea'
-import { LANGUAGE_META, type LanguageCode, type LocalizedText } from '@/lib/i18n'
+import { LANGUAGE_META } from '../registry'
+import type { LanguageCode, LocalizedText } from '../types'
 
 // Shared 1-or-2-field localized editor. Default-language values stay in
 // `name`/`description` (text columns); other languages live in the maps.

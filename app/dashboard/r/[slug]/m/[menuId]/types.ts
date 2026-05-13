@@ -1,4 +1,4 @@
-import type { LocalizedText } from '@/lib/i18n'
+import type { LocalizedText } from '@/features/i18n'
 
 export type BuilderItem = {
   id: string

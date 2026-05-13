@@ -9,10 +9,10 @@ import { Input } from '@/shared/ui/input'
 import { Textarea } from '@/shared/ui/textarea'
 import { Separator } from '@/shared/ui/separator'
 import { ImageUpload } from '@/components/upload/image-upload'
-import { LocalizedFields } from '@/components/i18n/localized-fields'
+import { LocalizedFields } from '@/features/i18n/ui/localized-fields'
 import { MenuRenderer } from '@/components/menu/menu-renderer'
 import type { PublicMenu, PublicRestaurant } from '@/components/menu/types'
-import type { LocalizedText } from '@/lib/i18n'
+import type { LocalizedText } from '@/features/i18n'
 import {
   DEFAULT_THEME,
   FONTS,
@@ -20,7 +20,7 @@ import {
   LAYOUTS,
   type ResolvedTheme,
 } from '@/components/menu/theme'
-import { LANGUAGE_META, type LanguageCode } from '@/lib/i18n'
+import { LANGUAGE_META, type LanguageCode } from '@/features/i18n'
 import {
   updateIdentity,
   updateLanguageSettings,

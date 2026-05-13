@@ -1,9 +1,10 @@
 import { z } from 'zod'
-import { LANGUAGE_CODES, type LanguageCode, type LocalizedText } from './index'
+import { LANGUAGE_CODES } from './registry'
+import type { LanguageCode, LocalizedText } from './types'
 
 // Server-only i18n helpers shared by every action that persists translatable
-// text. Imported as `@/lib/i18n/server` rather than re-exported from the
-// barrel — keeps the rest of `lib/i18n` (registry, types, format helpers)
+// text. Imported as `@/features/i18n/server` rather than re-exported from the
+// barrel — keeps the rest of the slice (registry, types, format helpers)
 // usable in client components without dragging Zod into the client bundle
 // for no reason.
 
