@@ -140,11 +140,26 @@ Abrir o Docker Desktop pelo menos uma vez (no Iniciar) para concluir o setup.
 4. Activar o toggle ao lado de **"Ubuntu"**
 5. **Apply & Restart**
 
-Validar (PowerShell):
+Validar em PowerShell:
 
 ```powershell
-wsl -d Ubuntu -- docker ps   # vazio é OK; "command not found" = integração off
+wsl -d Ubuntu -- docker ps
 ```
+
+**Integração ON** — exit code 0 e output começa com a linha de cabeçalho do `docker ps` (mesmo sem containers a correr):
+
+```
+CONTAINER ID   IMAGE   COMMAND   CREATED   STATUS   PORTS   NAMES
+```
+
+**Integração OFF** — o Docker Desktop instala um shim no PATH do WSL que devolve uma mensagem específica em vez de "command not found" do bash:
+
+```
+The command 'docker' could not be found in this WSL 2 distro.
+We recommend to activate the WSL integration in Docker Desktop settings.
+```
+
+Se aparecer este texto, voltar a `Settings → Resources → WSL Integration` e confirmar que o toggle "Ubuntu" está ligado **e** que carregaste em "Apply & Restart".
 
 #### Passo 3 — Tofu / Ansible / make / git (dentro do WSL, já como root)
 
