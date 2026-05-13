@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/shared/ui/dialog'
-import { deleteMenu } from './actions'
+import { deleteMenu } from '@/features/menu-builder/actions'
 
 export function DeleteMenuButton({
   slug,

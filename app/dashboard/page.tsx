@@ -15,7 +15,7 @@ import {
   formatEditedAt,
   formatIndex,
   type EditorialRowData,
-} from '@/components/editorial-list'
+} from '@/shared/ui/editorial-list'
 
 const VIEW_NUDGE_RATIO = 0.8
 

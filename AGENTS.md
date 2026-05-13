@@ -20,11 +20,11 @@ SaaS multi-tenant restaurant menu builder. Each tenant is a Better Auth `organiz
 
 ## Hard rules
 
-1. **Tenant scoping is mandatory.** Every query touching `restaurant`, `menu`, `category`, or `item` MUST filter by `restaurantId` AND verify the caller is a `member` of the parent `organization`. Never trust IDs from the client without rechecking ownership. Centralize this in `lib/dal.ts` — use `requireRestaurantAccess(restaurantId)` before any tenant query.
+1. **Tenant scoping is mandatory.** Every query touching `restaurant`, `menu`, `category`, or `item` MUST filter by `restaurantId` AND verify the caller is a `member` of the parent `organization`. Never trust IDs from the client without rechecking ownership. Centralize this in `features/auth/` — use `requireRestaurantAccess(restaurantId)` before any tenant query.
 
-2. **Schema is the source of truth.** `lib/db/schema.ts` is the single canonical schema. Migrations are generated, not handwritten — run `bun run db:generate` then `bun run db:migrate`.
+2. **Schema is the source of truth.** `shared/db/schema.ts` is the single canonical schema. Migrations are generated, not handwritten — run `bun run db:generate` then `bun run db:migrate`.
 
-3. **Auth checks belong in the data layer, not in layouts.** Layouts in Next 16 don't re-render on navigation, so an auth check in a layout WILL leak. Use `verifySession()` / `requireRestaurantAccess()` from `lib/dal.ts` close to the data fetch or in the page component itself. The dashboard layout fetches session/plan defensively for chrome (email, Analytics link) but never redirects from there.
+3. **Auth checks belong in the data layer, not in layouts.** Layouts in Next 16 don't re-render on navigation, so an auth check in a layout WILL leak. Use `verifySession()` / `requireRestaurantAccess()` from `features/auth/` close to the data fetch or in the page component itself. The dashboard layout fetches session/plan defensively for chrome (email, Analytics link) but never redirects from there.
 
 4. **Use shadcn via MCP** when possible. `bunx shadcn@latest add <component>` works too. Don't hand-write primitives that already exist in shadcn.
 
@@ -34,100 +34,127 @@ SaaS multi-tenant restaurant menu builder. Each tenant is a Better Auth `organiz
 
 7. **Drag-and-drop reordering** uses integer `position` columns (per parent). On reorder, recompute positions for affected rows in a single transaction. Renumber periodically if gaps grow.
 
-8. **Menu templates are open/closed.** Each template lives in its own folder under `components/menu/templates/<id>/` and exports a `template: MenuTemplate` from `index.ts`. The renderer (`menu-renderer.tsx`) consumes only the registry — never edit it to support a new template. Adding a template = new folder + 1 import + 1 entry in `templates/registry.ts` + the literal in `RestaurantTheme.layout` (schema). LAYOUTS in `lib/menu-themes.ts` is derived from the registry; do not maintain it separately.
+8. **Menu templates are open/closed.** Each template lives in its own folder under `features/menu-publishing/rsc/templates/<id>/` and exports a `template: MenuTemplate` from `index.ts`. The renderer (`menu-renderer.tsx`) consumes only the registry — never edit it to support a new template. Adding a template = new folder + 1 import + 1 entry in `templates/registry.ts` + the literal in `RestaurantTheme.layout` (schema). LAYOUTS in `features/menu-publishing/rsc/theme.ts` is derived from the registry; do not maintain it separately.
 
-9. **Asset keys are tenant-prefixed and verified twice.** Every uploaded object's S3 key starts with `r/{restaurantId}/`. The `requireRestaurantAccess` DAL guard runs first; `assertKeyBelongsToTarget` then rejects any commit whose key doesn't match the target's restaurant — defense-in-depth against a stale presign being redirected. New asset targets must follow the same `r/{restaurantId}/...` scheme in `lib/storage/targets.ts` and gate item-scoped uploads with an extra ownership check (see `assertItemBelongsToRestaurant`).
+9. **Asset keys are tenant-prefixed and verified twice.** Every uploaded object's S3 key starts with `r/{restaurantId}/`. The `requireRestaurantAccess` DAL guard runs first; `assertKeyBelongsToTarget` then rejects any commit whose key doesn't match the target's restaurant — defense-in-depth against a stale presign being redirected. New asset targets must follow the same `r/{restaurantId}/...` scheme in `features/upload/targets.ts` and gate item-scoped uploads with an extra ownership check (see `assertItemBelongsToRestaurant`).
 
-10. **Languages live in a registry.** Each supported language is a self-contained module under `lib/i18n/languages/<code>/` exporting `language: Language` from its `index.ts`. `lib/i18n/registry.ts` is the only place that knows the full set; `LANGUAGE_CODES`, `LANGUAGE_META`, and `getLanguage` are derived. The Zod schemas in actions use `z.record(z.string(), …).refine(keys ⊂ LANGUAGE_CODES)` because Zod 4 makes `z.record(z.enum([...]), …)` exhaustive. Translatable text uses the pattern: plain `name`/`description` text columns are the source of truth for the restaurant's `defaultLanguage`; sibling jsonb `*I18n` columns carry overrides for non-default languages. Fallback chain at render time: requested → default → empty. New languages: see `/add-language` skill.
+10. **Languages live in a registry.** Each supported language is a self-contained module under `features/i18n/languages/<code>/` exporting `language: Language` from its `index.ts`. `features/i18n/registry.ts` is the only place that knows the full set; `LANGUAGE_CODES`, `LANGUAGE_META`, and `getLanguage` are derived. The Zod schemas in actions use `z.record(z.string(), …).refine(keys ⊂ LANGUAGE_CODES)` because Zod 4 makes `z.record(z.enum([...]), …)` exhaustive. Translatable text uses the pattern: plain `name`/`description` text columns are the source of truth for the restaurant's `defaultLanguage`; sibling jsonb `*I18n` columns carry overrides for non-default languages. Fallback chain at render time: requested → default → empty. New languages: see `/add-language` skill.
 
-11. **Plans live in a registry.** Same shape as languages and templates: each plan is a folder under `lib/plans/<code>/` exporting `plan: Plan` from `index.ts`; `lib/plans/registry.ts` derives `PLAN_CODES`, `PLANS`, `getPlan`. Adding a plan = new folder + new literal in `PlanCode` union + new registry entry. Gates use `canAddRestaurant(orgId)` (returns structured `{ ok, reason, limit }` — never throws) and `planHas(plan, feature)`. The DB column `organization.plan` stores raw text; `getPlan` coerces unknown values back to the default so a renamed plan never crashes a render.
+11. **Plans live in a registry.** Same shape as languages and templates: each plan is a folder under `features/plans/<code>/` exporting `plan: Plan` from `index.ts`; `features/plans/registry.ts` derives `PLAN_CODES`, `PLANS`, `getPlan`. Adding a plan = new folder + new literal in `PlanCode` union + new registry entry. Gates use `canAddRestaurant(orgId)` (returns structured `{ ok, reason, limit }` — never throws) and `planHas(plan, feature)`. The DB column `organization.plan` stores raw text; `getPlan` coerces unknown values back to the default so a renamed plan never crashes a render.
 
-12. **Public menu is cached, invalidated by tag.** `loadRestaurantSnapshot(slug)` and `loadRestaurantAdminMenus(slug)` in `lib/menu/cached.ts` wrap `unstable_cache` with a per-slug tag `restaurant:${slug}`. Every mutation that affects the restaurant's public or admin view MUST call `revalidateRestaurant(slug)` (which uses `updateTag` for read-your-own-writes semantics, not `revalidateTag`). The single chokepoint is enforced — never call `revalidatePath('/r/${slug}')` from a mutation action; the cache tag is what matters. **Date gotcha:** `unstable_cache` JSON-serializes Dates to ISO strings; if a cached function returns a Date the caller will see a string. Hydrate explicitly in the loader (see `loadRestaurantAdminMenus`).
+12. **Public menu is cached, invalidated by tag.** `loadRestaurantSnapshot(slug)` and `loadRestaurantAdminMenus(slug)` (use-cases in `features/menu-publishing/use-cases/`) wrap `unstable_cache` with a per-slug tag `restaurant:${slug}` via `features/menu-publishing/cache.ts`. Every mutation that affects the restaurant's public or admin view MUST call `revalidateRestaurant(slug)` (which uses `updateTag` for read-your-own-writes semantics, not `revalidateTag`). The single chokepoint is enforced — never call `revalidatePath('/r/${slug}')` from a mutation action; the cache tag is what matters. **Date gotcha:** `unstable_cache` JSON-serializes Dates to ISO strings; if a cached function returns a Date the caller will see a string. Hydrate explicitly in the loader (see `loadRestaurantAdminMenus`).
 
 13. **View tracking is beacon-based, not server-render-coupled.** `/api/track/[slug]` is a pixel-beacon route that lives outside the cached snapshot — it runs on every public visit, even when the page itself is served from cache. Dedup is `(visitor_cookie, restaurant_id, hour_bucket)` via `view_seen.onConflictDoNothing`; only newly-inserted rows trigger `incrementDailyView`. Bot UAs filtered at the route. **Never put the view increment back inline in the page** — that breaks the moment a CDN sits in front.
 
 ## File layout
+
+The codebase is organised as **vertical slices** under `features/` (one folder
+per business capability) plus **`shared/`** for cross-slice infrastructure.
+Each slice follows a hexagonal-ish layout: `ports.ts` (interfaces) +
+`adapters/` (Drizzle/Better Auth implementations) + `use-cases/` (pure logic)
++ `actions.ts` (server-action shells) + `ui/` (slice-owned components) +
+`index.ts` (the slice's public API).
+
 ```
-app/
-  (auth)/                public auth pages (signup, login)
-  dashboard/             admin pages — protected
-    analytics/           Casa-only KPIs + scan chart; redirects free → billing
-    billing/             current plan + invoice ledger (year filter)
-    r/[slug]/            restaurant home
-      m/[menuId]/        dnd-kit menu builder
-      theme/             settings: identity + theme editor
-      qr/                QR code generator
-    analytics-cards.tsx  KpiCard / ScansCard / ScansChart (shared by dashboard + analytics page)
-  r/[slug]/              public menu page per restaurant — cached snapshot
-  onboarding/            first-time org creation AND add-another-restaurant flow
+app/                       Next.js App Router routes only
+  (auth)/                  public auth pages (signup, login)
+  _components/             page-local components (Next-private folder)
+    landing/               landing-page.tsx + landing.css (public home)
+  dashboard/               admin pages — protected
+    analytics/             Casa-only KPIs + scan chart; redirects free → billing
+    billing/               current plan + invoice ledger (year filter)
+    r/[slug]/              restaurant home
+      m/[menuId]/          dnd-kit menu builder route
+      theme/               settings: identity + theme editor
+      qr/                  QR code generator
+    layout.tsx
+    page.tsx
+  r/[slug]/                public menu page per restaurant — cached snapshot
+  onboarding/              first-time org creation AND add-another-restaurant flow
   api/
-    auth/[...all]/       Better Auth handler
-    track/[slug]/        pixel-beacon view tracking endpoint (cookie dedup + bot filter)
-lib/
-  auth.ts                Better Auth server config
-  auth-client.ts         Better Auth React client
-  dal.ts                 verifySession + tenant-scoped guards
-  utils.ts               shadcn cn() helper
-  menu-themes.ts         ResolvedTheme defaults, FONTS; LAYOUTS derived from templates registry
-  billing/
-    dal.ts               getInvoicesForYear + getInvoiceYears (cached, year filter)
-    index.ts             barrel
-  dashboard/
-    queries.ts           dashboard aggregate queries (restaurants-with-counts etc.)
-  i18n/                  per-language registry (en, pt, es, fr) + format helpers
-  menu/
-    cached.ts            loadRestaurantSnapshot + loadRestaurantAdminMenus (unstable_cache + per-slug tag) + revalidateRestaurant
-    load-tree.ts         raw tree fetch + localizeTree (per-render reducer)
-    sample-data.ts       seed payload for "Sample menu" button
-  metrics/
-    dal.ts               incrementDailyView + getOrganizationAnalytics + range helpers
-    index.ts             barrel
-  plans/                 plan registry (free, casa) — same pattern as i18n/templates
-    free/index.ts        plan: Plan
-    casa/index.ts        plan: Plan
-    registry.ts          REGISTRY + getPlan + PLAN_CODES
-    dal.ts               canAddRestaurant + planHas + getOrganizationPlan
-    actions.ts           setOrganizationPlan (Stripe-free placeholder)
-    types.ts             PlanCode, PlanFeature, PlanLimits, Plan
-    index.ts             barrel
+    auth/[...all]/         Better Auth handler
+    track/[slug]/          pixel-beacon view tracking endpoint (cookie dedup + bot filter)
+  up/                      health-check route
+  page.tsx                 landing redirect / public home
+  layout.tsx
+  globals.css
+features/
+  auth/                    session + tenant-scoping guards
+    adapters/              better-auth-instance.ts (was lib/auth.ts) + better-auth-gateway.ts
+    client.ts              Better Auth React client (was lib/auth-client.ts)
+    use-cases/             verifySession, requireActiveOrganization, requireRestaurantAccess, requireRestaurantBySlug
+    ports.ts, index.ts
+  billing/                 invoice ledger
+    adapters/, use-cases/, types.ts, ports.ts, index.ts
+  dashboard-home/          restaurants-with-counts aggregate query
+    adapters/, use-cases/, ui/, actions.ts, ports.ts, index.ts
+  i18n/                    per-language registry (en, pt, es, fr) + format helpers
+    languages/             one folder per language with `language: Language` export
+    registry.ts            REGISTRY + getLanguage + LANGUAGE_CODES
+    format.ts, server.ts, types.ts
+    ui/                    localized-fields.tsx (tabbed name+description editor)
+    index.ts
+  menu-builder/            dnd-kit admin builder
+    adapters/drizzle.ts    MenuWritePort + MenuReadPort impls
+    use-cases/             create-menu, delete-menu, seed-sample-menu, category/item CRUD, reorder, load-builder-data
+    ui/                    builder.tsx + sortable-* + create-menu-dialog/delete-menu-button/seed-sample-button
+    actions.ts             'use server' shells: auth guard → use-case → revalidate
+    ports.ts, index.ts
+  menu-publishing/         public menu cache + renderer + sample seed payload
+    cache.ts               loadRestaurantSnapshot/loadRestaurantAdminMenus wrappers (unstable_cache + per-slug tag) + revalidateRestaurant
+    use-cases/             load-tree, load-restaurant-snapshot, load-restaurant-admin-menus, sample-data
+    rsc/                   public-render components (RSC-only)
+      menu-renderer.tsx    consumes template registry; injects theme as CSS vars
+      templates/
+        classic/           template module: classic-menu.tsx + meta.ts + index.ts
+        minimal/           template module
+        registry.ts        REGISTRY + getTemplate + TEMPLATE_META
+      theme.ts             ResolvedTheme defaults, FONTS; LAYOUTS derived from templates registry
+      format.ts            price/i18n helpers used by templates
+      types.ts             PublicMenuData / RenderProps shared by all templates
+    index.ts
+  metrics/                 daily-view + analytics range helpers
+    adapters/, use-cases/, range.ts, types.ts, ports.ts, index.ts
+  plans/                   plan registry (free, casa) — same pattern as i18n/templates
+    free/index.ts          plan: Plan
+    casa/index.ts          plan: Plan
+    registry.ts            REGISTRY + getPlan + PLAN_CODES
+    adapters/, use-cases/  canAddRestaurant, planHas, getOrganizationPlan
+    actions.ts             setOrganizationPlan (Stripe-free placeholder)
+    types.ts, ports.ts, index.ts
+  restaurant-identity/     restaurant CRUD + theme/identity settings
+    adapters/, use-cases/, ui/, actions.ts, ports.ts, index.ts
+  upload/                  S3-compatible uploads + presign/commit/clear
+    adapters/              s3-storage.ts (AWS SDK v3) + bootstrap.ts (ensureBucket/CORS)
+    targets.ts             constraints + tenant-prefixed key builder
+    use-cases/             presign + commit + clear
+    actions.ts             DAL-guarded server actions
+    ui/                    image-upload.tsx generic <ImageUpload target=...>
+    types.ts, index.ts
+shared/                    cross-slice infrastructure
   db/
-    index.ts             drizzle client
-    schema.ts            all tables — single source of truth
-  storage/               S3-compatible storage adapter (LocalStack dev/CI, R2/S3 in prod)
-    targets.ts           constraints + tenant-prefixed key builder
-    s3-storage.ts        AWS SDK v3 implementation
-    bootstrap.ts         idempotent ensureBucket + public-read policy + CORS
-    index.ts             getStorage() singleton wired from env
-  upload/
-    actions.ts           presign + commit + clear actions, DAL-guarded
-components/
-  ui/                    shadcn primitives
-  editorial-list/        EditorialList + EditorialRow + StatusPill + ActionChip
-  upload/
-    image-upload.tsx     generic <ImageUpload target=...> reusable across all asset kinds
-  i18n/
-    localized-fields.tsx tabbed name+description editor used by item/category/identity dialogs
-  menu/
-    menu-renderer.tsx    consumes template registry; injects theme as CSS vars
-    types.ts             PublicMenuData / RenderProps shared by all templates
-    format.ts            price/i18n helpers used by templates
-    templates/
-      classic/           template module: classic-menu.tsx + meta.ts + index.ts
-      minimal/           template module
-      registry.ts        REGISTRY + getTemplate + TEMPLATE_META
-proxy.ts                 Next 16 proxy (was middleware)
+    client.ts              drizzle client
+    schema.ts              all tables — single source of truth
+  env.ts                   validated environment variables
+  ui/                      shadcn primitives + editorial-list (cross-slice generic UI)
+    editorial-list/        EditorialList + EditorialRow + StatusPill + ActionChip
+    button.tsx, card.tsx, dialog.tsx, dropdown-menu.tsx, input.tsx, label.tsx, separator.tsx, textarea.tsx
+  utils.ts                 shadcn cn() helper
+  testing/                 shared test fixtures
+proxy.ts                   Next 16 proxy (was middleware)
 drizzle.config.ts
-docker-compose.yml       postgres + redis + localstack
+docker-compose.yml         postgres + redis + localstack
 scripts/
-  check-migrations.ts    dev-time guardrail; warns when journal has pending migrations
+  check-migrations.ts      dev-time guardrail; warns when journal has pending migrations
 .github/workflows/
-  ci.yml                 Typecheck + Lint + E2E (Playwright); Bun for installs, Node for build
-.mcp.json                shadcn, postgres, bun, next-devtools, playwright MCP servers
+  ci.yml                   Typecheck + Lint + E2E (Playwright); Bun for installs, Node for build
+.mcp.json                  shadcn, postgres, bun, next-devtools, playwright MCP servers
+.eslintrc-boundaries.json  enforces no cross-slice imports (slices may only import shared/* or their own siblings via barrels)
 tests/e2e/
-  fixtures.ts            auto-fixture: fails fast on any RSC error / 5xx response
-  specs/                 organized by module: auth, tenancy, menu-builder, public-menu,
-                         settings, qr, uploads, plans, billing, metrics, dashboard, landing
-  helpers/               shared signup/org/db utilities
+  fixtures.ts              auto-fixture: fails fast on any RSC error / 5xx response
+  specs/                   organized by module: auth, tenancy, menu-builder, public-menu,
+                           settings, qr, uploads, plans, billing, metrics, dashboard, landing
+  helpers/                 shared signup/org/db utilities
 ```
 
 ## Useful commands

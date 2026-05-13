@@ -2,7 +2,7 @@ import 'server-only'
 import { and, asc, eq, inArray, max } from 'drizzle-orm'
 import { db } from '@/shared/db/client'
 import { category, item, menu, restaurant } from '@/shared/db/schema'
-import type { LocalizedText } from '@/features/i18n'
+import type { LanguageCode, LocalizedText } from '@/features/i18n'
 import type { MenuReadPort, MenuWritePort } from '../ports'
 
 /**
@@ -165,6 +165,97 @@ export const drizzleMenuWrite: MenuWritePort = {
             ),
           )
       }
+    })
+  },
+
+  async getRestaurantLanguageConfig(restaurantId) {
+    const rows = await db
+      .select({
+        defaultLanguage: restaurant.defaultLanguage,
+        supportedLanguages: restaurant.supportedLanguages,
+      })
+      .from(restaurant)
+      .where(eq(restaurant.id, restaurantId))
+      .limit(1)
+    const row = rows[0]!
+    return {
+      defaultLanguage: row.defaultLanguage as LanguageCode,
+      supportedLanguages: row.supportedLanguages as LanguageCode[],
+    }
+  },
+
+  async createMenu(restaurantId, name) {
+    const [{ next }] = await db
+      .select({ next: max(menu.position) })
+      .from(menu)
+      .where(eq(menu.restaurantId, restaurantId))
+
+    const [row] = await db
+      .insert(menu)
+      .values({
+        restaurantId,
+        name,
+        position: (next ?? -1) + 1,
+      })
+      .returning({ id: menu.id })
+    return row.id
+  },
+
+  async deleteMenu(menuId, restaurantId) {
+    await db
+      .delete(menu)
+      .where(and(eq(menu.id, menuId), eq(menu.restaurantId, restaurantId)))
+  },
+
+  async seedSampleMenu(restaurantId, seed) {
+    // Append after any existing menus so we never reuse a position. The whole
+    // seed runs in a transaction (AGENTS.md hard rule #7) so a half-created
+    // menu can't leak if anything along the way fails. The caller has
+    // pre-localized text into `default` (plain column) + `i18n` (jsonb map)
+    // following AGENTS.md hard rule #10.
+    const [{ next: nextMenuPos }] = await db
+      .select({ next: max(menu.position) })
+      .from(menu)
+      .where(eq(menu.restaurantId, restaurantId))
+
+    return db.transaction(async (tx) => {
+      const [insertedMenu] = await tx
+        .insert(menu)
+        .values({
+          restaurantId,
+          name: seed.menuName.default,
+          nameI18n: seed.menuName.i18n,
+          position: (nextMenuPos ?? -1) + 1,
+        })
+        .returning({ id: menu.id })
+
+      for (const [catIdx, c] of seed.categories.entries()) {
+        const [insertedCategory] = await tx
+          .insert(category)
+          .values({
+            menuId: insertedMenu.id,
+            restaurantId,
+            name: c.name.default,
+            nameI18n: c.name.i18n,
+            position: catIdx * 10,
+          })
+          .returning({ id: category.id })
+
+        const itemRows = c.items.map((it, itemIdx) => ({
+          categoryId: insertedCategory.id,
+          restaurantId,
+          name: it.name.default,
+          nameI18n: it.name.i18n,
+          description: it.description.default,
+          descriptionI18n: it.description.i18n,
+          priceCents: it.priceCents,
+          currency: it.currency,
+          position: itemIdx * 10,
+        }))
+        if (itemRows.length > 0) await tx.insert(item).values(itemRows)
+      }
+
+      return insertedMenu.id
     })
   },
 }

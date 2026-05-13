@@ -4,7 +4,7 @@ import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/shared/ui/button'
-import { seedSampleMenu } from './actions'
+import { seedSampleMenu } from '@/features/menu-builder/actions'
 
 export function SeedSampleButton({ slug }: { slug: string }) {
   const router = useRouter()

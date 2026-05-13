@@ -15,6 +15,9 @@ import { createItem as runCreateItem } from './use-cases/create-item'
 import { updateItem as runUpdateItem } from './use-cases/update-item'
 import { deleteItem as runDeleteItem } from './use-cases/delete-item'
 import { reorderItems as runReorderItems } from './use-cases/reorder-items'
+import { createMenu as runCreateMenu } from './use-cases/create-menu'
+import { deleteMenu as runDeleteMenu } from './use-cases/delete-menu'
+import { seedSampleMenu as runSeedSampleMenu } from './use-cases/seed-sample-menu'
 
 /**
  * Server action shells — each one: auth guard → run use-case → revalidate.
@@ -191,4 +194,40 @@ export async function reorderItems(
     orderedIds,
   })
   if ('ok' in res) revalidateMenu(slug, res.menuId)
+}
+
+// ─── Menu CRUD (restaurant-home page) ─────────────────────────────────────────
+
+export async function createMenu(slug: string, formData: FormData) {
+  const { restaurant: r } = await requireRestaurantBySlug(slug)
+  const res = await runCreateMenu(drizzleMenuWrite, {
+    restaurantId: r.id,
+    name: formData.get('name'),
+  })
+  if ('ok' in res) {
+    revalidatePath(`/dashboard/r/${slug}`)
+    revalidateRestaurant(slug)
+    return { ok: true as const }
+  }
+  return { error: res.error }
+}
+
+export async function deleteMenu(slug: string, menuId: string) {
+  const { restaurant: r } = await requireRestaurantBySlug(slug)
+  const res = await runDeleteMenu(drizzleMenuWrite, {
+    menuId,
+    restaurantId: r.id,
+  })
+  if ('ok' in res) {
+    revalidatePath(`/dashboard/r/${slug}`)
+    revalidateRestaurant(slug)
+  }
+}
+
+export async function seedSampleMenu(slug: string) {
+  const { restaurant: r } = await requireRestaurantBySlug(slug)
+  const res = await runSeedSampleMenu(drizzleMenuWrite, { restaurantId: r.id })
+  revalidatePath(`/dashboard/r/${slug}`)
+  revalidateRestaurant(slug)
+  return { ok: true as const, menuId: res.menuId }
 }

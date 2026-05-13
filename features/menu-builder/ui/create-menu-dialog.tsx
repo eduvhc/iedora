@@ -14,7 +14,7 @@ import {
 } from '@/shared/ui/dialog'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
-import { createMenu } from './actions'
+import { createMenu } from '@/features/menu-builder/actions'
 
 export function CreateMenuDialog({ slug }: { slug: string }) {
   const [open, setOpen] = useState(false)

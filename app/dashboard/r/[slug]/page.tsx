@@ -14,10 +14,10 @@ import {
   formatEditedAt,
   formatIndex,
   type EditorialRowData,
-} from '@/components/editorial-list'
-import { CreateMenuDialog } from './create-menu-dialog'
-import { DeleteMenuButton } from './delete-menu-button'
-import { SeedSampleButton } from './seed-sample-button'
+} from '@/shared/ui/editorial-list'
+import { CreateMenuDialog } from '@/features/menu-builder/ui/create-menu-dialog'
+import { DeleteMenuButton } from '@/features/menu-builder/ui/delete-menu-button'
+import { SeedSampleButton } from '@/features/menu-builder/ui/seed-sample-button'
 
 export default async function RestaurantPage({
   params,
