@@ -1,13 +1,11 @@
 variable "cloudflare_api_token" {
   description = <<-EOT
-    Cloudflare API token. Permissions required:
+    Cloudflare API token. Permissions required for `make cf-up`:
       - Account · Workers R2 Storage · Edit
       - Account · Cloudflare Tunnel · Edit
       - Zone · DNS · Edit (scoped to the zone in `zone_id`)
       - Account · Account Settings · Read
-    R2 S3 keys are still created via the dashboard (one click) — see
-    scripts/cf-r2-token.sh. Account-scoped token creation needs
-    `Account · API Tokens · Edit` which is too powerful for a deploy token.
+      - Account · API Tokens · Edit  (lets cf-r2-token.sh create the S3 keys)
     Provide via TF_VAR_cloudflare_api_token.
   EOT
   type        = string

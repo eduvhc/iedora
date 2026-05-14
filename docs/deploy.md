@@ -66,31 +66,26 @@ Internet → Cloudflare edge (TLS) → cloudflared (outbound) → localhost:80 (
 Every env (prod, staging, customer-X) is one Tofu workspace under `infra/tofu/cloudflare/` with a matching `envs/<name>.tfvars`. Adding an env:
 
 ```bash
-# One-time per machine: API token (see "Required permissions" below) + state passphrase.
+# One-time per machine: env vars (the API token must include
+# `Account · API Tokens · Edit` so cf-r2-token can run via API).
 export TF_VAR_cloudflare_api_token=...
 export TF_VAR_state_passphrase=...                # ≥ 16 chars; reuse across envs is fine
 export TF_VAR_account_id=...                      # 32-char hex, top-right of dash
 export TF_VAR_zone_id=...                         # zone overview → API column
 
-# Spin up the env:
-make cf-new-env NAME=prod HOSTNAME=menu.example.com
+# ONE command: applies all CF resources + creates R2 S3 keys + patches secrets.
+make cf-up NAME=prod HOSTNAME=menu.example.com
 
-# Sources the new .envrc (or .envrc.prod for non-default names):
+# Then just source the env file (`.envrc` if NAME=default, else `.envrc.<name>`):
 source .envrc.prod    # or `source .envrc` when NAME=default
-make cf-r2-token      # creates real R2 S3 keys via API, patches .kamal/secrets.prod
 ```
 
-What `make cf-new-env` did:
-1. Created `infra/tofu/cloudflare/envs/prod.tfvars` from the template (with your `TF_VAR_*` values).
-2. Created/selected the Tofu workspace `prod` and ran `tofu apply` (state isolated per env).
-3. Resources spun up: `cloudflare_r2_bucket` + `_cors`, `cloudflare_zero_trust_tunnel_cloudflared` + `_config` + token, `cloudflare_dns_record` CNAME (proxied) for `menu.example.com → <tunnel>.cfargotunnel.com`.
-4. Wrote `.envrc.prod` with `PUBLIC_HOSTNAME`, `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`, `CLOUDFLARED_TUNNEL_TOKEN`, `CF_ENV`.
-
-And `make cf-r2-token`:
-1. Queried Cloudflare for the current R2 permission-group IDs (so this doesn't rot).
-2. Created a new R2 API token scoped to the bucket only.
-3. Derived `S3_ACCESS_KEY` (= token id) and `S3_SECRET_KEY` (= SHA-256 of token value — officially documented derivation).
-4. Patched `.kamal/secrets.prod` (or `.kamal/secrets-common` for the default/onprem/hetzner names).
+What `make cf-up` does, end-to-end:
+1. Scaffolds `infra/tofu/cloudflare/envs/prod.tfvars` from the inputs.
+2. Creates/selects the Tofu workspace `prod` and runs `tofu apply` (state isolated per env).
+3. Resources spun up: `cloudflare_r2_bucket` + `_cors`, `cloudflare_zero_trust_tunnel_cloudflared` + `_config` + token, `cloudflare_dns_record` CNAME for `menu.example.com → <tunnel>.cfargotunnel.com`.
+4. Writes `.envrc[.prod]` with `PUBLIC_HOSTNAME`, `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`, `CLOUDFLARED_TUNNEL_TOKEN`, `CF_ENV`.
+5. Creates an R2 API token via `POST /accounts/{id}/tokens`, derives `S3_ACCESS_KEY` (= token id) + `S3_SECRET_KEY` (= SHA-256 of token value — officially documented), and patches `.kamal/secrets-common` (for default/onprem/hetzner names) or `.kamal/secrets.<name>` (anything else).
 
 ### Required CF API token permissions
 
@@ -98,8 +93,9 @@ And `make cf-r2-token`:
 - Account · Cloudflare Tunnel · **Edit**
 - Zone · DNS · **Edit** (scoped to the zone)
 - Account · Account Settings · **Read**
+- Account · API Tokens · **Edit** (lets `make cf-r2-token` run via API — 9109 without it)
 
-Create at `dash.cloudflare.com → My Profile → API Tokens`. The R2 S3 access keys still go through one dashboard click — `Account · API Tokens · Edit` would let us automate that too but it's a much more powerful permission, not worth the trade-off for a deploy token.
+Create at `dash.cloudflare.com → My Profile → API Tokens`. The token holds enough power to create more account tokens — rotate after each env's R2 keys exist, or split into a Tofu-only token vs an R2-helper token once stable.
 
 ### Bootstrap the target host + first deploy
 

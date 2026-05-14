@@ -83,14 +83,18 @@ EOF
   echo "==> tofu apply (workspace=${name})"
   cd "${CF_DIR}" && tofu apply -auto-approve -var-file="${tfvars}"
 
-  echo "==> sync .envrc.${name}"
+  echo "==> sync env file"
   CF_ENV="${name}" bash "${REPO_ROOT}/scripts/cf-sync.sh"
+
+  # cf-sync.sh writes to .envrc when name=default, else .envrc.<name>.
+  local envrc=".envrc"
+  [ "${name}" = "default" ] || envrc=".envrc.${name}"
 
   echo
   echo "Done. Next:"
-  echo "  source .envrc.${name}"
-  echo "  make cloudflare-r2-token        # creates S3 keys → paste into .kamal/secrets.${name}"
-  echo "  (provision the target host, then) make kamal-deploy DEST=${name}"
+  echo "  source ${envrc}"
+  echo "  make cf-r2-token            # prints dashboard steps for the S3 keys"
+  echo "  (provision the target host, then) make kamal-deploy [DEST=onprem|hetzner]"
 }
 
 cmd_apply() {
