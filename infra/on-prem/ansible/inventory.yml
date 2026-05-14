@@ -1,6 +1,6 @@
 ---
 # Static inventory. ONPREM_HOST comes from .envrc (single source of truth —
-# same value used by config/deploy.yml via ERB).
+# same value used by infra/on-prem/kamal/config/deploy.yml via ERB).
 #
 # Adding another box: copy the host block, rename the key, point at a
 # different env var (e.g. ONPREM_HOST_STAGING).

@@ -7,8 +7,8 @@ Single deploy target: an on-prem Linux box. Cloudflare provides public ingress (
 
 | Tool | Responsibility |
 |---|---|
-| **OpenTofu** | Cloudflare Tunnel + ingress + DNS records (`infra/tofu/onprem/`) |
-| **Ansible** | Server prep: deploy user, Docker, UFW, cloudflared (`infra/ansible/setup.yml`) |
+| **OpenTofu** | Cloudflare Tunnel + ingress + DNS records (`infra/on-prem/tofu/`) |
+| **Ansible** | Server prep: deploy user, Docker, UFW, cloudflared (`infra/on-prem/ansible/setup.yml`) |
 | **Kamal** | App + accessories: Postgres + Redis + MinIO + the Next.js container |
 
 ```
@@ -149,7 +149,7 @@ If you ever need a second env (staging, customer-X, …) on a different box:
 ```bash
 make onprem-up NAME=staging HOSTNAME=staging.menu.example.com
 source .envrc.staging        # not .envrc — staging gets its own file
-# Edit config/deploy.yml's `servers.web.hosts` to point at the new box
+# Edit infra/on-prem/kamal/config/deploy.yml's `servers.web.hosts` to point at the new box
 # (or split it back into deploy.yml + deploy.<dest>.yml destinations)
 ```
 
@@ -160,21 +160,21 @@ Tofu workspaces handle the Cloudflare side per-env automatically. Kamal-side des
 ```
 Dockerfile                    multi-stage build (Bun install, Node build, standalone runtime)
 .dockerignore                 keeps node_modules, .next, infra/, tests/ out of the image
-config/
-  deploy.yml                  Kamal config (single target — on-prem)
-.kamal/
-  hooks/pre-deploy            runs Drizzle migrations against KAMAL_VERSION before traffic flip
-  secrets-common              real values (gitignored)
-  secrets.example             committed template
-infra/
-  tofu/onprem/                Cloudflare Tunnel + ingress + DNS (per-env Tofu workspace)
+infra/on-prem/                Everything for one on-prem deploy target
+  tofu/                       Cloudflare Tunnel + ingress + DNS (per-env workspace)
     envs/example.tfvars       template for envs/<name>.tfvars
   ansible/
-    inventory.yml             static inventory (your boxes, manually maintained)
+    inventory.yml             static inventory; ansible_host = lookup(env, ONPREM_HOST)
+    group_vars/all.yml        deploy_user, timezone, firewall ports
     bootstrap.yml             one-shot: create deploy user + install SSH key
-    setup.yml                 base / metal / onprem plays (apt + Docker + UFW + cloudflared)
+    setup.yml                 Docker + UFW + cloudflared + mDNS
+  kamal/
+    config/deploy.yml         Kamal config (builder.context = ../../.. → repo root)
+    .kamal/hooks/pre-deploy   Drizzle migrations against KAMAL_VERSION pre-cutover
+    .kamal/secrets-common     real values (gitignored)
+    .kamal/secrets.example    committed template
 scripts/
-  bootstrap.sh                first Kamal deploy (pre-boot accessories + setup --skip-hooks + 1st migration)
+  bootstrap.sh                first Kamal boot (pre-boot accessories + setup --skip-hooks + 1st migration)
   onprem-env.sh               multi-env wrapper for the Tofu module (workspaces)
   onprem-sync.sh              reads Tofu outputs, refreshes .envrc[.<name>]
   migrate.mjs                 Drizzle migrations under pg_advisory_lock (parallel-safe)
@@ -184,7 +184,7 @@ scripts/
 
 **`kamal setup` fails with "Cannot connect to Docker"**: the deploy user isn't in the `docker` group. Re-run `make host-setup`.
 
-**Healthcheck flaps in loop**: app starts slower than `interval`. Raise `proxy.healthcheck.interval` in `config/deploy.yml`.
+**Healthcheck flaps in loop**: app starts slower than `interval`. Raise `proxy.healthcheck.interval` in `infra/on-prem/kamal/config/deploy.yml`.
 
 **"unable to find image" on the server**: registry push failed. Check `gh auth status` resolves a valid token.
 

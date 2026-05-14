@@ -47,9 +47,8 @@ features/    one folder per slice — auth, menu-builder, menu-publishing, …
 shared/      db client + schema, env, ui primitives, testing fixtures
 tests/       Playwright e2e specs + fixtures (Vitest tests are co-located)
 docs/        architecture, testing, infra, deploy
-infra/       OpenTofu (Cloudflare side) + Ansible (server prep) — single on-prem target
-scripts/     bootstrap.sh, migrate.mjs, onprem-env.sh, onprem-sync.sh, check-migrations.ts
-config/      Kamal deploy.yml
+infra/on-prem/   Everything for the on-prem deploy: tofu/ + ansible/ + kamal/
+scripts/         bootstrap.sh, migrate.mjs, onprem-env.sh, onprem-sync.sh, check-migrations.ts
 ```
 
 ## Where to go next

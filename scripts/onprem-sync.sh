@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Reads outputs from infra/tofu/onprem/ (current workspace) and writes
+# Reads outputs from infra/on-prem/tofu/ (current workspace) and writes
 # .envrc.<env> at the repo root. Source it (or use direnv) before running
 # make targets / kamal commands for that env.
 #
@@ -13,7 +13,7 @@ set -euo pipefail
 # case ergonomic.
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-TOFU_DIR="${REPO_ROOT}/infra/tofu/onprem"
+TOFU_DIR="${REPO_ROOT}/infra/on-prem/tofu"
 
 cd "${TOFU_DIR}"
 

@@ -25,19 +25,24 @@
 ## Layout
 
 ```
-infra/
-  shared/vars.yml             shared by Ansible (deploy_user, vm_name, timezone, …)
-  tofu/onprem/                Tofu env — Cloudflare Tunnel + ingress + DNS
+infra/on-prem/                Everything for one on-prem deploy target
+  tofu/                       Cloudflare Tunnel + ingress + DNS (state encrypted)
     main.tf                   tunnel + _config (2 ingresses) + _token + 2 dns_records
     variables.tf              account_id, zone_id, public_hostname, assets_hostname
     versions.tf               cloudflare ~> 5.19 + state encryption
     outputs.tf                public_hostname, assets_hostname, tunnel_id, tunnel_token (sensitive)
     envs/example.tfvars       template — copy to envs/<name>.tfvars per env
   ansible/
-    inventory.yml             static inventory (your boxes; manually maintained)
+    inventory.yml             static inventory (mDNS-resolved hosts)
     bootstrap.yml             one-shot: create deploy user + install SSH key
-    setup.yml                 main playbook — base / metal / onprem plays
+    setup.yml                 main playbook (Docker + UFW + cloudflared + mDNS)
+    group_vars/all.yml        cross-env config (deploy_user, timezone, firewall ports)
     requirements.yml          community.general, ansible.posix
+  kamal/                      Kamal expects this exact layout under PWD
+    config/deploy.yml         Kamal config (builder.context points to repo root)
+    .kamal/hooks/pre-deploy   runs Drizzle migrations against KAMAL_VERSION
+    .kamal/secrets-common     real values (gitignored)
+    .kamal/secrets.example    committed template
 scripts/
   bootstrap.sh                first Kamal bootstrap (pre-boot accessories + setup --skip-hooks)
   onprem-env.sh               multi-env wrapper for the Tofu module (workspaces)
@@ -47,7 +52,7 @@ scripts/
 
 ## Cloudflare side (Tunnel + DNS — one Tofu workspace per env)
 
-`infra/tofu/onprem/` manages the Cloudflare-side resources: the Zero Trust Tunnel + 2 ingress rules (app + assets) + 2 proxied DNS CNAMEs. Storage stays on-prem (MinIO Kamal accessory) so R2 is out of scope.
+`infra/on-prem/tofu/` manages the Cloudflare-side resources: the Zero Trust Tunnel + 2 ingress rules (app + assets) + 2 proxied DNS CNAMEs. Storage stays on-prem (MinIO Kamal accessory) so R2 is out of scope.
 
 Multi-env via Tofu workspaces: one workspace = one env (`default`, `prod`, `staging`, …), each with its own state file and `envs/<name>.tfvars`.
 
@@ -65,7 +70,7 @@ make onprem-up NAME=default HOSTNAME=menu.example.com
 ```
 
 Behind the scenes (`scripts/onprem-env.sh new`):
-1. Scaffolds `infra/tofu/onprem/envs/default.tfvars` from the inputs.
+1. Scaffolds `infra/on-prem/tofu/envs/default.tfvars` from the inputs.
 2. Creates/selects the Tofu workspace.
 3. Runs `tofu apply` — tunnel + 2 ingresses + 2 DNS records.
 4. Invokes `scripts/onprem-sync.sh` which appends Tofu outputs to `.envrc[.<name>]` (PUBLIC_HOSTNAME, ASSETS_HOSTNAME, S3_*, CLOUDFLARED_TUNNEL_TOKEN). TF_VAR_* lines you put there manually are preserved.
@@ -118,7 +123,7 @@ If `CLOUDFLARED_TUNNEL_TOKEN` is empty, the cloudflared play is skipped (`meta: 
 
 ### Adding another on-prem box
 
-Edit `infra/ansible/inventory.yml`, copy a host block, change `ansible_host` (use a different env var lookup, e.g. `{{ lookup('env', 'ONPREM_HOST_STAGING') }}`). Re-run `host-bootstrap` then `host-setup` against the new host. Each host gets its own Cloudflare Tunnel (one Tofu workspace = one tunnel = one token).
+Edit `infra/on-prem/ansible/inventory.yml`, copy a host block, change `ansible_host` (use a different env var lookup, e.g. `{{ lookup('env', 'ONPREM_HOST_STAGING') }}`). Re-run `host-bootstrap` then `host-setup` against the new host. Each host gets its own Cloudflare Tunnel (one Tofu workspace = one tunnel = one token).
 
 ### No IP, please — use mDNS
 

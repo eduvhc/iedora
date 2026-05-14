@@ -1,7 +1,7 @@
 ---
 # Idempotent, FQCN-only, ansible-lint-clean.
 # Targets the on-prem hosts listed in inventory.yml.
-# Vars: infra/ansible/group_vars/all.yml (auto-loaded).
+# Vars: group_vars/all.yml (auto-loaded by Ansible).
 
 # ════════════════════════════════════════════════════════════════════════
 #  Base — apt + Docker CE + deploy user + SSH hardening + UFW (enabled)

@@ -6,8 +6,9 @@
 
 # ── Shared ────────────────────────────────────────────────────────────────────
 SSH_KEY     ?= $(HOME)/.ssh/id_ed25519
-ANSIBLE_DIR := infra/ansible
-TOFU_DIR    := infra/tofu/onprem
+ANSIBLE_DIR := infra/on-prem/ansible
+TOFU_DIR    := infra/on-prem/tofu
+KAMAL_DIR   := infra/on-prem/kamal
 
 # Env vars instead of ansible.cfg: /mnt/c (WSL) is world-writable and Ansible
 # silently ignores cfg files under those conditions.
@@ -94,23 +95,26 @@ host-setup: ssh-key ansible-deps  ## Full server setup (Docker + UFW + cloudflar
 	cd $(ANSIBLE_DIR) && $(ANSIBLE_ENV) ansible-playbook setup.yml
 
 # ── Kamal ─────────────────────────────────────────────────────────────────────
+# Kamal expects `config/deploy.yml` + `.kamal/` relative to PWD, so we cd into
+# the kamal dir for every target. builder.context in deploy.yml points back to
+# the repo root so the Dockerfile is found.
 kamal-bootstrap:  ## 1st time on a fresh server (pre-boot accessories + 1st migration)
-	bash scripts/bootstrap.sh
+	cd $(KAMAL_DIR) && bash ../../../scripts/bootstrap.sh
 
 kamal-deploy:  ## Zero-downtime deploy (pre-deploy hook runs migrations)
-	kamal deploy
+	cd $(KAMAL_DIR) && kamal deploy
 
 kamal-redeploy:  ## Redeploy without rebuilding the image
-	kamal redeploy
+	cd $(KAMAL_DIR) && kamal redeploy
 
 kamal-rollback:  ## Rollback
-	kamal rollback
+	cd $(KAMAL_DIR) && kamal rollback
 
 kamal-logs:  ## Tail logs (-f)
-	kamal app logs -f
+	cd $(KAMAL_DIR) && kamal app logs -f
 
 kamal-app:  ## Shell in the running app container
-	kamal app exec --interactive --reuse bash
+	cd $(KAMAL_DIR) && kamal app exec --interactive --reuse bash
 
 migrate:  ## Run Drizzle migrations against the current image (escape hatch)
-	kamal app exec --reuse "node scripts/migrate.mjs"
+	cd $(KAMAL_DIR) && kamal app exec --reuse "node scripts/migrate.mjs"

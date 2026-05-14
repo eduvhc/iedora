@@ -49,6 +49,9 @@ ssh:
 
 builder:
   arch: amd64
+  # Kamal runs from infra/on-prem/kamal/ so the build context must point back
+  # to the project root where the Dockerfile + .dockerignore live.
+  context: ../../..
   cache:
     type: registry
     image: ghcr.io/eduvhc/meta-menu-build-cache

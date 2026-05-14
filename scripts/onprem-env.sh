@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Multi-env wrapper for infra/tofu/onprem/. One Tofu workspace per env,
-# matching tfvars file at infra/tofu/onprem/envs/<name>.tfvars.
+# Multi-env wrapper for infra/on-prem/tofu/. One Tofu workspace per env,
+# matching tfvars file at infra/on-prem/tofu/envs/<name>.tfvars.
 #
 # Commands:
 #   onprem-env.sh new <name> <hostname>     scaffold tfvars + workspace + apply
@@ -12,7 +12,7 @@ set -euo pipefail
 #   onprem-env.sh select <name>             switch active workspace
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-TOFU_DIR="${REPO_ROOT}/infra/tofu/onprem"
+TOFU_DIR="${REPO_ROOT}/infra/on-prem/tofu"
 ENVS_DIR="${TOFU_DIR}/envs"
 
 usage() {

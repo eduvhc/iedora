@@ -58,18 +58,18 @@ next-env.d.ts
 
 # Infra — artefactos locais não versionados
 infra/**/*.iso
-infra/tofu/**/.terraform/
-infra/tofu/**/terraform.tfstate
-infra/tofu/**/terraform.tfstate.backup
-infra/tofu/**/terraform.tfstate.d/
-infra/tofu/**/terraform.tfvars
-!infra/tofu/**/terraform.tfvars.example
-# Per-env tfvars for the cloudflare workspaces pattern.
-infra/tofu/**/envs/*.tfvars
-!infra/tofu/**/envs/example.tfvars
+infra/**/.terraform/
+infra/**/terraform.tfstate
+infra/**/terraform.tfstate.backup
+infra/**/terraform.tfstate.d/
+infra/**/terraform.tfvars
+!infra/**/terraform.tfvars.example
+# Per-env tfvars for the workspaces pattern.
+infra/**/envs/*.tfvars
+!infra/**/envs/example.tfvars
 # .terraform.lock.hcl SHOULD be committed — pins provider versions
 
 # Kamal — secrets reais nunca vão para o repo (só o .example)
-.kamal/secrets
-.kamal/secrets-common
-!.kamal/secrets.example
+infra/**/.kamal/secrets
+infra/**/.kamal/secrets-common
+!infra/**/.kamal/secrets.example
