@@ -1,12 +1,32 @@
 ---
-# Dynamic inventory for Tofu-provisioned hosts.
-# Reads ansible_host resources from the hetzner Tofu state.
-# Cloudflare-Tunnel/on-prem hosts use inventory.onprem.yml instead.
+# Static inventory for on-prem servers. Every host you want to deploy to
+# gets a block under `onprem:`.
 #
-# Usage:
-#   ansible-playbook -i inventory.yml --limit hetzner setup.yml
+# First time on a fresh box:
+#   1. Have an SSH public key at ~/.ssh/id_ed25519.pub (or run `make ssh-key`).
+#   2. Run `make host-bootstrap BOOTSTRAP_USER=pwu` to create the `deploy` user.
+#   3. From then on `make host-setup` uses `deploy` + SSH key.
+#
+# Cloudflare Tunnel token is read from env $CLOUDFLARED_TUNNEL_TOKEN by
+# setup.yml's onprem play — sourced from .envrc after `make onprem-up`.
+#
+# Adding another server: copy a host block under `hosts:` and re-run.
 
-plugin: cloud.terraform.terraform_provider
-project_path:
-  - ../tofu/hetzner
-binary_path: tofu
+all:
+  children:
+    onprem:
+      hosts:
+        meta-menu-prod:
+          ansible_host: 192.168.50.53
+      vars:
+        ansible_user: deploy
+        ansible_port: 22
+        ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+        ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+    servers:
+      children:
+        onprem: {}
+    metal:
+      children:
+        onprem: {}

@@ -47,9 +47,9 @@ features/    one folder per slice — auth, menu-builder, menu-publishing, …
 shared/      db client + schema, env, ui primitives, testing fixtures
 tests/       Playwright e2e specs + fixtures (Vitest tests are co-located)
 docs/        architecture, testing, infra, deploy
-infra/       OpenTofu (hetzner/) + Ansible — provisions on-prem and Hetzner servers
-scripts/     bootstrap.sh, migrate.mjs, check-migrations.ts
-config/      Kamal deploy.yml + per-destination overrides (deploy.onprem.yml, deploy.hetzner.yml)
+infra/       OpenTofu (Cloudflare side) + Ansible (server prep) — single on-prem target
+scripts/     bootstrap.sh, migrate.mjs, onprem-env.sh, onprem-sync.sh, check-migrations.ts
+config/      Kamal deploy.yml
 ```
 
 ## Where to go next
@@ -71,9 +71,9 @@ config/      Kamal deploy.yml + per-destination overrides (deploy.onprem.yml, de
 | `bun run test:e2e` | Playwright end-to-end suite |
 | `bun run db:generate` | Generate Drizzle migration from `shared/db/schema.ts` |
 | `bun run db:migrate` | Apply pending migrations |
-| `make onprem-bootstrap` / `make onprem-setup` | Provision an existing Linux box (Ansible) |
-| `make hetzner-up` | Provision a Hetzner Cloud VM (OpenTofu + Ansible) |
-| `make kamal-deploy [DEST=hetzner]` | Build + push + migrate (pre-deploy hook) + roll |
+| `make onprem-up NAME=… HOSTNAME=…` | Provision the Cloudflare tunnel + DNS for an env |
+| `make host-bootstrap` / `make host-setup` | Provision the on-prem Linux box (Ansible) |
+| `make kamal-deploy` | Build + push + migrate (pre-deploy hook) + roll |
 
 `make help` lists every target.
 

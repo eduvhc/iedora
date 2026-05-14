@@ -1,25 +1,29 @@
-# Kamal 2 — shared base config.
-# Destination-specific values (hosts, FQDN, TLS strategy, accessory hosts)
-# live in config/deploy.<dest>.yml and are merged when you run with -d.
+# Kamal 2 — on-prem deploy config.
 #
-# Two destinations are configured:
-#   onprem   — LAN box behind a Cloudflare Tunnel (TLS terminates at the edge)
-#   hetzner  — Hetzner Cloud VM, public IP, kamal-proxy does Let's Encrypt
+# Single target: 192.168.50.53 (the on-prem box). TLS terminates at the
+# Cloudflare edge (`make onprem-up` provisions the tunnel + DNS), so
+# kamal-proxy serves plain HTTP and trusts X-Forwarded-* headers.
 #
-# Daily use goes through the Makefile (DEST=onprem default):
-#   make kamal-deploy                 # onprem
-#   make kamal-deploy DEST=hetzner    # hetzner
+# Env vars must be sourced before running kamal commands:
+#   source .envrc                 # PUBLIC_HOSTNAME, S3_ENDPOINT, S3_BUCKET, S3_REGION
+#
+# Secrets resolved from .kamal/secrets-common at deploy time.
 
 service: meta-menu
 
 image: eduvhc/meta-menu
 
-# kamal-proxy gates zero-downtime + routing. Destination overrides set
-# `host` (FQDN) and `ssl` (true for hetzner, false for cloudflared).
+servers:
+  web:
+    hosts:
+      - 192.168.50.53
+
 proxy:
+  ssl: false                              # Cloudflare Tunnel does TLS
+  host: <%= ENV.fetch("PUBLIC_HOSTNAME") %>
   app_port: 3000
   # When ssl: false, kamal-proxy does NOT forward X-Forwarded-* by default.
-  # Cloudflare Tunnel sets them; we must opt in to preserve client IP/proto.
+  # Cloudflare Tunnel sets them; opt in to preserve client IP / proto.
   forward_headers: true
   healthcheck:
     path: /up
@@ -50,16 +54,13 @@ builder:
     image: ghcr.io/eduvhc/meta-menu-build-cache
     options: mode=max,compression=zstd
 
-# Env vars — secrets resolved from .kamal/secrets-common + .kamal/secrets.<dest>.
-# BETTER_AUTH_URL is destination-scoped (depends on FQDN) — set in dest file.
 env:
   clear:
     NEXT_TELEMETRY_DISABLED: "1"
-    # S3 config — values come from the sourced .envrc (set by cf-sync.sh after
-    # `make cf-apply`). Not secrets — the endpoint contains your account_id
-    # which is already visible in any R2 URL.
+    BETTER_AUTH_URL: <%= "https://#{ENV.fetch('PUBLIC_HOSTNAME')}" %>
+    # S3 config comes from .envrc (set by scripts/onprem-sync.sh after `make onprem-up`).
     S3_ENDPOINT: <%= ENV.fetch("S3_ENDPOINT") %>
-    S3_REGION:   <%= ENV.fetch("S3_REGION", "auto") %>
+    S3_REGION:   <%= ENV.fetch("S3_REGION", "us-east-1") %>
     S3_BUCKET:   <%= ENV.fetch("S3_BUCKET", "metamenu") %>
   secret:
     - BETTER_AUTH_SECRET
@@ -68,15 +69,17 @@ env:
     - S3_ACCESS_KEY
     - S3_SECRET_KEY
 
-# Accessories run on the same host as the app (single-server topology).
-# `host` is set per destination so accessories follow the app server.
-# Crucial: NO `port:` key — publishing 5432:5432 binds to 0.0.0.0 and
-# Docker's NAT rules sit BEFORE UFW's filter rules, so the host firewall
-# wouldn't protect Postgres. The app reaches it via the `kamal` Docker
-# network using the container name (meta-menu-postgres).
+# Accessories on the same box. Crucial: NO `port: "x:x"` key (= 0.0.0.0
+# publish) — Docker's NAT rules sit BEFORE UFW's filter rules, so a published
+# port is NOT firewall-protected (basecamp/kamal#1790). The app reaches them
+# via the `kamal` Docker network using container names.
+#
+# MinIO is the exception: cloudflared on the host points at 127.0.0.1:9000
+# so we DO publish, but to loopback only.
 accessories:
   postgres:
     image: postgres:18-alpine
+    host: 192.168.50.53
     env:
       clear:
         POSTGRES_USER: postgres
@@ -88,20 +91,17 @@ accessories:
 
   redis:
     image: redis:7-alpine
+    host: 192.168.50.53
     directories:
       - data:/data
 
-  # S3-compatible object storage. cloudflared on the host points at
-  # 127.0.0.1:9000 (loopback only — not on the LAN), so we publish the port
-  # to loopback. The app reaches MinIO publicly via https://<assets-hostname>
-  # through the tunnel, so server-side ops use the same URL as browser presigns
-  # (no internal/external split).
-  #
-  # MinIO root creds double as S3 access keys — S3_ACCESS_KEY = MINIO_ROOT_USER,
-  # S3_SECRET_KEY = MINIO_ROOT_PASSWORD. Both come from .kamal/secrets-common.
+  # S3-compatible storage. MinIO root creds double as S3 access keys —
+  # S3_ACCESS_KEY = MINIO_ROOT_USER, S3_SECRET_KEY = MINIO_ROOT_PASSWORD.
+  # All from .kamal/secrets-common.
   minio:
     image: minio/minio:latest
-    port: "127.0.0.1:9000:9000"
+    host: 192.168.50.53
+    port: "127.0.0.1:9000:9000"           # loopback — only cloudflared on the host hits this
     cmd: server /data --console-address ":9001"
     env:
       secret:

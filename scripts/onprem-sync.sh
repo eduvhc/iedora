@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Reads outputs from infra/tofu/cloudflare/ (current workspace) and writes
+# Reads outputs from infra/tofu/onprem/ (current workspace) and writes
 # .envrc.<env> at the repo root. Source it (or use direnv) before running
 # make targets / kamal commands for that env.
 #
 # Selecting which env:
-#   CF_ENV=<name> bash scripts/cf-sync.sh        # explicit
-#   bash scripts/cf-sync.sh                      # uses the active Tofu workspace
+#   CF_ENV=<name> bash scripts/onprem-sync.sh        # explicit
+#   bash scripts/onprem-sync.sh                      # uses the active Tofu workspace
 #
 # The "default" workspace writes to .envrc (no suffix) — keeps the single-env
 # case ergonomic.
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CF_DIR="${REPO_ROOT}/infra/tofu/cloudflare"
+TOFU_DIR="${REPO_ROOT}/infra/tofu/onprem"
 
-cd "${CF_DIR}"
+cd "${TOFU_DIR}"
 
 # Resolve the env name: CF_ENV override > current workspace.
 ENV_NAME="${CF_ENV:-$(tofu workspace show 2>/dev/null || echo default)}"
@@ -26,7 +26,7 @@ if [ "${ENV_NAME}" != "$(tofu workspace show 2>/dev/null || echo default)" ]; th
 fi
 
 if ! tofu output -json >/dev/null 2>&1; then
-  echo "Error: no Tofu state for workspace '${ENV_NAME}'. Run \`make cf-new-env\` first." >&2
+  echo "Error: no Tofu state for workspace '${ENV_NAME}'. Run \`make onprem-up\` first." >&2
   exit 1
 fi
 
@@ -38,7 +38,7 @@ else
 fi
 
 # Preserve any TF_VAR_* lines the user keeps in the file (token, passphrase,
-# account ID, zone ID, etc). cf-sync only owns the Tofu-output exports below.
+# account ID, zone ID, etc). onprem-sync only owns the Tofu-output exports below.
 EXISTING_TF_VARS=""
 if [ -f "${ENVRC}" ]; then
   EXISTING_TF_VARS="$(grep -E '^export TF_VAR_' "${ENVRC}" || true)"
@@ -50,7 +50,7 @@ CLOUDFLARED_TUNNEL_TOKEN="$(tofu output -raw tunnel_token)"
 
 umask 077
 {
-  echo "# Auto-managed by scripts/cf-sync.sh — re-run after a Cloudflare apply."
+  echo "# Auto-managed by scripts/onprem-sync.sh — re-run after `make onprem-apply`."
   echo "# Env: ${ENV_NAME}. Gitignored. Source manually or via direnv."
   echo
   if [ -n "${EXISTING_TF_VARS}" ]; then

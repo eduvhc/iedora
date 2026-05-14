@@ -21,12 +21,9 @@ if [[ -z "${KAMAL_VERSION:-}" ]]; then
   exit 0
 fi
 
-echo "[pre-deploy] running Drizzle migrations against ${KAMAL_VERSION} (dest=${KAMAL_DESTINATION:-default})"
+echo "[pre-deploy] running Drizzle migrations against ${KAMAL_VERSION}"
 
-# Pass --destination so the right deploy.<dest>.yml + secrets.<dest> resolve
-# (Kamal 2.8+ exports KAMAL_DESTINATION into the hook env).
 kamal app exec \
   --primary \
   --version="$KAMAL_VERSION" \
-  ${KAMAL_DESTINATION:+--destination="$KAMAL_DESTINATION"} \
   "node scripts/migrate.mjs"

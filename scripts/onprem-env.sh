@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Multi-env wrapper for infra/tofu/cloudflare/. One Tofu workspace per env,
-# matching tfvars file at infra/tofu/cloudflare/envs/<name>.tfvars.
+# Multi-env wrapper for infra/tofu/onprem/. One Tofu workspace per env,
+# matching tfvars file at infra/tofu/onprem/envs/<name>.tfvars.
 #
 # Commands:
-#   cf-env.sh new <name> <hostname>     scaffold tfvars + workspace + apply
-#   cf-env.sh apply <name>              apply current state for <name>
-#   cf-env.sh destroy <name>            destroy <name>'s resources + workspace
-#   cf-env.sh list                      list workspaces
-#   cf-env.sh select <name>             switch active workspace (for ad-hoc tofu calls)
+#   onprem-env.sh new <name> <hostname>     scaffold tfvars + workspace + apply
+#   onprem-env.sh apply <name>              apply current state for <name>
+#   onprem-env.sh destroy <name>            destroy <name>'s resources + workspace
+#   onprem-env.sh list                      list workspaces
+#   onprem-env.sh select <name>             switch active workspace
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CF_DIR="${REPO_ROOT}/infra/tofu/cloudflare"
-ENVS_DIR="${CF_DIR}/envs"
+TOFU_DIR="${REPO_ROOT}/infra/tofu/onprem"
+ENVS_DIR="${TOFU_DIR}/envs"
 
 usage() {
   sed -n '7,12p' "$0" | sed 's/^# *//'
@@ -25,12 +25,12 @@ require_init() {
   # populated on Windows but running from WSL). Uses the existing lock file
   # to resolve provider versions deterministically.
   echo "==> tofu init"
-  (cd "${CF_DIR}" && tofu init -upgrade -input=false >/dev/null)
+  (cd "${TOFU_DIR}" && tofu init -upgrade -input=false >/dev/null)
 }
 
 ensure_workspace() {
   local name="$1"
-  cd "${CF_DIR}"
+  cd "${TOFU_DIR}"
   # Workspace `default` always exists; skip the new step for it.
   if [ "${name}" = "default" ]; then
     tofu workspace select default
@@ -47,7 +47,7 @@ cmd_new() {
   local name="${1:-}"
   local hostname="${2:-}"
   [ -z "${name}" ] || [ -z "${hostname}" ] && {
-    echo "usage: cf-env.sh new <name> <hostname>" >&2
+    echo "usage: onprem-env.sh new <name> <hostname>" >&2
     exit 1
   }
 
@@ -78,41 +78,41 @@ EOF
   ensure_workspace "${name}"
 
   echo "==> tofu apply (workspace=${name})"
-  cd "${CF_DIR}" && tofu apply -auto-approve -var-file="${tfvars}"
+  cd "${TOFU_DIR}" && tofu apply -auto-approve -var-file="${tfvars}"
 
   echo "==> sync env file"
-  CF_ENV="${name}" bash "${REPO_ROOT}/scripts/cf-sync.sh"
+  CF_ENV="${name}" bash "${REPO_ROOT}/scripts/onprem-sync.sh"
 
-  # cf-sync.sh writes to .envrc when name=default, else .envrc.<name>.
+  # onprem-sync.sh writes to .envrc when name=default, else .envrc.<name>.
   local envrc=".envrc"
   [ "${name}" = "default" ] || envrc=".envrc.${name}"
 
   echo
   echo "Done. Next:"
   echo "  source ${envrc}"
-  echo "  (provision the target host, then) make kamal-deploy [DEST=onprem|hetzner]"
+  echo "  (provision the target host, then) make kamal-deploy"
 }
 
 cmd_apply() {
   local name="${1:-}"
-  [ -z "${name}" ] && { echo "usage: cf-env.sh apply <name>" >&2; exit 1; }
+  [ -z "${name}" ] && { echo "usage: onprem-env.sh apply <name>" >&2; exit 1; }
   local tfvars="${ENVS_DIR}/${name}.tfvars"
-  [ -f "${tfvars}" ] || { echo "missing ${tfvars} — did you run \`cf-env.sh new\`?" >&2; exit 1; }
+  [ -f "${tfvars}" ] || { echo "missing ${tfvars} — did you run \`onprem-env.sh new\`?" >&2; exit 1; }
 
   require_init
   ensure_workspace "${name}"
-  cd "${CF_DIR}" && tofu apply -auto-approve -var-file="${tfvars}"
-  CF_ENV="${name}" bash "${REPO_ROOT}/scripts/cf-sync.sh"
+  cd "${TOFU_DIR}" && tofu apply -auto-approve -var-file="${tfvars}"
+  CF_ENV="${name}" bash "${REPO_ROOT}/scripts/onprem-sync.sh"
 }
 
 cmd_destroy() {
   local name="${1:-}"
-  [ -z "${name}" ] && { echo "usage: cf-env.sh destroy <name>" >&2; exit 1; }
+  [ -z "${name}" ] && { echo "usage: onprem-env.sh destroy <name>" >&2; exit 1; }
   local tfvars="${ENVS_DIR}/${name}.tfvars"
 
   require_init
   ensure_workspace "${name}"
-  cd "${CF_DIR}" && tofu destroy -auto-approve -var-file="${tfvars}"
+  cd "${TOFU_DIR}" && tofu destroy -auto-approve -var-file="${tfvars}"
 
   # Switch off the workspace before deleting it.
   tofu workspace select default
@@ -127,12 +127,12 @@ cmd_destroy() {
 
 cmd_list() {
   require_init
-  (cd "${CF_DIR}" && tofu workspace list)
+  (cd "${TOFU_DIR}" && tofu workspace list)
 }
 
 cmd_select() {
   local name="${1:-}"
-  [ -z "${name}" ] && { echo "usage: cf-env.sh select <name>" >&2; exit 1; }
+  [ -z "${name}" ] && { echo "usage: onprem-env.sh select <name>" >&2; exit 1; }
   require_init
   ensure_workspace "${name}"
 }
