@@ -1,11 +1,11 @@
-output "bucket_name" {
-  description = "R2 bucket name — use for S3_BUCKET in Kamal env."
-  value       = cloudflare_r2_bucket.assets.name
+output "public_hostname" {
+  description = "FQDN the tunnel routes to the app origin."
+  value       = var.public_hostname
 }
 
-output "s3_endpoint" {
-  description = "R2 S3-compatible endpoint — use for S3_ENDPOINT in Kamal env."
-  value       = "https://${var.account_id}.r2.cloudflarestorage.com"
+output "assets_hostname" {
+  description = "FQDN the tunnel routes to the MinIO accessory (S3-compatible)."
+  value       = coalesce(var.assets_hostname, "assets.${join(".", slice(split(".", var.public_hostname), 1, length(split(".", var.public_hostname))))}")
 }
 
 output "tunnel_id" {
@@ -17,9 +17,4 @@ output "tunnel_token" {
   description = "Connector token for the cloudflared daemon. Pass to Ansible via CLOUDFLARED_TUNNEL_TOKEN."
   value       = data.cloudflare_zero_trust_tunnel_cloudflared_token.menu.token
   sensitive   = true
-}
-
-output "public_hostname" {
-  description = "FQDN the tunnel routes to the origin."
-  value       = var.public_hostname
 }

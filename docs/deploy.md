@@ -55,25 +55,30 @@ Generate the values:
 
 ## On-prem (Cloudflare Tunnel) — end-to-end
 
-LAN box, no public IP, Starlink / NAT / CGNAT — fine. Cloudflare Tunnel dials **outbound** from the box; TLS terminates at the Cloudflare edge. The Cloudflare-side pieces (R2 bucket + CORS, Tunnel, DNS CNAME) and the R2 S3 access keys are created declaratively — no dashboard click-ops.
+LAN box, no public IP, Starlink / NAT / CGNAT — fine. Cloudflare Tunnel dials **outbound** from the box; TLS terminates at the Cloudflare edge. Storage is **MinIO** running as a Kamal accessory on the same box (S3-compatible, on-prem, no external storage vendor). The browser reaches MinIO via a second tunnel ingress.
 
 ```
-Internet → Cloudflare edge (TLS) → cloudflared (outbound) → localhost:80 (kamal-proxy) → app:3000
+Internet → Cloudflare edge (TLS) ─┬─→ cloudflared → localhost:80   → kamal-proxy → app:3000
+                                  └─→ cloudflared → localhost:9000 → MinIO
+
+DNS:  menu.example.com   → tunnel UUID → http://localhost:80
+      assets.example.com → tunnel UUID → http://localhost:9000
 ```
+
+**LAN access**: deliberately not supported. Hitting `http://192.168.50.53` would mean HTTP cookies which Better Auth rejects when `BETTER_AUTH_URL=https://…` (browsers refuse `Secure` cookies over HTTP). For local-LAN access, use the tunnel URL — Cloudflare resolves close to you and tunnels back, ~30-80ms overhead. For real local dev, use `bun run dev`.
 
 ### Spin up a new environment (one command)
 
 Every env (prod, staging, customer-X) is one Tofu workspace under `infra/tofu/cloudflare/` with a matching `envs/<name>.tfvars`. Adding an env:
 
 ```bash
-# One-time per machine: env vars (the API token must include
-# `Account · API Tokens · Edit` so cf-r2-token can run via API).
+# One-time per machine: env vars.
 export TF_VAR_cloudflare_api_token=...
 export TF_VAR_state_passphrase=...                # ≥ 16 chars; reuse across envs is fine
 export TF_VAR_account_id=...                      # 32-char hex, top-right of dash
 export TF_VAR_zone_id=...                         # zone overview → API column
 
-# ONE command: applies all CF resources + creates R2 S3 keys + patches secrets.
+# ONE command: tunnel + DNS + ingress for app + assets, all in one apply.
 make cf-up NAME=prod HOSTNAME=menu.example.com
 
 # Then just source the env file (`.envrc` if NAME=default, else `.envrc.<name>`):
@@ -83,19 +88,20 @@ source .envrc.prod    # or `source .envrc` when NAME=default
 What `make cf-up` does, end-to-end:
 1. Scaffolds `infra/tofu/cloudflare/envs/prod.tfvars` from the inputs.
 2. Creates/selects the Tofu workspace `prod` and runs `tofu apply` (state isolated per env).
-3. Resources spun up: `cloudflare_r2_bucket` + `_cors`, `cloudflare_zero_trust_tunnel_cloudflared` + `_config` + token, `cloudflare_dns_record` CNAME for `menu.example.com → <tunnel>.cfargotunnel.com`.
-4. Writes `.envrc[.prod]` with `PUBLIC_HOSTNAME`, `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`, `CLOUDFLARED_TUNNEL_TOKEN`, `CF_ENV`.
-5. Creates an R2 API token via `POST /accounts/{id}/tokens`, derives `S3_ACCESS_KEY` (= token id) + `S3_SECRET_KEY` (= SHA-256 of token value — officially documented), and patches `.kamal/secrets-common` (for default/onprem/hetzner names) or `.kamal/secrets.<name>` (anything else).
+3. Resources spun up:
+   - `cloudflare_zero_trust_tunnel_cloudflared` + `_config` + `_token` — tunnel with 2 ingress rules (app → `:80`, assets → `:9000`).
+   - `cloudflare_dns_record` × 2 — proxied CNAMEs for `menu.example.com` and `assets.example.com` (the latter auto-derived as `assets.<rest-of-public-hostname>` unless `assets_hostname` is set).
+4. Writes `.envrc[.prod]` with `PUBLIC_HOSTNAME`, `ASSETS_HOSTNAME`, `S3_ENDPOINT` (= `https://<assets_hostname>`), `S3_BUCKET`, `S3_REGION`, `CLOUDFLARED_TUNNEL_TOKEN`, `CF_ENV`.
+
+S3 access keys come from `.kamal/secrets-common` — set `MINIO_ROOT_USER` + `MINIO_ROOT_PASSWORD` (the file template has `S3_ACCESS_KEY=$MINIO_ROOT_USER` + `S3_SECRET_KEY=$MINIO_ROOT_PASSWORD` to wire them through). The MinIO accessory boots with those creds; the app's S3 SDK uses the same values.
 
 ### Required CF API token permissions
 
-- Account · Workers R2 Storage · **Edit**
 - Account · Cloudflare Tunnel · **Edit**
 - Zone · DNS · **Edit** (scoped to the zone)
 - Account · Account Settings · **Read**
-- Account · API Tokens · **Edit** (lets `make cf-r2-token` run via API — 9109 without it)
 
-Create at `dash.cloudflare.com → My Profile → API Tokens`. The token holds enough power to create more account tokens — rotate after each env's R2 keys exist, or split into a Tofu-only token vs an R2-helper token once stable.
+Create at `dash.cloudflare.com → My Profile → API Tokens`. Minimal surface — no R2, no User/Account API Tokens. The tunnel + DNS records are everything Tofu touches now.
 
 ### Bootstrap the target host + first deploy
 
@@ -107,17 +113,19 @@ make onprem-bootstrap BOOTSTRAP_USER=pwu
 # Docker, UFW, cloudflared (token comes from the sourced .envrc):
 make onprem-setup
 
-# First Kamal deploy:
+# First Kamal deploy — boots Postgres + Redis + MinIO accessories,
+# then rolls the app:
 make kamal-bootstrap [DEST=prod]
 make kamal-deploy    [DEST=prod]
 ```
 
-`DEST` defaults to `onprem`. If you used `NAME=prod`, also create a matching Kamal destination file:
+The MinIO accessory boots with `MINIO_ROOT_USER` + `MINIO_ROOT_PASSWORD` from `.kamal/secrets-common`. The bucket itself is created automatically on first upload — `features/upload/adapters/bootstrap.ts` does an idempotent `HeadBucket` / `CreateBucket` plus a public-read policy and CORS rules.
+
+`DEST` defaults to `onprem`. If you used a non-default `NAME=`, also create a matching Kamal destination file:
 
 ```bash
 cp config/deploy.onprem.yml config/deploy.prod.yml
 $EDITOR config/deploy.prod.yml                # adjust servers.web.hosts / accessory hosts
-cp .kamal/secrets.onprem .kamal/secrets.prod  # if not already patched by cf-r2-token
 ```
 
 ### Day-2 operations
@@ -141,27 +149,23 @@ source .envrc.prod             # pick up the new values
 
 ## Hetzner — end-to-end
 
-Public IP, kamal-proxy handles TLS via Let's Encrypt.
-
-### Step 1 — DNS
-
-Point an A record at the VM IP. The VM has UFW allow-rules for 22/80/443 baked in (see `infra/shared/vars.yml`).
-
-### Step 2 — env
+Same Cloudflare Tunnel + MinIO topology as on-prem — the only thing different is the host (a Hetzner VM with a public IP instead of a LAN box). The public IP is irrelevant to ingress because cloudflared dials outbound to Cloudflare; you could close ports 80/443 entirely and the tunnel still works.
 
 ```bash
-export HETZNER_HOST=$(cd infra/tofu/hetzner && tofu output -raw server_host)
-export HETZNER_HOSTNAME=menu.example.com
-export S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-export S3_REGION=auto
-export S3_BUCKET=metamenu
-```
+# 1. Provision the VM (TF_VAR_hcloud_token + TF_VAR_state_passphrase exported):
+make hetzner-up
 
-### Step 3 — first deploy
+# 2. Cloudflare tunnel + DNS for this env (HOSTNAME is the FQDN you want):
+make cf-up NAME=hetzner HOSTNAME=menu.example.com
+source .envrc.hetzner
 
-```bash
+# 3. Bootstrap cloudflared on the VM + first Kamal deploy:
+HETZNER_HOST=$(cd infra/tofu/hetzner && tofu output -raw server_host)
+# (point config/deploy.hetzner.yml's hosts at $HETZNER_HOST; left as a manual edit
+#  for now — see config/deploy.hetzner.yml for the destination overrides)
+make hetzner-ansible
 make kamal-bootstrap DEST=hetzner
-make kamal-deploy DEST=hetzner
+make kamal-deploy    DEST=hetzner
 ```
 
 ## Day 2 — subsequent deploys

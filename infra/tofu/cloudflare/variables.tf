@@ -1,11 +1,9 @@
 variable "cloudflare_api_token" {
   description = <<-EOT
-    Cloudflare API token. Permissions required for `make cf-up`:
-      - Account · Workers R2 Storage · Edit
+    Cloudflare API token. Permissions required:
       - Account · Cloudflare Tunnel · Edit
       - Zone · DNS · Edit (scoped to the zone in `zone_id`)
       - Account · Account Settings · Read
-      - Account · API Tokens · Edit  (lets cf-r2-token.sh create the S3 keys)
     Provide via TF_VAR_cloudflare_api_token.
   EOT
   type        = string
@@ -50,7 +48,7 @@ variable "tunnel_name" {
 }
 
 variable "public_hostname" {
-  description = "FQDN that visitors hit (e.g. menu.example.com). Must be a subdomain of the zone."
+  description = "FQDN visitors hit for the app (e.g. menu.example.com). Subdomain of the zone."
   type        = string
 
   validation {
@@ -59,25 +57,14 @@ variable "public_hostname" {
   }
 }
 
+variable "assets_hostname" {
+  description = "FQDN for the MinIO bucket (e.g. assets.example.com). If unset, derived as `assets.<rest-of-public-hostname>`."
+  type        = string
+  default     = null
+}
+
 variable "origin_service" {
   description = "Local URL the tunnel forwards to on the origin host. kamal-proxy listens on :80."
   type        = string
   default     = "http://localhost:80"
-}
-
-variable "bucket_name" {
-  description = "R2 bucket name. Must match S3_BUCKET in Kamal config (default `metamenu`)."
-  type        = string
-  default     = "metamenu"
-}
-
-variable "bucket_location" {
-  description = "R2 location hint. ENAM | WNAM | EEUR | WEUR | APAC | OC. Cloudflare may place elsewhere."
-  type        = string
-  default     = "WEUR"
-
-  validation {
-    condition     = contains(["ENAM", "WNAM", "EEUR", "WEUR", "APAC", "OC"], var.bucket_location)
-    error_message = "bucket_location must be one of ENAM, WNAM, EEUR, WEUR, APAC, OC."
-  }
 }

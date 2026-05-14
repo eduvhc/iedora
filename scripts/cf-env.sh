@@ -69,9 +69,6 @@ account_id      = "${TF_VAR_account_id}"
 zone_id         = "${TF_VAR_zone_id}"
 public_hostname = "${hostname}"
 
-bucket_name     = "metamenu-${name}"
-bucket_location = "WEUR"
-
 tunnel_name     = "meta-menu-${name}"
 origin_service  = "http://localhost:80"
 EOF
@@ -93,7 +90,6 @@ EOF
   echo
   echo "Done. Next:"
   echo "  source ${envrc}"
-  echo "  make cf-r2-token            # prints dashboard steps for the S3 keys"
   echo "  (provision the target host, then) make kamal-deploy [DEST=onprem|hetzner]"
 }
 

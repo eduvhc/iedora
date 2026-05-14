@@ -1,15 +1,9 @@
-# Destination override: Hetzner Cloud VM with a public IP.
-# kamal-proxy handles TLS via Let's Encrypt.
+# Destination override: Hetzner Cloud VM.
+# Same Cloudflare Tunnel topology as onprem — public IP is unused for ingress.
+# Source .envrc.hetzner (set by `make cf-up NAME=hetzner ...`) before deploying;
+# it exports PUBLIC_HOSTNAME, ASSETS_HOSTNAME, S3_*, CLOUDFLARED_TUNNEL_TOKEN.
 #
-# Env vars expected when running `kamal deploy -d hetzner`:
-#   HETZNER_HOST        — the IP (or DNS A-record) of the VM
-#   HETZNER_HOSTNAME    — the FQDN that resolves to HETZNER_HOST
-#   S3_ENDPOINT         — R2/S3 endpoint URL
-#   (S3_REGION, S3_BUCKET — optional, default in base config)
-#
-# Pre-req: DNS A-record HETZNER_HOSTNAME → HETZNER_HOST exists, ports 80/443
-# open at the firewall. UFW rules (ports 22/80/443) are already loaded by
-# the metal Ansible play.
+# Also export HETZNER_HOST (= tofu output -raw server_host from the hetzner env).
 
 servers:
   web:
@@ -17,15 +11,17 @@ servers:
       - <%= ENV.fetch("HETZNER_HOST") %>
 
 proxy:
-  ssl: true
-  host: <%= ENV.fetch("HETZNER_HOSTNAME") %>
+  ssl: false                       # Cloudflare Tunnel terminates TLS at the edge
+  host: <%= ENV.fetch("PUBLIC_HOSTNAME") %>
 
 env:
   clear:
-    BETTER_AUTH_URL: <%= "https://#{ENV.fetch('HETZNER_HOSTNAME')}" %>
+    BETTER_AUTH_URL: <%= "https://#{ENV.fetch('PUBLIC_HOSTNAME')}" %>
 
 accessories:
   postgres:
     host: <%= ENV.fetch("HETZNER_HOST") %>
   redis:
+    host: <%= ENV.fetch("HETZNER_HOST") %>
+  minio:
     host: <%= ENV.fetch("HETZNER_HOST") %>

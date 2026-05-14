@@ -1,30 +1,24 @@
-# Template — copy to envs/<name>.tfvars (gitignored) per environment:
-#   cp envs/example.tfvars envs/prod.tfvars
-#   cp envs/example.tfvars envs/staging.tfvars
-#
-# Or use `make cf-new-env NAME=prod HOSTNAME=menu.example.com` to scaffold
-# both this file and the matching Tofu workspace in one go.
-#
-# Naming: <name> must match the Tofu workspace AND the suffix on .envrc.<name>
-# AND any Kamal destination you wire to it.
+# Template — copy to envs/<name>.tfvars (gitignored) per environment, or use:
+#   make cf-up NAME=<env> HOSTNAME=<fqdn>
+# which scaffolds this file for you.
 
 # Cloudflare account ID — top-right of dash.cloudflare.com (32 hex chars).
 account_id = "00000000000000000000000000000000"
 
-# Zone ID for the domain the tunnel will route. dash → domain → API (right column).
+# Zone ID for the domain the tunnel will route. dash → domain → API column.
 zone_id = "00000000000000000000000000000000"
 
-# The FQDN visitors hit (subdomain of the zone above).
+# FQDN visitors hit for the app. Must be a subdomain of the zone.
 public_hostname = "menu.example.com"
 
-# R2 bucket name. Must be unique within the account.
-bucket_name     = "metamenu"
-bucket_location = "WEUR" # EEUR, WEUR, ENAM, WNAM, APAC, OC
+# FQDN for the MinIO bucket (S3-compatible). If omitted, defaults to
+# `assets.<rest-of-public-hostname>` (e.g. menu.example.com → assets.example.com).
+# assets_hostname = "assets.example.com"
 
 # Tunnel name shown in the Zero Trust dashboard. Must be unique within the account.
 tunnel_name = "meta-menu"
 
-# Where cloudflared forwards traffic on the origin. kamal-proxy listens on :80.
+# Where cloudflared forwards traffic for the app. kamal-proxy listens on :80.
 origin_service = "http://localhost:80"
 
 # Secrets — set as TF_VAR_* env vars, never in this file:

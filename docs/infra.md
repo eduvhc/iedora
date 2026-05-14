@@ -41,12 +41,12 @@ infra/
       versions.tf             required_version + provider pin + state encryption
       outputs.tf
       terraform.tfvars.example
-    cloudflare/               Tofu env — R2 bucket + CORS, Tunnel + DNS
-      main.tf                 cloudflare_r2_bucket(+_cors), zero_trust_tunnel + _config + _token, dns_record
-      variables.tf            account_id, zone_id, public_hostname, bucket settings
+    cloudflare/               Tofu env — Zero Trust Tunnel + DNS (storage = on-prem MinIO)
+      main.tf                 cloudflare_zero_trust_tunnel + _config (2 ingresses) + _token + 2 dns_records
+      variables.tf            account_id, zone_id, public_hostname, assets_hostname
       versions.tf             cloudflare ~> 5.19 + state encryption
-      outputs.tf              bucket_name, s3_endpoint, tunnel_id, tunnel_token (sensitive)
-      terraform.tfvars.example
+      outputs.tf              public_hostname, assets_hostname, tunnel_id, tunnel_token (sensitive)
+      envs/example.tfvars     template — copy to envs/<name>.tfvars per env
   ansible/
     inventory.yml             DYNAMIC inventory (cloud.terraform plugin reads tofu state)
     inventory.onprem.yml      STATIC inventory for hosts not under Tofu
@@ -55,8 +55,8 @@ infra/
     requirements.yml          cloud.terraform, community.general, ansible.posix
 scripts/
   bootstrap.sh                first-time Kamal bootstrap (pre-boot accessories + setup --skip-hooks)
-  cf-sync.sh                  reads Cloudflare Tofu outputs, refreshes .envrc
-  cf-r2-token.sh              prints dashboard steps for the R2 S3 API token
+  cf-env.sh                   multi-env wrapper for the cloudflare Tofu module (workspaces)
+  cf-sync.sh                  reads Cloudflare Tofu outputs, refreshes .envrc / .envrc.<name>
   migrate.mjs                 Drizzle migrations under pg_advisory_lock (safe for parallel deploys)
 ```
 
@@ -98,13 +98,15 @@ If `CLOUDFLARED_TUNNEL_TOKEN` is empty the cloudflared play is skipped (`meta: e
 
 Open `infra/ansible/inventory.onprem.yml`, copy a host block, change `ansible_host`. Each host gets its own Cloudflare Tunnel (one tunnel = one token), but they all share `inventory.onprem.yml`. The playbook is the same.
 
-## Cloudflare side (R2 + Tunnel + DNS — one workspace per env)
+## Cloudflare side (Tunnel + DNS — one workspace per env)
 
-`infra/tofu/cloudflare/` manages every Cloudflare-side resource the deploy needs. Multi-env via Tofu workspaces: one workspace = one env (`prod`, `staging`, `customer-X`, …), each with its own state file and its own `envs/<name>.tfvars`.
+`infra/tofu/cloudflare/` manages the Cloudflare-side resources: the Zero Trust Tunnel + its 2 ingress rules (app + assets) + the 2 proxied DNS CNAMEs. Storage stays on-prem (MinIO accessory) so R2 is out of scope.
+
+Multi-env via Tofu workspaces: one workspace = one env (`prod`, `staging`, `customer-X`, …), each with its own state file and `envs/<name>.tfvars`.
 
 Prereqs (one-time per machine):
 - Cloudflare account + a zone you control.
-- API token — see `infra/tofu/cloudflare/variables.tf` for the exact permissions (Tofu side + R2 token helper side).
+- API token — see `infra/tofu/cloudflare/variables.tf`. Minimal perms: Tunnel Edit, Zone DNS Edit, Account Settings Read.
 - `account_id` and `zone_id` (both 32-char hex).
 
 ```bash
@@ -117,25 +119,24 @@ export TF_VAR_zone_id=...
 ### Spin up a new env
 
 ```bash
-make cf-new-env NAME=prod HOSTNAME=menu.example.com
+make cf-up NAME=prod HOSTNAME=menu.example.com
 ```
 
 Behind the scenes (`scripts/cf-env.sh new`):
 1. Scaffolds `infra/tofu/cloudflare/envs/prod.tfvars` from the inputs.
 2. Creates/selects the Tofu workspace named `prod`.
-3. Runs `tofu apply` for that workspace.
+3. Runs `tofu apply` — creates the tunnel + ingress (app + assets) + 2 DNS records.
 4. Invokes `scripts/cf-sync.sh` which writes `.envrc.prod` at the repo root with all the Tofu outputs as `export` lines.
 
 ```bash
 source .envrc.prod      # or `.envrc` when NAME=default
-make cf-r2-token        # creates real R2 S3 keys + patches .kamal/secrets.<env>
 ```
 
-`cf-r2-token.sh` posts to `/user/tokens` with the R2 bucket-item permission groups (discovered at runtime via the permission_groups endpoint so the script doesn't rot), then computes `S3_ACCESS_KEY = token.id` and `S3_SECRET_KEY = sha256(token.value)` — Cloudflare's officially documented derivation.
+The `assets` hostname defaults to `assets.<rest-of-public-hostname>` (so `menu.example.com` → `assets.example.com`). Override via `assets_hostname` in the tfvars.
 
-### Why not Tofu-managed R2 S3 credentials?
+### Why no R2?
 
-The `cloudflare_api_token` Terraform resource creates an *account-management* token, not an R2 S3 token — when used as S3 creds it returns 403 (#6626, closed "not planned"). The Cloudflare API does support it via `/user/tokens` with the right permission groups + the SHA-256 derivation, which is what `cf-r2-token.sh` uses. Provider parity is on Cloudflare's side, not ours.
+Because we run MinIO on-prem as a Kamal accessory — same S3 API, no external dependency, no egress fees, no cross-region latency. The browser hits MinIO via the `assets.*` tunnel ingress. The app's S3 SDK uses the same public URL (server-side ops do a ~30ms round-trip through the Cloudflare edge, fine for the rare delete / ensureBucket call).
 
 ### Day-2 operations
 

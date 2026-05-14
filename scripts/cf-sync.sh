@@ -44,8 +44,7 @@ if [ -f "${ENVRC}" ]; then
 fi
 
 PUBLIC_HOSTNAME="$(tofu output -raw public_hostname)"
-S3_ENDPOINT="$(tofu output -raw s3_endpoint)"
-S3_BUCKET="$(tofu output -raw bucket_name)"
+ASSETS_HOSTNAME="$(tofu output -raw assets_hostname)"
 CLOUDFLARED_TUNNEL_TOKEN="$(tofu output -raw tunnel_token)"
 
 umask 077
@@ -60,12 +59,17 @@ umask 077
   fi
   echo "# Cloudflare-managed (Tofu outputs):"
   echo "export PUBLIC_HOSTNAME='${PUBLIC_HOSTNAME}'"
-  echo "export S3_ENDPOINT='${S3_ENDPOINT}'"
-  echo "export S3_BUCKET='${S3_BUCKET}'"
-  echo "export S3_REGION='auto'"
+  echo "export ASSETS_HOSTNAME='${ASSETS_HOSTNAME}'"
   echo "export CLOUDFLARED_TUNNEL_TOKEN='${CLOUDFLARED_TUNNEL_TOKEN}'"
   echo
-  echo "# Tofu workspace name (used by cf-r2-token.sh + other scripts)"
+  echo "# S3 endpoint = public assets hostname (routed via tunnel to MinIO :9000)."
+  echo "# Cheaper to skip the tunnel for server-side ops but it requires code changes;"
+  echo "# round-tripping via the CF edge adds ~30ms — fine for an admin app."
+  echo "export S3_ENDPOINT=\"https://\${ASSETS_HOSTNAME}\""
+  echo "export S3_REGION='us-east-1'   # MinIO accepts anything; this is conventional"
+  echo "export S3_BUCKET='metamenu'    # set by the MinIO accessory bootstrap"
+  echo
+  echo "# Tofu workspace name (informational)"
   echo "export CF_ENV='${ENV_NAME}'"
 } > "${ENVRC}"
 
