@@ -21,10 +21,11 @@ usage() {
 }
 
 require_init() {
-  if [ ! -d "${CF_DIR}/.terraform" ]; then
-    echo "==> tofu init"
-    (cd "${CF_DIR}" && tofu init -upgrade)
-  fi
+  # Always init: idempotent, and survives platform mismatches (e.g. .terraform/
+  # populated on Windows but running from WSL). Uses the existing lock file
+  # to resolve provider versions deterministically.
+  echo "==> tofu init"
+  (cd "${CF_DIR}" && tofu init -upgrade -input=false >/dev/null)
 }
 
 ensure_workspace() {

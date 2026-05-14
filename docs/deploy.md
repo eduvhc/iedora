@@ -94,14 +94,12 @@ And `make cf-r2-token`:
 
 ### Required CF API token permissions
 
-Single token, both Tofu + R2 key creation:
 - Account · Workers R2 Storage · **Edit**
 - Account · Cloudflare Tunnel · **Edit**
 - Zone · DNS · **Edit** (scoped to the zone)
 - Account · Account Settings · **Read**
-- User · API Tokens · **Edit** (needed by cf-r2-token.sh)
 
-Create at `dash.cloudflare.com → My Profile → API Tokens`. Same token holds enough power to create more tokens — rotate or split (Tofu vs. R2 helper) once your envs stabilise.
+Create at `dash.cloudflare.com → My Profile → API Tokens`. The R2 S3 access keys still go through one dashboard click — `Account · API Tokens · Edit` would let us automate that too but it's a much more powerful permission, not worth the trade-off for a deploy token.
 
 ### Bootstrap the target host + first deploy
 
