@@ -1,5 +1,8 @@
 # Deploy — Kamal
 
+> One-line purpose: build da imagem Docker, push para a registry, e roll zero-downtime no servidor. Pre-supõe que o servidor já existe (ver [`infra.md`](infra.md)).
+> **Last updated:** 2026.
+
 A app é deployed com [Kamal 2](https://kamal-deploy.org). Funciona da seguinte maneira:
 
 1. **Build local** da imagem Docker (Dockerfile na raíz, `output: standalone` do Next.js)
@@ -53,7 +56,7 @@ Sequência:
 
 1. **Build + push** da nova imagem para a registry (GHCR).
 2. **`.kamal/hooks/pre-deploy`** corre — lança um container one-shot **com a imagem nova** (`kamal app exec --primary --version $KAMAL_VERSION "node scripts/migrate.mjs"`). O script de migrate adquire um `pg_advisory_lock` (deploys paralelos não migram em duplicado), aplica os SQL files de `drizzle/` que ainda não estão no `__drizzle_migrations` table, e termina. Se falhar, exit não-zero **aborta o deploy** — a app antiga continua a servir com a schema antiga.
-3. **Rolling deploy** zero-downtime: novo container arranca, espera o healthcheck (`GET /` por defeito), só depois desliga o antigo.
+3. **Rolling deploy** zero-downtime: novo container arranca, espera o healthcheck `GET /up` (handler em `app/up/route.ts` — força dynamic, pinga o DB com timeout 2 s, devolve 503 se algo falha), só depois desliga o antigo.
 
 Em rollback (`make kamal-rollback`), o hook **skipa migrations** — a imagem antiga corre com a schema antiga, que já está lá.
 
@@ -94,12 +97,18 @@ kamal config                   # imprime config resolvida + secrets (debug)
 ## Estrutura
 
 ```
-Dockerfile           multi-stage build (Bun install, Node build, Node runtime + standalone)
-.dockerignore        node_modules, .next, infra/, tests/ — ficam fora da imagem
-config/deploy.yml    config Kamal (servidor, registry, env, accessories)
+Dockerfile                   multi-stage build (Bun install, Node build, Node runtime + standalone)
+.dockerignore                node_modules, .next, infra/, tests/ — ficam fora da imagem
+config/deploy.yml            config Kamal (servidor, registry, env, accessories)
 .kamal/
-  secrets            valores reais (gitignored)
-  secrets.example    template versionado
+  hooks/pre-deploy           corre `kamal app exec --primary --version $KAMAL_VERSION "node scripts/migrate.mjs"`
+  secrets                    valores reais (gitignored)
+  secrets.example            template versionado
+scripts/
+  bootstrap.sh               primeiro deploy (pre-boot accessories + setup --skip-hooks + 1.ª migration)
+  migrate.mjs                aplica Drizzle migrations com `pg_advisory_lock` (deploys paralelos seguros)
+next.config.ts               `outputFileTracingIncludes` puxa drizzle-orm/postgres/drizzle/scripts/migrate.mjs
+                             para o bundle standalone — sem isso o `kamal app exec` falha (vercel/next.js#88844)
 ```
 
 ## Local vs prod

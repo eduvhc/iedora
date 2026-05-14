@@ -1,6 +1,9 @@
 # Infraestrutura — Self-hosting
 
-> **TL;DR** — `make up` provisiona um servidor Ubuntu local idêntico ao de produção. Funciona igual em Linux, macOS e Windows-via-WSL. O mesmo Ansible playbook configura local e prod; o que muda é só o provider do OpenTofu.
+> One-line purpose: provisionar um servidor Ubuntu local ou Hetzner pronto para receber o deploy Kamal. Funciona igual em Linux, macOS e Windows-via-WSL.
+> **Last updated:** 2026.
+
+> **TL;DR** — `make up` provisiona um servidor Ubuntu local idêntico ao de produção. O mesmo Ansible playbook configura local e prod; o que muda é só o provider do OpenTofu. O deploy da app é feito separadamente com Kamal — ver [`deploy.md`](deploy.md).
 
 ## Arquitetura
 
@@ -14,7 +17,7 @@
 │  Mesmo playbook nos dois ambientes.                 │
 │  Instala Docker, configura UFW, faz hardening SSH.  │
 ├─────────────────────────────────────────────────────┤
-│  Layer 3 — Deploy da app (Kamal — em breve)         │
+│  Layer 3 — Deploy da app (Kamal) — ver deploy.md    │
 │  Zero-downtime, rollback, secrets encriptados.      │
 └─────────────────────────────────────────────────────┘
 ```
@@ -25,31 +28,39 @@ O contrato entre layers é simples: o **layer 1** entrega um servidor Ubuntu com
 
 ```
 infra/
+  shared/
+    vars.yml                  vars partilhadas entre Tofu e Ansible (deploy_user, vm_name, timezone, …)
   docker/
-    Dockerfile.server         Ubuntu 24.04 + sshd + utilizador deploy
-                              (usado só pelo ambiente local)
+    Dockerfile.server         Ubuntu + sshd + utilizador deploy (usado só pelo ambiente local)
   tofu/
-    .gitignore                ignora state, lock, tfvars com secrets
     environments/
       local/
-        main.tf               provider Docker, image build, container, upload SSH key
-        variables.tf          vm_name, deploy_user, ssh_port, memory_gb, …
+        main.tf               provider Docker, image build, container, upload SSH key, ansible_host
+        variables.tf          ssh_port, memory_gb, ssh_public_key_path, …
         outputs.tf            server_host, server_port, ssh_command
         terraform.tfvars      valores locais
       prod/
-        main.tf               provider Hetzner, server, ssh_key, cloud-init
+        main.tf               provider Hetzner, server, ssh_key, cloud-init, ansible_host
         variables.tf          + hcloud_token, server_type, location
         outputs.tf
         terraform.tfvars.example   template (criar terraform.tfvars com o token)
   ansible/
     ansible.cfg               desliga host_key_checking, activa pipelining
-    setup.yml                 playbook idempotente, container-aware
-    group_vars/
-      all.yml                 deploy_user, timezone, firewall_allowed_ports
-    inventory/
-      local.ini               aponta para localhost:2222
-      prod.ini.example        template para o IP do VPS
+    inventory.yml             inventory DINÂMICO via cloud.terraform.terraform_provider
+                              (lê o state file de cada ambiente Tofu)
+    requirements.yml          Ansible Galaxy collections (cloud.terraform)
+    setup.yml                 playbook idempotente: base / metal / containers
+scripts/
+  bootstrap.sh                primeiro deploy num servidor fresh (pre-boot accessories + setup + 1.ª migration)
+  migrate.mjs                 corre Drizzle migrations contra o DB de produção
 ```
+
+> **Nota — inventário dinâmico.** Não há ficheiros `local.ini` / `prod.ini`. O Ansible lê os outputs do Tofu (`ansible_host` resources) directamente do state file via o plugin `cloud.terraform.terraform_provider`. Targets de um ambiente específico:
+> ```bash
+> ansible-playbook --limit local setup.yml
+> ansible-playbook --limit prod  setup.yml
+> ```
+> O `make ansible` aplica o `--limit $(ENV)` automaticamente.
 
 ## Pré-requisitos
 
@@ -190,34 +201,36 @@ A partir daqui podes simplesmente abrir o "Ubuntu" no Iniciar (ou `wsl -d Ubuntu
 ## Comandos
 
 ```bash
-make up        # provisiona servidor (ssh-key + Tofu apply + Ansible playbook)
-make down      # destrói o servidor
-make recreate  # destrói e recria do zero (~30s no local)
-make tofu      # apenas Tofu apply (gera SSH key se necessário)
-make ansible   # apenas Ansible playbook
-make ssh-key   # gera ~/.ssh/id_ed25519 se não existir (idempotente)
-make ssh       # SSH para o servidor local (deploy@localhost:2222)
-make help      # lista alvos
+make up                  # provisiona servidor (ssh-key + Tofu apply + Ansible playbook)
+make down                # destrói o servidor
+make recreate            # destrói e recria do zero (~30s no local)
+make tofu                # apenas Tofu apply (gera SSH key se necessário)
+make ansible             # apenas Ansible playbook (--limit $(ENV))
+make ansible-deps        # instala collections Ansible (cloud.terraform)
+make ssh-key             # gera ~/.ssh/id_ed25519 se não existir (idempotente)
+make ssh                 # SSH para o servidor local (deploy@localhost:2222)
+make help                # lista todos os alvos (inclui os de Kamal — ver deploy.md)
 ```
 
-Tudo idempotente — correr `make up` duas vezes seguidas não cria recursos duplicados, o Ansible só reaplica o que mudou, e a SSH key existente nunca é sobrescrita. Num clone fresh do repo, **`make up` é o único comando necessário** para ter o servidor a correr.
+Tudo idempotente — correr `make up` duas vezes seguidas não cria recursos duplicados, o Ansible só reaplica o que mudou, e a SSH key existente nunca é sobrescrita. Num clone fresh do repo, **`make up` é o único comando necessário** para ter o servidor a correr; depois usar `make kamal-bootstrap` (uma vez) e `make kamal-deploy` para os deploys da app (ver [`deploy.md`](deploy.md)).
 
 ## Como funciona o ambiente local
 
 1. **OpenTofu** com o provider `kreuzwerker/docker`:
    - Builda a imagem `meta-menu-server-base` a partir de `infra/docker/Dockerfile.server`. O Dockerfile cria o utilizador `deploy` (sudo NOPASSWD), instala sshd, e endurece o `sshd_config` (sem root login, sem password auth).
    - Levanta um container `meta-menu-server` privilegiado (precisa de privilégios para correr `dockerd` por dentro — Docker-in-Docker, exigido pelo Kamal).
-   - Mapeia a porta 22 do container para `localhost:2222` no host.
+   - Mapeia a porta 22 do container para `localhost:2222` no host, e a porta 80 (kamal-proxy) para `localhost:8080`.
    - O bloco `upload` do provider injecta `authorized_keys` directamente no container — **zero scripts de bootstrap, tudo declarativo**.
+   - Declara um `ansible_host` (provider `ansible/ansible`) para que o inventário dinâmico do Ansible apanhe o servidor automaticamente.
 
-2. **Ansible** liga-se via SSH (`deploy@localhost:2222`) e configura:
-   - Pacotes base (`curl`, `git`, `ufw`, `ca-certificates`)
-   - Docker CE via repositório oficial
+2. **Ansible** lê esse `ansible_host` via `cloud.terraform.terraform_provider`, liga-se via SSH (`deploy@localhost:2222`) e configura:
+   - Pacotes base (`curl`, `git`, `ufw`, `ca-certificates`, `gnupg`, `unattended-upgrades`)
+   - Docker CE via repositório oficial + plugins (buildx, compose)
    - Adiciona `deploy` ao grupo `docker`
-   - Regras UFW (22/80/443) — *só executa em servidores reais; em containers é skipped porque não há kernel netfilter*
-   - Reinicia `sshd` após aplicar hardening
+   - Regras UFW (allow 22/80/443) — UFW é só **activado** no play `metal`; nos containers as regras ficam carregadas mas não aplicadas (sem kernel netfilter eficaz)
+   - Hardening SSH (sem root login, sem password auth) com reload via fallback `systemctl` → `HUP` no PID
 
-3. As tasks sensíveis a systemd (`systemd:` module) detectam `/.dockerenv` e usam alternativas em container (ex: `dockerd` em foreground em vez de `systemctl start docker`).
+3. O playbook é dividido em três plays: `base` (corre em todos os hosts), `metal` (apenas servidores reais — activa systemd + UFW), e `containers` (apenas servidores em container — `dockerd` em foreground com storage-driver `vfs`).
 
 ## Como funciona o ambiente prod (Hetzner)
 
@@ -234,11 +247,12 @@ Para usar:
 cd infra/tofu/environments/prod
 cp terraform.tfvars.example terraform.tfvars
 # editar terraform.tfvars com o token da Hetzner (Console → API Tokens)
-tofu init && tofu apply
 
-# copiar inventory/prod.ini.example para prod.ini com o IP do output
-ansible-playbook -i ../../ansible/inventory/prod.ini ../../ansible/setup.yml
+# A partir da raíz do repo — o Makefile sabe target prod via ENV
+make up ENV=prod
 ```
+
+O `ansible_host` declarado no `main.tf` do prod expõe o IP do VPS para o inventário dinâmico; o `make ansible ENV=prod` aplica `--limit prod` automaticamente.
 
 ## Adicionar um novo ambiente / provider
 

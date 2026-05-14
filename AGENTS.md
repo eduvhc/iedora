@@ -46,6 +46,23 @@ SaaS multi-tenant restaurant menu builder. Each tenant is a Better Auth `organiz
 
 13. **View tracking is beacon-based, not server-render-coupled.** `/api/track/[slug]` is a pixel-beacon route that lives outside the cached snapshot — it runs on every public visit, even when the page itself is served from cache. Dedup is `(visitor_cookie, restaurant_id, hour_bucket)` via `view_seen.onConflictDoNothing`; only newly-inserted rows trigger `incrementDailyView`. Bot UAs filtered at the route. **Never put the view increment back inline in the page** — that breaks the moment a CDN sits in front.
 
+14. **Slices are vertical and own everything for one capability.** Files inside a slice import via *relative* paths; cross-slice imports MUST go through the sibling slice's `index.ts` (the single barrel) — enforced by `eslint-plugin-boundaries` in `eslint.config.mjs`. `shared/` is for primitives with no domain knowledge (db client, env, ui primitives, testing fixtures). `app/` is delivery — routes import from slices and shouldn't carry business logic. Use-cases take their port as the first argument so the test suite wires fakes against a real PGLite database (see `features/auth/auth.test.ts`); production wires the Drizzle adapter once in the slice's `index.ts` or `actions.ts`.
+
+## Pattern: how to add a feature
+
+Reference template: `features/auth/`. Steps:
+
+1. `mkdir features/<slice>/{adapters,use-cases,ui}` — `ui/` only if the slice owns React components.
+2. Define **`ports.ts`** — narrow interfaces describing every effect the slice needs (db reads/writes, external APIs). One method per atomic op; no Drizzle / Next types leak through.
+3. Write the production **`adapters/drizzle.ts`** (or `better-auth.ts`, `s3.ts`, …). Marked `'server-only'`. Implements the port against the real world.
+4. Write **`use-cases/<verb>.ts`** as pure-ish async functions: `(port, input) => result`. No `redirect()` / `headers()` access except via the port — that's what lets Vitest run them against PGLite.
+5. Expose the slice via **`index.ts`** — `React.cache()`-memoize page loaders that fan out to children. Re-export types callers need. Don't export the adapter itself.
+6. If the slice has mutations, add **`actions.ts`** with `'use server'` at the top: auth guard → `runUseCase(productionAdapter, input)` → `revalidateRestaurant(slug)` (hard rule #12). Server actions don't live in `index.ts` — Next's directive doesn't traverse barrels reliably.
+7. Add a co-located **`<slice>.test.ts`** next to the source — `makeTestDb()` from `@/shared/testing/pglite`, real Drizzle queries, fakes only at the port boundary.
+8. Add a short **`README.md`** at the slice root documenting the public API.
+
+For asset targets, languages, plans, templates: the registry pattern is already encoded in the matching skill (`add-asset-target`, `add-language`, `add-template`).
+
 ## File layout
 
 The codebase is organised as **vertical slices** under `features/` (one folder
@@ -160,15 +177,20 @@ tests/e2e/
 ## Useful commands
 - `bun run dev` — Next.js dev server (Turbopack). Also warns at startup when migrations are pending.
 - `bun run typecheck` — TS check without emit
-- `bun run lint` — ESLint
-- `bun run db:generate` — generate Drizzle migration from schema changes
+- `bun run lint` — ESLint (boundary rules included)
+- `bun run test` / `bun run test:watch` — Vitest unit suite (PGLite, co-located `*.test.ts`)
+- `bun run test:e2e` / `:ui` / `:debug` — Playwright suite (production build + start)
+- `bun run db:generate` — generate Drizzle migration from `shared/db/schema.ts`
 - `bun run db:migrate` — apply pending migrations
 - `bun run db:push` — push schema directly (dev only, no migration files)
 - `bun run db:studio` — open Drizzle Studio
-- `bun run auth:generate` — sync Better Auth tables into the schema (re-run after changing auth plugins)
-- `bun run test:e2e` — Playwright suite (uses `bun run build && bun run start` locally; CI splits the build step out and runs it under Node)
+- `bun run auth:generate` — sync Better Auth tables into `shared/db/schema.ts` (re-run after changing auth plugins)
 - `docker compose up -d` — start Postgres + Redis + LocalStack (S3)
 - `bunx shadcn@latest add <name>` — add a shadcn component
+- `make up` — provision a server (Tofu + Ansible); `make help` lists every target
+- `make kamal-bootstrap` — first-time-only fresh-server bootstrap (accessories + setup + 1st migration)
+- `make kamal-deploy` — build + push + migrate (pre-deploy hook) + zero-downtime roll
+- `make migrate` — escape hatch: run `scripts/migrate.mjs` against the running image
 
 ## CI
 `.github/workflows/ci.yml` runs three jobs on every push and PR:
@@ -181,5 +203,8 @@ Branch protection: deliberately NOT enabled — solo, AI-driven project; the CI 
 1. `node_modules/next/dist/docs/` — bundled, version-matched Next.js docs
 2. `node_modules/better-auth/` and the Better Auth README in node_modules — auth APIs
 3. `node_modules/drizzle-orm/` — query builder, types
+4. `features/<slice>/README.md` — every slice has a short doc describing its public API
+5. `docs/architecture.md` — the slice playbook (what goes where + how to add a feature)
+6. `docs/testing.md` — the test pyramid (Vitest+PGLite unit; Playwright e2e)
 
 The bundled docs match installed versions — trust them over recall.
