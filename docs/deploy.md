@@ -81,12 +81,20 @@ Also grab your **Account ID** and **Zone ID** from the right sidebar of any Clou
 
 ## Step 4 — Provision the box
 
-**Cloud VPS (DigitalOcean / Hetzner / Linode / AWS):** create a fresh Ubuntu 24.04+ droplet, paste your SSH public key during provisioning. The image ships with `PermitRootLogin prohibit-password`, password auth off, your key in `/root/.ssh/authorized_keys`. **Nothing else to do.**
-
-**Homelab box:** install Ubuntu 24.04+ Server, set up your sudo user during install (call them whatever — `eduardo`, `pwu`, etc.). Then from your Mac:
+**Prerequisite: an SSH keypair on your dev machine.** If you don't already have one:
 
 ```bash
-# 4a. Install your SSH key for the sudo user.
+ls ~/.ssh/id_ed25519.pub 2>/dev/null || ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519
+```
+
+Then your public key is `~/.ssh/id_ed25519.pub`. View it with `cat ~/.ssh/id_ed25519.pub` — this is what you paste/copy in the two paths below.
+
+**Cloud VPS (DigitalOcean / Hetzner / Linode / AWS):** when creating the droplet, paste the contents of `~/.ssh/id_ed25519.pub` into the "SSH keys" field. The image ships with `PermitRootLogin prohibit-password`, password auth off, your key in `/root/.ssh/authorized_keys`. **Nothing else to do** — `ssh root@<droplet-ip>` works immediately.
+
+**Homelab box:** install Ubuntu 24.04+ Server, set up your sudo user during install (call them whatever — `eduardo`, `pwu`, etc.). Then from your dev machine:
+
+```bash
+# 4a. Install your SSH key for the sudo user (paste their password once).
 ssh-copy-id <sudo-user>@<box-ip>
 
 # 4b. Copy that key into /root/.ssh — this is the key Kamal will use.
