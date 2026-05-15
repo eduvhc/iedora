@@ -162,10 +162,11 @@ proxy.ts                   Next 16 proxy (was middleware)
 drizzle.config.ts
 docker-compose.yml         postgres + redis + localstack
 config/deploy.yml          Kamal 2 deploy config — app + 4 accessories (postgres, redis, minio, cloudflared)
-.kamal/secrets             shell-evaluated references: TUNNEL_TOKEN from tofu, KAMAL_REGISTRY_PASSWORD from `gh auth token`, rest from .env
+.kamal/secrets             shell-evaluated references: TUNNEL_TOKEN from tofu, KAMAL_REGISTRY_PASSWORD from `gh auth token`, rest from .env.deploy
+.env.example               dev template — copy to .env.local (Next.js dev)
+.env.deploy.example        infra template — copy to .env.deploy (Tofu + Kamal; NOT loaded by Next, so infra creds never leak via process.env)
 infra/
-  .env.example             single source of truth — copy to .env (gitignored), fill in 7 inputs + 4 generated secrets
-  tofu/                    Cloudflare tunnel + DNS + ingress (state encrypted, public_hostname from TF_VAR_)
+  tofu/                    Cloudflare tunnel + DNS + ingress + R2 bucket (state encrypted, public_hostname from TF_VAR_)
 scripts/
   migrate.mjs              Drizzle migrations under pg_advisory_lock
   check-migrations.ts      dev-time guardrail; warns when journal has pending migrations
@@ -193,10 +194,10 @@ tests/e2e/
 - `bun run auth:generate` — sync Better Auth tables into `shared/db/schema.ts` (re-run after changing auth plugins)
 - `docker compose up -d` — start Postgres + Redis + LocalStack (S3)
 - `bunx shadcn@latest add <name>` — add a shadcn component
-- `cp .env.example .env` — single config file (gitignored). Fill in 7 user inputs + 4 hand-generated secrets (`openssl rand -hex 32`); no script auto-generates them.
+- `cp .env.deploy.example .env.deploy` — infra config (gitignored, NOT loaded by Next.js). Fill in 7 user inputs + 4 hand-generated secrets (`openssl rand -hex 32`). The matching `.env.local` (for Next dev) is separate so Cloudflare/R2 creds never reach Next's `process.env`.
 - **First-time setup** (once, manual): `ssh-copy-id root@$ONPREM_HOST` (Kamal's canonical SSH user — root with key-only login); `gh auth refresh -s write:packages`; then `make deploy`. See `docs/deploy.md` for the homelab key-copy step when root SSH isn't already enabled.
 - `make deploy` — single command, idempotent. Internally: `tofu apply` + `kamal setup` (= server bootstrap + accessory boot all + deploy). ~10s overhead on subsequent runs from the no-op idempotence checks; acceptable for not having to remember a separate first-time command.
-- `make logs` / `make console` / `make redeploy` / `make rollback` / `make migrate` — direct `kamal` calls with .env loaded via `-include`.
+- `make logs` / `make console` / `make redeploy` / `make rollback` / `make migrate` — direct `kamal` calls with .env.deploy loaded via `-include`.
 - `make destroy` — `tofu destroy`: removes Cloudflare tunnel + DNS only (does not touch the box)
 - `make help` — list every target
 

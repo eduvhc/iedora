@@ -12,7 +12,7 @@ The R2 bucket itself is provisioned by Tofu (`cloudflare_r2_bucket.backups` in `
    - Permission: **Object Read & Write**
    - Scope: **specific bucket** → `meta-menu-backups`
    - TTL: indefinite (rotate later if compromised)
-2. Copy the **Access Key ID** and **Secret Access Key** Cloudflare shows once. Paste into `.env`:
+2. Copy the **Access Key ID** and **Secret Access Key** Cloudflare shows once. Paste into `.env.deploy`:
    ```bash
    R2_ACCESS_KEY_ID=...
    R2_SECRET_ACCESS_KEY=...
@@ -86,7 +86,7 @@ Same flow as the [Hetzner migration](./scaling.md#3-migration-move-entirely-to-a
 
 ```bash
 # 1. Provision new box, get root SSH working (docs/deploy.md step 4)
-# 2. .env: ONPREM_HOST=<new-ip>
+# 2. .env.deploy: ONPREM_HOST=<new-ip>
 # 3. make deploy           # tofu re-points the tunnel, Kamal boots fresh stack on new box
 # 4. make restore          # pulls latest dump from R2, restores into the new postgres
 # 5. make migrate          # apply any migrations newer than the dump captured

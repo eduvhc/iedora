@@ -1,8 +1,12 @@
 .PHONY: help deploy destroy tofu-apply logs console redeploy rollback migrate backup restore
 
-# Single source of truth: .env at the repo root. `-include` (with the dash)
-# won't error on first-clone state; `export` makes values visible to subprocesses.
--include .env
+# Single source of truth for deploy: .env.deploy at the repo root.
+# Distinct filename keeps Next.js's auto-loader (.env, .env.local, .env.<env>)
+# from picking up infra creds — if Next leaks `process.env`, Cloudflare/R2
+# tokens are not in scope.
+# `-include` (with the dash) won't error on first-clone state; `export` makes
+# values visible to subprocesses.
+-include .env.deploy
 export
 
 # Kamal is a Ruby gem. On Linux with `sudo gem install`, the binary lands in
@@ -15,7 +19,7 @@ KAMAL_GEM_BIN := $(firstword \
   $(wildcard $(HOME)/.gem/ruby/*/bin) \
   $(wildcard $(HOME)/.rbenv/versions/*/bin))
 
-# Pipe .env values into TF_VAR_ names so we don't repeat them in Tofu.
+# Pipe .env.deploy values into TF_VAR_ names so we don't repeat them in Tofu.
 # ASSETS_HOSTNAME isn't needed here — deploy.yml derives it inline from
 # PUBLIC_HOSTNAME, and Tofu derives it from its own var.public_hostname.
 export TF_VAR_account_id            := $(CLOUDFLARE_ACCOUNT_ID)
@@ -29,7 +33,7 @@ KAMAL := $(if $(KAMAL_GEM_BIN),PATH="$(KAMAL_GEM_BIN):$$PATH" )kamal
 
 help:  ## Show this help
 	@echo "First-time setup (once, manual):"
-	@echo "  1. cp .env.example .env  &&  edit (7 inputs + 4 generated secrets)"
+	@echo "  1. cp .env.deploy.example .env.deploy  &&  edit (infra creds + prod secrets)"
 	@echo "  2. ssh-copy-id root@\$$ONPREM_HOST   (cloud VPS images ship with this already; homelab needs it once)"
 	@echo "  3. gh auth refresh -s write:packages"
 	@echo "  4. make deploy"
