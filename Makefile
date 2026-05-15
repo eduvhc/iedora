@@ -55,9 +55,9 @@ help:  ## Show this help
 deploy: tofu-apply  ## Build + push to GHCR + deploy
 	$(KAMAL) deploy
 
-setup: tofu-apply  ## First-time: install Docker on the box, boot accessories, deploy
+setup: tofu-apply  ## First-time: install Docker on the box, (re)boot accessories, deploy
 	$(KAMAL) server bootstrap
-	$(KAMAL) accessory boot all
+	$(KAMAL) accessory reboot all -y
 	$(KAMAL) deploy
 
 tofu-apply:
