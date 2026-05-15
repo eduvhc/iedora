@@ -194,8 +194,8 @@ tests/e2e/
 - `docker compose up -d` — start Postgres + Redis + LocalStack (S3)
 - `bunx shadcn@latest add <name>` — add a shadcn component
 - `cp .env.example .env` — single config file (gitignored). Fill in 7 user inputs + 4 hand-generated secrets (`openssl rand -hex 32`); no script auto-generates them.
-- **First-time setup** (once, manual): `ssh-copy-id root@$ONPREM_HOST` (Kamal's canonical SSH user — root with key-only login); `gh auth refresh -s write:packages`; then `make setup` (= `tofu apply` + `kamal server bootstrap` + `kamal accessory boot all` + `kamal deploy`). See `docs/deploy.md` for the homelab key-copy step when root SSH isn't already enabled.
-- `make deploy` — `tofu apply` + `kamal deploy`. Native make recipes; no shell-script wrapper.
+- **First-time setup** (once, manual): `ssh-copy-id root@$ONPREM_HOST` (Kamal's canonical SSH user — root with key-only login); `gh auth refresh -s write:packages`; then `make deploy`. See `docs/deploy.md` for the homelab key-copy step when root SSH isn't already enabled.
+- `make deploy` — single command, idempotent. Internally: `tofu apply` + `kamal setup` (= server bootstrap + accessory boot all + deploy). ~10s overhead on subsequent runs from the no-op idempotence checks; acceptable for not having to remember a separate first-time command.
 - `make logs` / `make console` / `make redeploy` / `make rollback` / `make migrate` — direct `kamal` calls with .env loaded via `-include`.
 - `make destroy` — `tofu destroy`: removes Cloudflare tunnel + DNS only (does not touch the box)
 - `make help` — list every target

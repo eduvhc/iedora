@@ -149,34 +149,25 @@ Keep `.env` in your password manager — it holds everything needed to redeploy 
 
 ---
 
-## Step 6 — First deploy
-
-```bash
-make setup
-```
-
-That single command does, in order:
-
-1. **`tofu apply`** — creates the Cloudflare Tunnel + 2 ingress rules + 2 DNS CNAMEs.
-2. **`kamal server bootstrap`** — installs Docker on the box (via `get.docker.com` as root).
-3. **`kamal accessory boot all`** — boots postgres, redis, minio, cloudflared.
-4. **`kamal deploy`** — builds the image natively on the box (amd64, no QEMU on the Mac via `builder.remote`), pushes to GHCR, pulls on the box, starts the app container.
-
-The app container's start command is `node scripts/migrate.mjs && node server.js` — Drizzle migrations run under a `pg_advisory_lock` (safe across multiple replicas) before the server boots.
-
-Total time: **5–10 min** the first time (cold image build). Subsequent deploys are 1–2 min with the build cache.
-
-When it finishes, hit `https://$PUBLIC_HOSTNAME/up` — should return `{"ok":true,"db":"ok"}`.
-
----
-
-## Step 7 — Subsequent deploys
+## Step 6 — Deploy
 
 ```bash
 make deploy
 ```
 
-`tofu apply` (idempotent) + `kamal deploy`. Build is cached on the box; only changed source layers rebuild.
+Same command for first-time AND every-other-time. Internally it runs:
+
+1. **`tofu apply`** — creates (or updates) the Cloudflare Tunnel + 2 ingress rules + 2 DNS CNAMEs.
+2. **`kamal setup`** — Kamal's idempotent first-time-or-anytime command:
+   - `kamal server bootstrap` — installs Docker on the box if not already (no-op on subsequent runs).
+   - `kamal accessory boot all` — boots postgres, redis, minio, cloudflared (no-op if already running).
+   - `kamal deploy` — builds the image natively on the box (amd64, no QEMU on the Mac via `builder.remote`), pushes to GHCR, pulls on the box, starts the app container.
+
+The app container's start command is `node scripts/migrate.mjs && node server.js` — Drizzle migrations run under a `pg_advisory_lock` (safe across multiple replicas) before the server boots.
+
+Total time: **5–10 min** the first time (cold image build). Subsequent deploys are 1–2 min with the build cache (the no-op setup checks add ~10s — acceptable for not having two commands to remember).
+
+When it finishes, hit `https://$PUBLIC_HOSTNAME/up` — should return `{"ok":true,"db":"ok"}`.
 
 ---
 
@@ -249,7 +240,7 @@ scripts/migrate.mjs                  Drizzle migrator with pg_advisory_lock
 
 **GHCR push returns "denied"** — `gh auth status` must show `write:packages` in the scopes line. Re-run step 2.
 
-**`cloudflared` accessory restart-loops** — stale tunnel token cached on the box. `tofu apply` produces the current token; `kamal deploy` should pick it up. If it doesn't, `make destroy && make setup` recreates from scratch (the box's Docker volumes for postgres/minio survive).
+**`cloudflared` reports 1033 or restart-loops after `make destroy && make deploy`** — `kamal accessory boot` (called inside `kamal setup`) is idempotent but skips containers that already exist, even Exited ones. The cloudflared container with the dead tunnel token sits there. Fix: `kamal accessory reboot cloudflared` (force-recreate). One-shot, not a recurring problem.
 
 **502 from the tunnel** — `docker network inspect kamal` on the box should list 5 containers (kamal-proxy + 4 accessories + the app). If one's missing: `kamal accessory boot <name>` for that accessory, or check `kamal logs` for the app.
 

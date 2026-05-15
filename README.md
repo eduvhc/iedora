@@ -71,8 +71,7 @@ scripts/     migrate.mjs, check-migrations.ts
 | `bun run db:migrate` | Apply pending migrations |
 | `cp .env.example .env` | (Prereq, one-time) fill in Cloudflare creds + box + GHCR user + 4 generated secrets |
 | `ssh-copy-id root@$ONPREM_HOST` | (Prereq, one-time) install your SSH pubkey for root (Kamal's canonical SSH user) |
-| `make setup` | First-time: `tofu apply` + `kamal server bootstrap` + boot accessories + `kamal deploy` |
-| `make deploy` | Every other time: `tofu apply` + `kamal deploy` |
+| `make deploy` | `tofu apply` + `kamal setup` — idempotent, same command for first-time and every-other-time |
 
 `make help` lists every target.
 

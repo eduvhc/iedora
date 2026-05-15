@@ -1,4 +1,4 @@
-.PHONY: help deploy setup destroy tofu-apply logs console redeploy rollback migrate
+.PHONY: help deploy destroy tofu-apply logs console redeploy rollback migrate
 
 # Single source of truth: .env at the repo root. `-include` (with the dash)
 # won't error on first-clone state; `export` makes values visible to subprocesses.
@@ -33,14 +33,14 @@ help:  ## Show this help
 	@echo "  1. cp .env.example .env  &&  edit (7 inputs + 4 generated secrets)"
 	@echo "  2. ssh-copy-id root@\$$ONPREM_HOST   (cloud VPS images ship with this already; homelab needs it once)"
 	@echo "  3. gh auth refresh -s write:packages"
-	@echo "  4. make setup"
+	@echo "  4. make deploy"
 	@echo ""
 	@echo "  Note: Kamal connects as root with SSH-key-only login — that's the gem's design"
 	@echo "  (kamal server bootstrap installs Docker via get.docker.com which needs root)."
 	@echo "  Use a separate sudo human user (pwu/eduardo/...) for ad-hoc admin."
 	@echo ""
 	@echo "Deploy:"
-	@echo "  make deploy           - tofu apply + kamal deploy"
+	@echo "  make deploy           - tofu apply + kamal setup (idempotent; first-time AND every-other-time)"
 	@echo ""
 	@echo "Day-to-day:"
 	@echo "  make logs             - tail app logs"
@@ -52,13 +52,13 @@ help:  ## Show this help
 	@echo "Teardown:"
 	@echo "  make destroy          - remove Cloudflare tunnel + DNS (does not touch the box)"
 
-deploy: tofu-apply  ## Build + push to GHCR + deploy
-	$(KAMAL) deploy
-
-setup: tofu-apply  ## First-time: install Docker on the box, (re)boot accessories, deploy
-	$(KAMAL) server bootstrap
-	$(KAMAL) accessory reboot all -y
-	$(KAMAL) deploy
+# `kamal setup` internally does: server bootstrap + accessory boot all + deploy.
+# Each step is idempotent on already-set-up boxes (~10s no-op overhead vs plain
+# `kamal deploy`). Tradeoff: accessory boot SKIPS containers that already exist
+# even when Exited — if cloudflared has a stale tunnel token after `make
+# destroy`, run `kamal accessory reboot cloudflared` once.
+deploy: tofu-apply  ## Build + push + deploy (idempotent; first-time + every-other-time)
+	$(KAMAL) setup
 
 tofu-apply:
 	@$(TOFU) init -upgrade -input=false >/dev/null
