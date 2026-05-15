@@ -1,4 +1,4 @@
-.PHONY: help deploy destroy tofu-apply logs console redeploy rollback migrate backup restore build-backup
+.PHONY: help deploy destroy tofu-apply logs console redeploy rollback migrate backup restore build-backup rotate
 
 # Single source of truth for deploy: .env.deploy at the repo root.
 # Distinct filename keeps Next.js's auto-loader (.env, .env.local, .env.<env>)
@@ -52,6 +52,9 @@ help:  ## Show this help
 	@echo "  make redeploy         - re-pull current image, no rebuild"
 	@echo "  make rollback         - rollback to previous version"
 	@echo ""
+	@echo "Maintenance:"
+	@echo "  make rotate           - rotate all Tofu-managed tokens (R2 + tunnel); ~5-10s tunnel blip"
+	@echo ""
 	@echo "Teardown:"
 	@echo "  make destroy          - remove Cloudflare tunnel + DNS (does not touch the box)"
 
@@ -69,6 +72,22 @@ tofu-apply:
 
 destroy:  ## Tofu destroy: removes Cloudflare tunnel + DNS only
 	$(TOFU) destroy -auto-approve
+
+# Replace Tofu-managed tokens with fresh values, then reboot the accessories
+# that consume them so they pick up the new secrets. ~5-10s of public-traffic
+# disruption while cloudflared reconnects to the new tunnel.
+# Run after any suspected leak (chat transcript, log, etc.) or on a schedule
+# (every 90 days is fine). Things this does NOT rotate (require dedicated
+# flows): BACKUP_PASSPHRASE (invalidates past dumps), BETTER_AUTH_SECRET
+# (logs every user out), POSTGRES/MINIO passwords (coordinated config swap).
+rotate:  ## Rotate all Tofu-managed tokens (R2 S3 keys + tunnel). ~30-60s public-traffic blip.
+	# Cloudflare refuses to destroy a tunnel with active connections — stop cloudflared first.
+	$(KAMAL) accessory stop cloudflared
+	$(TOFU) apply -auto-approve \
+	  -replace=cloudflare_api_token.backups_r2 \
+	  -replace=cloudflare_zero_trust_tunnel_cloudflared.menu
+	$(KAMAL) accessory reboot backups
+	$(KAMAL) accessory reboot cloudflared
 
 logs:      ; $(KAMAL) app logs -f
 console:   ; $(KAMAL) app exec --interactive --reuse bash
