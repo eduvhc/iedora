@@ -1,4 +1,4 @@
-.PHONY: help deploy destroy tofu-apply logs console redeploy rollback migrate backup restore
+.PHONY: help deploy destroy tofu-apply logs console redeploy rollback migrate backup restore build-backup
 
 # Single source of truth for deploy: .env.deploy at the repo root.
 # Distinct filename keeps Next.js's auto-loader (.env, .env.local, .env.<env>)
@@ -75,5 +75,18 @@ console:   ; $(KAMAL) app exec --interactive --reuse bash
 redeploy:  ; $(KAMAL) redeploy
 rollback:  ; $(KAMAL) rollback
 migrate:   ; $(KAMAL) app exec --reuse "node scripts/migrate.mjs"
-backup:    ; $(KAMAL) accessory exec backups --reuse "sh /app/backup.sh"  ## Force a pg_dump now (cron runs daily anyway)
-restore:   ; $(KAMAL) accessory exec backups --interactive --reuse "sh /app/restore.sh"  ## Restore latest dump (interactive)
+backup:    ; $(KAMAL) accessory exec backups --reuse "sh /backup.sh"  ## Force a pg_dump now (cron runs daily anyway)
+restore:   ; $(KAMAL) accessory exec backups --interactive --reuse "sh /restore.sh"  ## Restore latest dump (interactive)
+
+# Build + push the backup accessory image (postgres:18-alpine + aws-cli + gpg).
+# Re-run when bumping postgres major or editing infra/backup/*.sh.
+# Uses the homelab box's docker (via remote context) so we get amd64 natively.
+build-backup:  ## Build + push ghcr.io/$GHCR_USER/meta-menu-backup:18
+	@echo "Logging into GHCR..."
+	@echo "$$(gh auth token)" | docker login ghcr.io -u "$(GHCR_USER)" --password-stdin
+	@echo "Building + pushing ghcr.io/$(GHCR_USER)/meta-menu-backup:18..."
+	docker buildx build \
+	  --platform linux/amd64 \
+	  --tag "ghcr.io/$(GHCR_USER)/meta-menu-backup:18" \
+	  --push \
+	  infra/backup

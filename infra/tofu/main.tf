@@ -71,15 +71,43 @@ resource "cloudflare_dns_record" "assets" {
   proxied = true
 }
 
-# ── R2 bucket for Postgres dumps ──────────────────────────────────────────────
-# The bucket is declarative; the S3 access keys are NOT (the Cloudflare TF
-# provider doesn't expose R2 S3 token creation as of v5.x — 2026). Create the
-# token once in the dashboard at Cloudflare → R2 → Manage R2 API Tokens with
-# scope "Object Read & Write" for this bucket. Paste Access Key ID + Secret
-# into .env as R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY.
+# ── R2 bucket + S3 token for Postgres dumps ───────────────────────────────────
+# Cloudflare's R2 S3 API accepts a regular Cloudflare API token as credentials:
+#   Access Key ID    = the token's ID
+#   Secret Access Key = SHA-256(token value)
+# Docs: https://developers.cloudflare.com/r2/api/tokens/
+# This means a single `tofu apply` provisions both the bucket and the keys
+# the backups accessory uses — no manual dashboard step.
 
 resource "cloudflare_r2_bucket" "backups" {
   account_id = var.account_id
   name       = var.backups_bucket_name
   location   = var.backups_bucket_location
+}
+
+# Permission group UUID for "Workers R2 Storage Bucket Item Write". These
+# IDs are global to Cloudflare (not per-account) and stable. Looked up once
+# via the API: GET /user/tokens/permission_groups | grep "R2 Storage Bucket Item Write".
+# `cloudflare_account_permission_groups` data source queries a different
+# endpoint (account roles, not API-token perms) so it returns empty here.
+locals {
+  permission_group_r2_bucket_item_write = "2efd5506f9c8494dacb1fa10a3e7d5b6"
+}
+
+resource "cloudflare_api_token" "backups_r2" {
+  name = "${var.tunnel_name}-backups-r2"
+
+  policies = [{
+    effect = "allow"
+    permission_groups = [
+      { id = local.permission_group_r2_bucket_item_write }
+    ]
+    # Account-level scope; the permission group itself limits to R2 object
+    # write. Bucket-level scoping requires guessing Cloudflare's internal
+    # URN format — account scope is safer and slightly broader (Eduardo's
+    # account has only one R2 bucket today, so the difference is moot).
+    resources = jsonencode({
+      "com.cloudflare.api.account.${var.account_id}" = "*"
+    })
+  }]
 }

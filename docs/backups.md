@@ -1,33 +1,33 @@
 # Backups — daily Postgres dumps to Cloudflare R2
 
-A `backups` Kamal accessory runs [`eeshugerman/postgres-backup-s3`](https://github.com/eeshugerman/postgres-backup-s3) on the same network as the `postgres` accessory. Daily at 00:00 UTC it `pg_dump`s the `metamenu` database, GPG-encrypts the dump with `BACKUP_PASSPHRASE`, and uploads to a Cloudflare R2 bucket. 14-day retention. ~€0/yr at our size (R2 free tier ≤ 10 GB + zero egress).
+A `backups` Kamal accessory runs a self-built image based on `postgres:18-alpine` (source: `infra/backup/`) on the same network as the `postgres` accessory. Daily it `pg_dump`s the `metamenu` database, GPG-encrypts the dump with `BACKUP_PASSPHRASE`, and uploads to a Cloudflare R2 bucket. 14-day retention. ~€0/yr at our size (R2 free tier ≤ 10 GB + zero egress).
 
-> **Version skew note** — upstream `eeshugerman/postgres-backup-s3` stops at tag `:16` as of mid-2026; our server runs `postgres:18-alpine`. pg_dump 16 against PG 18 works for our plain Drizzle schema (no PG-17/18-specific features in use). Bump the tag when upstream ships 17/18, or self-build from `postgres:18-alpine` if we ever lean on PG 18 features.
+> **Why self-built** — the canonical community image `eeshugerman/postgres-backup-s3` stops at tag `:16` upstream as of mid-2026. Postgres rejects pg_dump version mismatch outright, so a 16-client image can't dump our PG 18 server. The self-built image (~40 lines of bash + a 7-line Dockerfile based on `postgres:18-alpine`) guarantees client/server version parity. When you bump Postgres, bump the image tag here too and run `make build-backup`.
 
 Kamal itself doesn't manage backups — this is the canonical "use an accessory" pattern (confirmed across discussions [#654](https://github.com/basecamp/kamal/discussions/654), [#1150](https://github.com/basecamp/kamal/discussions/1150), [#1240](https://github.com/basecamp/kamal/discussions/1240), [#1414](https://github.com/basecamp/kamal/discussions/1414)).
 
-## One-time setup (after the bucket exists)
+## One-time setup
 
-The R2 bucket itself is provisioned by Tofu (`cloudflare_r2_bucket.backups` in `infra/tofu/main.tf`). Created on first `make deploy`. The Cloudflare TF provider doesn't expose R2 *S3 token* creation, so the access keys are a manual one-time step:
+Tofu provisions BOTH the R2 bucket AND the S3 access keys via a single `cloudflare_api_token` resource — Cloudflare's R2 S3 API accepts a regular Cloudflare API token as credentials (Access Key ID = token ID, Secret = SHA-256(token value), see [docs](https://developers.cloudflare.com/r2/api/tokens/)). `.kamal/secrets` reads both from `tofu output -raw`, same shape as `TUNNEL_TOKEN`. No dashboard interaction.
 
-1. **Cloudflare dashboard → R2 → Manage R2 API Tokens → Create**
-   - Permission: **Object Read & Write**
-   - Scope: **specific bucket** → `meta-menu-backups`
-   - TTL: indefinite (rotate later if compromised)
-2. Copy the **Access Key ID** and **Secret Access Key** Cloudflare shows once. Paste into `.env.deploy`:
-   ```bash
-   R2_ACCESS_KEY_ID=...
-   R2_SECRET_ACCESS_KEY=...
-   BACKUP_PASSPHRASE=$(openssl rand -hex 32)
-   ```
-3. Add the `Workers R2 Storage · Edit` permission to your existing `CLOUDFLARE_API_TOKEN` if it's missing (Tofu needs this to manage the bucket). Edit the token at: dashboard → Profile → API Tokens → your token.
-4. `make deploy` — Tofu creates the bucket, Kamal boots the `backups` accessory.
+Prerequisite: your existing `CLOUDFLARE_API_TOKEN` needs **User · API Tokens · Edit** added (so Tofu can create the R2 sub-token). The other required scopes are listed in `.env.deploy.example`.
 
-Verify:
+The one value you provide yourself: `BACKUP_PASSPHRASE` in `.env.deploy` — the GPG passphrase that encrypts each dump. **Save it to your password manager** the moment you generate it. Lose the passphrase = lose the ability to decrypt past backups.
+
 ```bash
-kamal accessory logs backups
-# Expect: "Cron job set for: @daily"
+# generate once, paste into .env.deploy, copy to password manager:
+openssl rand -hex 32
 ```
+
+Then:
+
+```bash
+make build-backup   # one-off: build + push ghcr.io/$GHCR_USER/meta-menu-backup:18
+make deploy         # Tofu creates bucket + R2 token; Kamal boots the accessory
+make backup         # force an immediate dump to verify end-to-end
+```
+
+`make build-backup` only needs to be re-run when the Postgres major changes (bump the tag in `config/deploy.yml` to match) or when `infra/backup/*.sh` is edited.
 
 ## Forcing an on-demand backup
 

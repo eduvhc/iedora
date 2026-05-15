@@ -129,15 +129,13 @@ accessories:
         - TUNNEL_TOKEN
 
   # Daily encrypted pg_dump → Cloudflare R2 (free tier ≤ 10 GB, zero egress).
-  # Image tag would ideally match the Postgres major above, but eeshugerman
-  # stops at :16 as of 2026-05. pg_dump 16 against PG 18 works for plain
-  # schemas (Drizzle-managed tables, no PG-17/18 features). When upstream
-  # ships :17 or :18, bump the tag. Long-term: self-build from postgres:18-alpine.
-  # The container expects S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY / PASSPHRASE
-  # — mapped in .kamal/secrets from .env.deploy's R2_* + BACKUP_PASSPHRASE.
-  # Restore: `kamal accessory exec backups --interactive --reuse "sh /restore.sh"`.
+  # Self-built image (infra/backup/Dockerfile) based on postgres:18-alpine
+  # so pg_dump's version matches the server exactly — eeshugerman/postgres-
+  # backup-s3 stops at :16 upstream, and PG rejects mismatched dumps outright.
+  # Build/push via `make build-backup` (one-off; rerun when bumping Postgres).
+  # Restore: `make restore` or `kamal accessory exec backups -i --reuse "sh /restore.sh"`.
   backups:
-    image: eeshugerman/postgres-backup-s3:16
+    image: ghcr.io/<%= ENV.fetch("GHCR_USER") %>/meta-menu-backup:18
     host: <%= ENV.fetch("ONPREM_HOST") %>
     env:
       clear:
