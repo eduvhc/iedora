@@ -127,3 +127,28 @@ accessories:
     env:
       secret:
         - TUNNEL_TOKEN
+
+  # Daily encrypted pg_dump → Cloudflare R2 (free tier ≤ 10 GB, zero egress).
+  # Image tag MUST match Postgres major (18 ⇆ postgres:18-alpine above).
+  # The container expects S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY / PASSPHRASE
+  # — those names are mapped in .kamal/secrets to .env's R2_* + BACKUP_PASSPHRASE.
+  # Restore: `kamal accessory exec backups --interactive --reuse "sh /restore.sh"`.
+  backups:
+    image: eeshugerman/postgres-backup-s3:18
+    host: <%= ENV.fetch("ONPREM_HOST") %>
+    env:
+      clear:
+        SCHEDULE: "@daily"
+        BACKUP_KEEP_DAYS: "14"
+        S3_REGION: auto
+        S3_ENDPOINT: https://<%= ENV.fetch("CLOUDFLARE_ACCOUNT_ID") %>.r2.cloudflarestorage.com
+        S3_BUCKET: <%= ENV.fetch("R2_BUCKET_NAME", "meta-menu-backups") %>
+        S3_PREFIX: pg
+        POSTGRES_HOST: meta-menu-postgres
+        POSTGRES_DATABASE: metamenu
+        POSTGRES_USER: postgres
+      secret:
+        - POSTGRES_PASSWORD
+        - S3_ACCESS_KEY_ID
+        - S3_SECRET_ACCESS_KEY
+        - PASSPHRASE

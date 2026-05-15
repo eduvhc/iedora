@@ -62,3 +62,15 @@ variable "assets_hostname" {
   type        = string
   default     = null
 }
+
+variable "backups_bucket_name" {
+  description = "Cloudflare R2 bucket name for Postgres dumps. Must be globally unique within your account."
+  type        = string
+  default     = "meta-menu-backups"
+}
+
+variable "backups_bucket_location" {
+  description = "R2 location hint (auto = closest, EUR/EEUR = Europe). See Cloudflare R2 docs."
+  type        = string
+  default     = "EEUR"
+}

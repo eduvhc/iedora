@@ -18,3 +18,13 @@ output "tunnel_token" {
   value       = data.cloudflare_zero_trust_tunnel_cloudflared_token.menu.token
   sensitive   = true
 }
+
+output "r2_bucket_name" {
+  description = "Name of the R2 bucket holding Postgres dumps."
+  value       = cloudflare_r2_bucket.backups.name
+}
+
+output "r2_account_id" {
+  description = "Cloudflare account ID — used to derive the S3 endpoint URL https://<account_id>.r2.cloudflarestorage.com."
+  value       = var.account_id
+}

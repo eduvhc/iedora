@@ -70,3 +70,16 @@ resource "cloudflare_dns_record" "assets" {
   ttl     = 1
   proxied = true
 }
+
+# ── R2 bucket for Postgres dumps ──────────────────────────────────────────────
+# The bucket is declarative; the S3 access keys are NOT (the Cloudflare TF
+# provider doesn't expose R2 S3 token creation as of v5.x — 2026). Create the
+# token once in the dashboard at Cloudflare → R2 → Manage R2 API Tokens with
+# scope "Object Read & Write" for this bucket. Paste Access Key ID + Secret
+# into .env as R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY.
+
+resource "cloudflare_r2_bucket" "backups" {
+  account_id = var.account_id
+  name       = var.backups_bucket_name
+  location   = var.backups_bucket_location
+}

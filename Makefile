@@ -1,4 +1,4 @@
-.PHONY: help deploy destroy tofu-apply logs console redeploy rollback migrate
+.PHONY: help deploy destroy tofu-apply logs console redeploy rollback migrate backup restore
 
 # Single source of truth: .env at the repo root. `-include` (with the dash)
 # won't error on first-clone state; `export` makes values visible to subprocesses.
@@ -71,3 +71,5 @@ console:   ; $(KAMAL) app exec --interactive --reuse bash
 redeploy:  ; $(KAMAL) redeploy
 rollback:  ; $(KAMAL) rollback
 migrate:   ; $(KAMAL) app exec --reuse "node scripts/migrate.mjs"
+backup:    ; $(KAMAL) accessory exec backups --reuse "sh /app/backup.sh"  ## Force a pg_dump now (cron runs daily anyway)
+restore:   ; $(KAMAL) accessory exec backups --interactive --reuse "sh /app/restore.sh"  ## Restore latest dump (interactive)

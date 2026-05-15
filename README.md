@@ -21,6 +21,7 @@ bun run dev
 - **[`docs/testing.md`](docs/testing.md)** — Vitest + PGLite unit tests, Playwright e2e.
 - **[`docs/deploy.md`](docs/deploy.md)** — single-box self-host: Kamal 2 + Cloudflare Tunnel, brand-new-machine walkthrough.
 - **[`docs/scaling.md`](docs/scaling.md)** — when one box isn't enough: vertical, Hetzner migration, multi-host via Tailscale.
+- **[`docs/backups.md`](docs/backups.md)** — daily Postgres dumps to Cloudflare R2 via a Kamal accessory + recovery procedures.
 
 ## License
 
