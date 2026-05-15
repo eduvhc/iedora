@@ -10,12 +10,12 @@ Kamal itself doesn't manage backups — this is the canonical "use an accessory"
 
 Tofu provisions BOTH the R2 bucket AND the S3 access keys via a single `cloudflare_api_token` resource — Cloudflare's R2 S3 API accepts a regular Cloudflare API token as credentials (Access Key ID = token ID, Secret = SHA-256(token value), see [docs](https://developers.cloudflare.com/r2/api/tokens/)). `.kamal/secrets` reads both from `tofu output -raw`, same shape as `TUNNEL_TOKEN`. No dashboard interaction.
 
-Prerequisite: your existing `CLOUDFLARE_API_TOKEN` needs **User · API Tokens · Edit** added (so Tofu can create the R2 sub-token). The other required scopes are listed in `.env.deploy.example`.
+Prerequisite: your existing `CLOUDFLARE_API_TOKEN` needs **User · API Tokens · Edit** added (so Tofu can create the R2 sub-token). The other required scopes are listed in `infra/.env.example`.
 
-The one value you provide yourself: `BACKUP_PASSPHRASE` in `.env.deploy` — the GPG passphrase that encrypts each dump. **Save it to your password manager** the moment you generate it. Lose the passphrase = lose the ability to decrypt past backups.
+The one value you provide yourself: `BACKUP_PASSPHRASE` in `infra/.env` — the GPG passphrase that encrypts each dump. **Save it to your password manager** the moment you generate it. Lose the passphrase = lose the ability to decrypt past backups.
 
 ```bash
-# generate once, paste into .env.deploy, copy to password manager:
+# generate once, paste into infra/.env, copy to password manager:
 openssl rand -hex 32
 ```
 
@@ -27,7 +27,7 @@ make deploy         # Tofu creates bucket + R2 token; Kamal boots the accessory
 make backup         # force an immediate dump to verify end-to-end
 ```
 
-`make build-backup` only needs to be re-run when the Postgres major changes (bump the tag in `config/deploy.yml` to match) or when `infra/backup/*.sh` is edited.
+`make build-backup` only needs to be re-run when the Postgres major changes (bump the tag in `infra/kamal/config/deploy.yml` to match) or when `infra/backup/*.sh` is edited.
 
 ## Forcing an on-demand backup
 
@@ -88,7 +88,7 @@ Same flow as the [Hetzner migration](./scaling.md#3-migration-move-entirely-to-a
 
 ```bash
 # 1. Provision new box, get root SSH working (docs/deploy.md step 4)
-# 2. .env.deploy: ONPREM_HOST=<new-ip>
+# 2. infra/.env: ONPREM_HOST=<new-ip>
 # 3. make deploy           # tofu re-points the tunnel, Kamal boots fresh stack on new box
 # 4. make restore          # pulls latest dump from R2, restores into the new postgres
 # 5. make migrate          # apply any migrations newer than the dump captured

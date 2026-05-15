@@ -92,7 +92,7 @@ This is the recommended next step. Do not skip it to chase multi-host.
 Two web boxes, one DB. The DHH-endorsed pattern ([X post](https://x.com/dhh/status/1919681760532586706)): join all hosts to a Tailscale tailnet, address the DB by its tailnet IP, let WireGuard handle the encrypted east-west link.
 
 ```yaml
-# config/deploy.yml — multi-host snippet
+# infra/kamal/config/deploy.yml — multi-host snippet
 servers:
   web:
     hosts:
@@ -165,7 +165,7 @@ tailscale up --ssh --hostname=meta-menu-homelab
 
 Why on the host, not in a container: Tailscale-as-container forces you to share its netns or run sidecars per accessory. Host-level means every container's outbound traffic can reach the tailnet via the host's routing table, no Kamal config changes today.
 
-No `config/deploy.yml` change required now. When you eventually add a second box, the diff is exactly:
+No `infra/kamal/config/deploy.yml` change required now. When you eventually add a second box, the diff is exactly:
 
 ```yaml
 servers:

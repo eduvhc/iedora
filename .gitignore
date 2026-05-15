@@ -37,11 +37,11 @@ yarn-error.log*
 .env
 .env.local
 .env.production
-.env.deploy
 .env.*.local
 !.env.example
-!.env.deploy.example
 !.env.test
+# Infra .env (gitignored); the example file IS tracked.
+infra/.env
 
 # vercel
 .vercel
