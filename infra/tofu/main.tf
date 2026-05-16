@@ -9,9 +9,21 @@
 # carries app traffic.
 
 locals {
+  # The zone is everything after the first dot in public_hostname:
+  # `menu.iedora.com` → `iedora.com`. Looked up live via the Cloudflare API
+  # so we don't carry a redundant CLOUDFLARE_ZONE_ID alongside PUBLIC_HOSTNAME
+  # — change the hostname, the zone follows.
+  zone_name = join(".", slice(split(".", var.public_hostname), 1, length(split(".", var.public_hostname))))
+
   # Default: assets.<rest-of-public-hostname>. Override via var.assets_hostname.
-  derived_assets_hostname = "assets.${join(".", slice(split(".", var.public_hostname), 1, length(split(".", var.public_hostname))))}"
+  derived_assets_hostname = "assets.${local.zone_name}"
   assets_hostname         = coalesce(var.assets_hostname, local.derived_assets_hostname)
+}
+
+data "cloudflare_zone" "this" {
+  filter = {
+    name = local.zone_name
+  }
 }
 
 # ── Cloudflare Tunnel ─────────────────────────────────────────────────────────
@@ -53,7 +65,7 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "menu" {
 # ── DNS — proxied CNAMEs pointing each hostname at the tunnel ─────────────────
 
 resource "cloudflare_dns_record" "menu" {
-  zone_id = var.zone_id
+  zone_id = data.cloudflare_zone.this.id
   name    = var.public_hostname
   type    = "CNAME"
   content = "${cloudflare_zero_trust_tunnel_cloudflared.menu.id}.cfargotunnel.com"
@@ -86,7 +98,7 @@ resource "cloudflare_r2_custom_domain" "assets" {
   account_id  = var.account_id
   bucket_name = cloudflare_r2_bucket.assets.name
   domain      = local.assets_hostname
-  zone_id     = var.zone_id
+  zone_id     = data.cloudflare_zone.this.id
   enabled     = true
   min_tls     = "1.2"
 }

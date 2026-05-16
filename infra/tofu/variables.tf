@@ -2,9 +2,11 @@ variable "cloudflare_api_token" {
   description = <<-EOT
     Cloudflare API token. Permissions:
       - Account · Cloudflare Tunnel · Edit
-      - Zone · DNS · Edit (scoped to var.zone_id)
+      - Zone · DNS · Edit (scoped to the zone holding var.public_hostname)
       - Account · Account Settings · Read
-    Provide via TF_VAR_cloudflare_api_token in .envrc.
+      - Account · Workers R2 Storage · Edit
+      - User · API Tokens · Edit
+    Provide via TF_VAR_cloudflare_api_token (set by bin/with-secrets from BWS).
   EOT
   type        = string
   sensitive   = true
@@ -28,16 +30,6 @@ variable "account_id" {
   validation {
     condition     = can(regex("^[0-9a-f]{32}$", var.account_id))
     error_message = "account_id must be a 32-character hex string."
-  }
-}
-
-variable "zone_id" {
-  description = "Cloudflare zone ID. TF_VAR_zone_id (32-char hex)."
-  type        = string
-
-  validation {
-    condition     = can(regex("^[0-9a-f]{32}$", var.zone_id))
-    error_message = "zone_id must be a 32-character hex string."
   }
 }
 
