@@ -10,7 +10,7 @@ export default function AuthLayout({
       <Link
         href="/"
         className="mb-6 inline-flex items-baseline gap-2 text-foreground no-underline"
-        aria-label="Meta Menu home"
+        aria-label="Menu home"
       >
         <span
           aria-hidden="true"

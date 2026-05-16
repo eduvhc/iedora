@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import "./landing.css";
 
 type LangCode = "en" | "pt" | "es" | "fr";
@@ -38,7 +39,10 @@ type Copy = {
     foot: string;
   };
   closing: { eyebrow: string; h: string; p: string; ctaPrimary: string; ctaGhost: string };
-  footer: { left: string; links: string[] };
+  // `left` accepts inline parts so the "iedora" brand can be a real <a>
+  // pointing at https://iedora.com. Plain strings render as text; objects
+  // render as anchors.
+  footer: { left: (string | { text: string; href: string })[]; links: string[] };
   boa: string;
   editor: { title: string; restaurant: string; item: string; desc: string; section: string; price: string; publish: string; live: string; add: string };
   phone: { eyebrow: string; live: string };
@@ -63,7 +67,7 @@ const COPY: Record<LangCode, Copy> = {
     features: {
       eyebrow: "your menu",
       h: "Three things, done with care.",
-      p: "Meta Menu is small on purpose. It does the menu, the bit guests actually look at, and tries not to do anything else.",
+      p: "Menu is small on purpose. It does the menu, the bit guests actually look at, and tries not to do anything else.",
       items: [
         { n: "i.", h: "One QR. Always today's menu.", p: "Stick a code on the table once. Edit prices, swap a daily special, mark something out of stock. It lands instantly. No reprinting, no Wi-Fi gymnastics." },
         { n: "ii.", h: "Written for guests, not for SEO.", p: "Add translations once and the menu speaks back in the guest's language. Allergens sit in a line under each dish, photos are optional. Reads like a printed menu, not a marketplace listing." },
@@ -105,7 +109,7 @@ const COPY: Record<LangCode, Copy> = {
       ctaPrimary: "Bring your menu over",
       ctaGhost: "Email us instead",
     },
-    footer: { left: "Meta Menu · made in Lisbon", links: ["Privacy", "Contact"] },
+    footer: { left: ["Menu · an ", { text: "iedora", href: "https://iedora.com" }, " product · made in Lisbon"], links: ["Privacy", "Contact"] },
     boa: "Enjoy your meal.",
     editor: { title: "Menu", restaurant: "Restaurant", item: "Item name", desc: "Description", section: "Section", price: "Price (€)", publish: "⌘ S to save", live: "live", add: "+ add item" },
     phone: { eyebrow: "at the table", live: "updated just now" },
@@ -121,7 +125,7 @@ const COPY: Record<LangCode, Copy> = {
     features: {
       eyebrow: "a vossa carta",
       h: "Três coisas, feitas com cuidado.",
-      p: "O Meta Menu é pequeno de propósito. Trata da carta. É isso que os clientes vêem mesmo, e tenta não fazer mais nada.",
+      p: "O Menu é pequeno de propósito. Trata da carta. É isso que os clientes vêem mesmo, e tenta não fazer mais nada.",
       items: [
         { n: "i.", h: "Um QR. A carta de hoje, sempre.", p: "Cole o código na mesa uma vez. Mude preços, troque o prato do dia, marque um esgotado. Chega lá no momento. Sem reimpressão, sem ginástica de Wi-Fi." },
         { n: "ii.", h: "Escrito para o cliente, não para o Google.", p: "Entradas multilingues com um botão, alergénios numa linha por baixo, fotos se quiser. Lê-se como uma carta impressa." },
@@ -163,7 +167,7 @@ const COPY: Record<LangCode, Copy> = {
       ctaPrimary: "Traga a sua carta",
       ctaGhost: "Escreva-nos",
     },
-    footer: { left: "Meta Menu · feito em Lisboa", links: ["Privacidade", "Contacto"] },
+    footer: { left: ["Menu · um produto ", { text: "iedora", href: "https://iedora.com" }, " · feito em Lisboa"], links: ["Privacidade", "Contacto"] },
     boa: "Boa mesa.",
     editor: { title: "Carta", restaurant: "Restaurante", item: "Nome do prato", desc: "Descrição", section: "Secção", price: "Preço (€)", publish: "⌘ S para guardar", live: "ao vivo", add: "+ adicionar" },
     phone: { eyebrow: "à mesa", live: "actualizado agora" },
@@ -179,7 +183,7 @@ const COPY: Record<LangCode, Copy> = {
     features: {
       eyebrow: "vuestra carta",
       h: "Tres cosas, hechas con cuidado.",
-      p: "Meta Menu es pequeño a propósito. Hace la carta, la parte que los clientes miran, y procura no hacer nada más.",
+      p: "Menu es pequeño a propósito. Hace la carta, la parte que los clientes miran, y procura no hacer nada más.",
       items: [
         { n: "i.", h: "Un QR. Siempre la carta de hoy.", p: "Pega el código en la mesa una vez. Cambia precios, intercambia un plato del día, marca un agotado. Aparece al instante." },
         { n: "ii.", h: "Escrito para el cliente, no para Google.", p: "Entradas multilingües con un toque, alérgenos en una línea, fotos opcionales. Se lee como una carta impresa." },
@@ -221,7 +225,7 @@ const COPY: Record<LangCode, Copy> = {
       ctaPrimary: "Trae tu carta",
       ctaGhost: "Escríbenos",
     },
-    footer: { left: "Meta Menu · hecho en Lisboa", links: ["Privacidad", "Contacto"] },
+    footer: { left: ["Menu · un producto ", { text: "iedora", href: "https://iedora.com" }, " · hecho en Lisboa"], links: ["Privacidad", "Contacto"] },
     boa: "Boa mesa.",
     editor: { title: "Carta", restaurant: "Restaurante", item: "Nombre del plato", desc: "Descripción", section: "Sección", price: "Precio (€)", publish: "⌘ S para guardar", live: "en vivo", add: "+ añadir" },
     phone: { eyebrow: "à mesa", live: "actualizado ahora" },
@@ -237,7 +241,7 @@ const COPY: Record<LangCode, Copy> = {
     features: {
       eyebrow: "votre carte",
       h: "Trois choses, faites avec soin.",
-      p: "Meta Menu est petit, c'est voulu. Il s'occupe de la carte, la seule chose que vos clients regardent, et essaie de ne rien faire d'autre.",
+      p: "Menu est petit, c'est voulu. Il s'occupe de la carte, la seule chose que vos clients regardent, et essaie de ne rien faire d'autre.",
       items: [
         { n: "i.", h: "Un QR. Toujours la carte du jour.", p: "Collez le code une fois. Modifiez prix et plats du jour, marquez un épuisé. C'est en ligne aussitôt." },
         { n: "ii.", h: "Écrit pour les clients, pas pour Google.", p: "Entrées multilingues d'un clic, allergènes en une ligne, photos optionnelles. Ça se lit comme une vraie carte." },
@@ -279,7 +283,7 @@ const COPY: Record<LangCode, Copy> = {
       ctaPrimary: "Apportez votre carte",
       ctaGhost: "Écrivez-nous",
     },
-    footer: { left: "Meta Menu · fait à Lisbonne", links: ["Confidentialité", "Contact"] },
+    footer: { left: ["Menu · un produit ", { text: "iedora", href: "https://iedora.com" }, " · fait à Lisbonne"], links: ["Confidentialité", "Contact"] },
     boa: "Boa mesa.",
     editor: { title: "Carte", restaurant: "Restaurant", item: "Nom du plat", desc: "Description", section: "Section", price: "Prix (€)", publish: "⌘ S pour enregistrer", live: "en direct", add: "+ ajouter" },
     phone: { eyebrow: "à mesa", live: "mis à jour à l'instant" },
@@ -404,9 +408,9 @@ function Nav({ c, lang, setLang }: { c: Copy; lang: LangCode; setLang: (l: LangC
   return (
     <nav className="nav" aria-label="Primary">
       <div className="nav-inner">
-        <a className="brand" href="#top" aria-label="Meta Menu home">
+        <a className="brand" href="#top" aria-label="Menu home">
           <span className="mark" aria-hidden="true">⁋</span>
-          <span className="word">Meta <em>Menu</em></span>
+          <span className="word"><em>Menu</em></span>
         </a>
         <ul>
           <li><a href="#features" onClick={(e) => { e.preventDefault(); smoothScrollTo("features"); }}>{c.nav.features}</a></li>
@@ -478,7 +482,7 @@ function EditorMock({ menu, c, highlightId }: { menu: DemoMenu; c: Copy; highlig
       <div className="laptop-screen">
         <div className="laptop-bar">
           <i></i><i></i><i></i>
-          <span className="url">app.metamenu.com / house-tavern / editor</span>
+          <span className="url">menu.iedora.com / house-tavern / editor</span>
         </div>
         <div className="editor">
           <div className="editor-side">
@@ -670,7 +674,7 @@ function Closing({ c }: { c: Copy }) {
           <p>{c.closing.p}</p>
           <div className="hero-ctas" style={{ justifyContent: "center" }}>
             <a className="btn btn-primary" href="/signup">{c.closing.ctaPrimary}</a>
-            <a className="btn btn-ghost" href="mailto:hello@metamenu.com">{c.closing.ctaGhost}</a>
+            <a className="btn btn-ghost" href="mailto:hello@iedora.com">{c.closing.ctaGhost}</a>
           </div>
         </div>
       </section>
@@ -681,10 +685,18 @@ function Closing({ c }: { c: Copy }) {
       </div>
       <footer className="footer">
         <div className="container">
-          <span>{c.footer.left}</span>
+          <span>
+            {c.footer.left.map((part, i) =>
+              typeof part === "string" ? (
+                <React.Fragment key={i}>{part}</React.Fragment>
+              ) : (
+                <Link key={i} href={part.href}>{part.text}</Link>
+              ),
+            )}
+          </span>
           <span className="footer-links">
             {c.footer.links.map((l, i) => <a key={i} href="#">{l}</a>)}
-            <a href="mailto:hello@metamenu.com">hello@metamenu.com</a>
+            <a href="mailto:hello@iedora.com">hello@iedora.com</a>
           </span>
         </div>
       </footer>

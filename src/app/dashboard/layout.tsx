@@ -35,7 +35,7 @@ export default async function DashboardLayout({
           <Link
             href="/dashboard"
             className="inline-flex shrink-0 items-baseline gap-2 text-foreground no-underline"
-            aria-label="Meta Menu home"
+            aria-label="Menu home"
           >
             <span
               aria-hidden="true"

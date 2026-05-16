@@ -35,8 +35,8 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Meta Menu",
-  description: "Build digital restaurant menus with drag-and-drop.",
+  title: { default: "Menu — an iedora product", template: "%s · Menu" },
+  description: "Digital restaurant menus, drag-and-drop. An iedora product.",
 };
 
 export default async function RootLayout({

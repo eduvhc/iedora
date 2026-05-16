@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { RenderProps } from '../../types'
 import { formatPrice } from '../../format'
 
@@ -162,7 +163,16 @@ export function ClassicMenu({ restaurant: r, menus }: RenderProps) {
         className="mt-20 border-t pt-6 text-center text-xs"
         style={{ color: 'var(--menu-secondary)' }}
       >
-        Powered by Meta Menu
+        Powered by Menu · an{' '}
+        <Link
+          href="https://iedora.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: 'inherit' }}
+        >
+          iedora
+        </Link>{' '}
+        product
       </footer>
     </main>
   )

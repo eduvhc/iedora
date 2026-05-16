@@ -69,7 +69,7 @@ export function OnboardingForm() {
           <div className="space-y-2">
             <Label htmlFor="slug">{t('slug')}</Label>
             <div className="flex items-center gap-1 rounded-md border px-3 focus-within:ring-1 focus-within:ring-ring">
-              <span className="text-sm text-muted-foreground">metamenu.app/r/</span>
+              <span className="text-sm text-muted-foreground">menu.iedora.com/r/</span>
               <Input
                 id="slug"
                 name="slug"
