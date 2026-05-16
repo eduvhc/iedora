@@ -36,6 +36,10 @@ export const BA_MODELS = {
  */
 export function makeAuth(database: AuthDb) {
   return betterAuth({
+    // Pin baseURL explicitly. Better Auth would derive it from
+    // env.BETTER_AUTH_URL anyway, but the explicit value is diff-visible at
+    // PR review and makes test fixtures deterministic (tests stub env).
+    baseURL: env.BETTER_AUTH_URL,
     database: drizzleAdapter(database, {
       provider: 'pg',
       schema: BA_MODELS,
@@ -61,7 +65,15 @@ export function makeAuth(database: AuthDb) {
         ipv6Subnet: 64,
       },
     },
-    plugins: [organization()],
+    plugins: [
+      // Better Auth 1.6.11 flipped this default to `true` as an
+      // invitation-takeover CVE fix (basecamp/better-auth#9577). We don't
+      // ship email verification yet, so leaving it `true` silently rejects
+      // every invite create/accept with EMAIL_VERIFICATION_REQUIRED_*.
+      // Flip back on AND wire `emailAndPassword.requireEmailVerification`
+      // the day the email-sender integration ships.
+      organization({ requireEmailVerificationOnInvitation: false }),
+    ],
   })
 }
 
