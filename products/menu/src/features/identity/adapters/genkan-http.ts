@@ -6,9 +6,15 @@ import { env } from '@/shared/env'
 import type { IdentityGateway, Organization } from '../ports'
 
 /**
- * Production IdentityGateway. Calls Genkan's HTTP organization API on the
+ * Production IdentityGateway. Calls Genkan's HTTP identity API on the
  * user's behalf, using the OAuth access token Better Auth stored in the
  * local `account` row when the user completed the OIDC callback.
+ *
+ * Routes live under `/api/identity/organization/*` (NOT
+ * `/api/auth/organization/*` — those are Better Auth's organization plugin
+ * endpoints, which gate on session cookies and reject bearer tokens).
+ * Genkan's `/api/identity/*` routes authenticate the bearer via the local
+ * JWKS / opaque-token table and re-issue the call as the verified user.
  *
  * Errors are coerced to friendly return values (null / empty list / false)
  * because the call sites are server actions and page DAL guards — they
@@ -79,7 +85,7 @@ export const genkanHttpIdentity: IdentityGateway = {
   async listOrganizations(userId) {
     const raw = await callGenkan<GenkanOrg[]>(
       userId,
-      '/api/auth/organization/list',
+      '/api/identity/organization/list',
     )
     if (!Array.isArray(raw)) return []
     return raw.map(normalize)
@@ -88,7 +94,7 @@ export const genkanHttpIdentity: IdentityGateway = {
   async createOrganization(userId, name, slug) {
     const raw = await callGenkan<GenkanOrg>(
       userId,
-      '/api/auth/organization/create',
+      '/api/identity/organization/create',
       {
         method: 'POST',
         body: JSON.stringify({ name, slug }),
@@ -100,7 +106,7 @@ export const genkanHttpIdentity: IdentityGateway = {
   async setActiveOrganization(userId, organizationId) {
     const raw = await callGenkan<unknown>(
       userId,
-      '/api/auth/organization/set-active',
+      '/api/identity/organization/set-active',
       {
         method: 'POST',
         body: JSON.stringify({ organizationId }),

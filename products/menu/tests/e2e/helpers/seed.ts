@@ -48,9 +48,11 @@ export async function seedUser(opts: {
 
 /**
  * Create an organization on genkan-testkit with the given user as owner.
- * Uses Better Auth's "system action" path (POST /organization/create with
- * userId in the body) through the shim's bearer-aware route. Bearer is
- * minted from `signTestToken` so the shim authorises as `userId`.
+ * Hits the shim's bearer-aware `/api/identity/organization/create` route
+ * (mirrors genkan's production endpoint), which then forwards the call to
+ * Better Auth's "system action" path (createOrganization with userId in
+ * the body). Bearer is minted from `signTestToken` so the shim authorises
+ * as `ownerId`.
  */
 export async function seedOrg(opts: {
   name: string
@@ -73,7 +75,7 @@ export async function seedOrg(opts: {
   }
   const { token } = (await tokenRes.json()) as { token: string }
 
-  const res = await fetch(`${url}/api/auth/organization/create`, {
+  const res = await fetch(`${url}/api/identity/organization/create`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',

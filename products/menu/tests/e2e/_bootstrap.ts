@@ -8,12 +8,11 @@
  *
  * Why the shim:
  *   Menu's `genkanHttpIdentity` adapter calls genkan with `Authorization:
- *   Bearer <accessToken>` against `/api/auth/organization/{list,create,
- *   set-active}`. Better Auth's stock `organization` plugin gates those
- *   routes on session COOKIES, not on bearer tokens — so the call from
- *   menu's server-to-server fetch returns 401 in tests (and very likely
- *   in production too; the missing piece is a `bearer` plugin on genkan).
- *   The shim bridges that gap for tests without touching menu's source:
+ *   Bearer <accessToken>` against `/api/identity/organization/{list,create,
+ *   set-active}` — first-party identity routes on genkan that verify the
+ *   bearer locally (JWKS or opaque-token lookup) and re-issue the action
+ *   as the verified user. The auth-testkit is bare Better Auth and doesn't
+ *   ship those routes, so this shim emulates them for tests:
  *     - `/list`        → read `member ⋈ organization` from testkit's PGLite
  *                        for the user resolved from the JWT's `sub` claim.
  *     - `/create`      → call `handle.auth.api.createOrganization({ body:
@@ -151,7 +150,10 @@ async function main(): Promise<void> {
         }
 
         // ── Bearer-adapted endpoints ──────────────────────────────────────
-        if (path === '/api/auth/organization/list' && req.method === 'GET') {
+        if (
+          path === '/api/identity/organization/list' &&
+          req.method === 'GET'
+        ) {
           const userId = userIdFromBearer(req.headers.authorization)
           if (!userId) return send(res, 401, { error: 'invalid_token' })
           const rows = await handle.db
@@ -174,7 +176,7 @@ async function main(): Promise<void> {
         }
 
         if (
-          path === '/api/auth/organization/create' &&
+          path === '/api/identity/organization/create' &&
           req.method === 'POST'
         ) {
           const userId = userIdFromBearer(req.headers.authorization)
@@ -199,7 +201,7 @@ async function main(): Promise<void> {
         }
 
         if (
-          path === '/api/auth/organization/set-active' &&
+          path === '/api/identity/organization/set-active' &&
           req.method === 'POST'
         ) {
           // Plugin requires a session for this; menu's setActiveOrganization
