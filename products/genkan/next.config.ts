@@ -9,11 +9,16 @@ const nextConfig: NextConfig = {
   // Bun workspaces monorepo — trace files up to the workspace root so the
   // standalone build includes the linked @iedora/design-system.
   outputFileTracingRoot: path.join(here, '..', '..'),
-  transpilePackages: ['@iedora/design-system'],
+  transpilePackages: ['@iedora/design-system', '@iedora/identity'],
   outputFileTracingIncludes: {
     '/*': [
       './node_modules/drizzle-orm/**/*',
       './node_modules/postgres/**/*',
+      // @iedora/identity is consumed by maintenance scripts that aren't
+      // in the Next route graph, so the tracer doesn't pick it up
+      // automatically. Force-include the workspace package's source so
+      // scripts/encrypt-webhook-secrets.mjs can resolve `createHkdfEncryptor`.
+      '../../packages/iedora-identity/**/*',
       './drizzle/**/*',
       // All maintenance scripts ship with the container so kamal-app-exec
       // can run them. The list grows when a new one-shot lands.
