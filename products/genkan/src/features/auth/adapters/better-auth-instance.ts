@@ -122,6 +122,13 @@ export function makeAuth(database: AuthDb) {
       schema: BA_MODELS,
     }),
     trustedOrigins: env.TRUSTED_ORIGINS,
+    // Pin log level in prod — Better Auth's default `info` prints token
+    // request/response payloads, which is too chatty for an IdP and a
+    // PII/credential leak risk in shared log sinks. Verbose locally.
+    logger: {
+      level: process.env.NODE_ENV === 'production' ? 'error' : 'info',
+      disabled: false,
+    },
     emailAndPassword: {
       enabled: true,
     },
@@ -149,6 +156,22 @@ export function makeAuth(database: AuthDb) {
         ipAddressHeaders: ['cf-connecting-ip'],
         ipv6Subnet: 64,
       },
+      // Force Secure + `__Secure-` prefix in every environment. Better Auth's
+      // auto-detection (baseURL starts with https://) already lands on this
+      // in prod, but the explicit flag is diff-visible at review and
+      // resilient to a future config change that flips baseURL to a Proxy /
+      // dynamic descriptor. Cloudflared terminates TLS at the edge and
+      // forwards HTTP to origin — without this, BA could decide cookies are
+      // non-secure on the basis of the origin scheme.
+      useSecureCookies: true,
+      // TODO(hardening): promote cookie prefix to `__Host-` once we've
+      // verified neither BA itself nor any first-party client sets the
+      // Domain attribute. Today we don't (crossSubDomainCookies is off) so
+      // the switch is technically safe, but the option would require us to
+      // override `advanced.cookies.session_token.name` explicitly per cookie
+      // and Better Auth's helpers like `getSessionCookie` already strip
+      // `__Secure-` / `__Host-` transparently. Defer until we run a full
+      // session-survival check on a staging deploy.
     },
     /**
      * Better Auth lifecycle hooks → @iedora/identity webhook emits.
@@ -297,6 +320,15 @@ export function makeAuth(database: AuthDb) {
       oauthProvider({
         loginPage: '/login',
         consentPage: '/consent',
+        // Dynamic client registration MUST stay off — first-party clients
+        // are seeded by scripts/migrate.mjs from TRUSTED_CLIENTS and any
+        // third-party client is created via the admin UI calling
+        // `auth.api.registerOAuthClient` (server-side). Better Auth defaults
+        // both flags to `false`; pinning here makes the security posture
+        // explicit and resistant to a future default flip. The `/oauth2/
+        // register` endpoint returns FORBIDDEN with either flag off.
+        allowDynamicClientRegistration: false,
+        allowUnauthenticatedClientRegistration: false,
         // Supported scopes. `openid profile email offline_access` are the
         // OIDC standards; the rest are iedora-specific product/role grants.
         scopes: [

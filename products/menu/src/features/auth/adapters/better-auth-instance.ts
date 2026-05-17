@@ -54,6 +54,13 @@ export function makeAuth(database: AuthDb) {
     // POST through to menu's /api/auth, and the OAuth callback comes back
     // from Genkan.
     trustedOrigins: [env.BETTER_AUTH_URL, env.GENKAN_ISSUER_URL],
+    // Pin log level in prod — Better Auth's default `info` is noisy and
+    // includes token / userinfo payloads in the generic-oauth callback
+    // path. Verbose locally.
+    logger: {
+      level: process.env.NODE_ENV === 'production' ? 'error' : 'info',
+      disabled: false,
+    },
     // No local credentials. Genkan owns sign-in/sign-up.
     emailAndPassword: {
       enabled: false,
@@ -70,6 +77,17 @@ export function makeAuth(database: AuthDb) {
         ipAddressHeaders: ['cf-connecting-ip'],
         ipv6Subnet: 64,
       },
+      // Force Secure + `__Secure-` cookie prefix in every environment.
+      // Better Auth's auto-detection (baseURL starts with https://) already
+      // lands here in prod, but the explicit flag is diff-visible and
+      // resilient to future baseURL refactors. Cloudflared terminates TLS
+      // at the edge and forwards HTTP to origin.
+      useSecureCookies: true,
+      // TODO(hardening): promote to `__Host-` prefix once we've verified
+      // neither BA nor any helper sets the Domain attribute. Today menu
+      // uses host-only cookies (no crossSubDomainCookies) so the switch is
+      // technically safe, but the cookie-name override would invalidate
+      // every existing session. Defer to a planned re-auth window.
     },
     plugins: [
       genericOAuth({
