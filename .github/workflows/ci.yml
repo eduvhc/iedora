@@ -211,6 +211,14 @@ jobs:
       S3_ACCESS_KEY: test
       S3_SECRET_KEY: test
       S3_BUCKET: metamenu-test
+      # Next 16's "collect page data" build pass executes module-level env
+      # validation (src/shared/env.ts) — so GENKAN_* must be present at
+      # BUILD time as well as at webServer runtime. The values just need
+      # to be strings that pass Zod; the actual issuer URL is resolved by
+      # the webServer step from playwright.config.ts (where SHIM_PORT lives).
+      GENKAN_OAUTH_CLIENT_ID: menu
+      GENKAN_OAUTH_CLIENT_SECRET: menu-secret
+      GENKAN_ISSUER_URL: http://127.0.0.1:4444
       # `src/shared/brand.ts::GENKAN_URL` is imported by client components,
       # so its value gets inlined into the client bundle at BUILD time. The
       # build step runs separately from `bun run start` in CI, so we pin
