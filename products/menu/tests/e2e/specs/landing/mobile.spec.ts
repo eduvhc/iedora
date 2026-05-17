@@ -30,17 +30,6 @@ test.describe('Landing page (mobile)', () => {
   })
 
   test('phone mock does not overflow the viewport width', async ({ page }) => {
-    // TODO(bug): the landing layout overflows horizontally by ~420px at
-    // a 375px-wide viewport — picked up via document.scrollWidth >
-    // window.innerWidth. Suspected culprit is the hero/mock grid in
-    // landing.css that doesn't collapse below the desktop breakpoint.
-    // The assertion below is what should pass once the mobile layout is
-    // fixed; the skip is removed at that point.
-    test.skip(
-      true,
-      'TODO(bug): horizontal overflow ~420px at 375px viewport — landing.css' +
-        ' hero/mocks layout needs a mobile breakpoint fix.',
-    )
     await page.goto('/')
     const overflowing = await page.evaluate(
       () => document.documentElement.scrollWidth - window.innerWidth,

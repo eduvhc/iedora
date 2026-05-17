@@ -1233,6 +1233,20 @@
   /* keep editor sidebar visible on tablet — only collapse on phone */
 }
 
+/* Defensive: contain any rogue horizontal overflow inside the landing
+ * root rather than letting it bleed into a body-level scrollbar. Pairs
+ * with the per-element max-width: 100% on the device columns below.
+ * `clip` is preferred over `hidden` because it doesn't create a new
+ * scroll/stacking context for fixed-position descendants. */
+.landing-root { overflow-x: clip; }
+.landing-root *,
+.landing-root *::before,
+.landing-root *::after { min-width: 0; }
+.landing-root img,
+.landing-root svg,
+.landing-root .laptop,
+.landing-root .phone { max-width: 100%; }
+
 /* phone: aggressive compaction; laptop hidden entirely. */
 @media (max-width: 480px) {
   /* hero copy first, devices second; tighten vertical rhythm */

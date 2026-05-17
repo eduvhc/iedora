@@ -23,7 +23,19 @@ export const APP_URL = `https://${APP_HOSTNAME}`
 // clients, grants. Every product (menu, future .NET APIs, …) plugs in via
 // standard OIDC. In dev: localhost:3001 (menu = :3000, genkan = :3001).
 export const GENKAN_HOSTNAME = `genkan.${BRAND_DOMAIN}`
+
+// Resolution order (so e2e tests can swap to a fixture without touching code):
+//   1. NEXT_PUBLIC_GENKAN_URL — explicit override. Inlined at build time for
+//      client components, available at runtime on the server. Set this to
+//      the auth-testkit's URL in e2e fixtures.
+//   2. NODE_ENV defaults — https://genkan.iedora.com in prod, localhost:3001
+//      in dev.
+//
+// The `env.GENKAN_ISSUER_URL` env var (read by server-only Better Auth
+// config) MUST agree with this for in-browser CTA hrefs and the OAuth
+// discovery URL to point at the same instance.
 export const GENKAN_URL =
-  process.env.NODE_ENV === 'production'
+  process.env.NEXT_PUBLIC_GENKAN_URL ??
+  (process.env.NODE_ENV === 'production'
     ? `https://${GENKAN_HOSTNAME}`
-    : 'http://localhost:3001'
+    : 'http://localhost:3001')
