@@ -223,12 +223,20 @@
   transition: transform 80ms linear;
 }
 
-/* language switcher — flags only, hairline between, ink-08 on active */
+/* language switcher — flags only, hairline between, ink-08 on active.
+   Has two children: `.lang-row` (full inline list, desktop default)
+   and `.lang-compact` (single trigger + popover, revealed on phone). */
 .landing-root .lang-switch {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+.landing-root .lang-row {
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--ink-14);
 }
+.landing-root .lang-compact { display: none; position: relative; }
 .landing-root .lang-btn {
   appearance: none;
   background: transparent;
@@ -237,9 +245,9 @@
   padding: 6px 10px;
   cursor: pointer;
   color: var(--ink-55);
-  transition: background var(--d-2) var(--ease), color var(--d-2) var(--ease);
+  transition: background-color var(--d-2) var(--ease), color var(--d-2) var(--ease);
 }
-.landing-root .lang-btn:last-child { border-right: 0; }
+.landing-root .lang-row .lang-btn:last-child { border-right: 0; }
 .landing-root .lang-btn .flag {
   font-size: 14px;
   line-height: 1;
@@ -251,12 +259,43 @@
 .landing-root .lang-btn.active { background: var(--ink-04); color: var(--ink); }
 .landing-root .lang-btn.active .flag { opacity: 1; filter: saturate(1); }
 
+.landing-root .lang-trigger {
+  border: 1px solid var(--ink-14);
+  border-right: 1px solid var(--ink-14);
+}
+.landing-root .lang-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  display: inline-flex;
+  background: var(--paper);
+  border: 1px solid var(--ink-14);
+  z-index: 5;
+  opacity: 0;
+  transform: translateY(-4px);
+  animation: landing-pop-in var(--d-3) var(--ease-open) forwards;
+}
+.landing-root .lang-pop .lang-btn { border-right: 1px solid var(--ink-14); }
+.landing-root .lang-pop .lang-btn:last-child { border-right: 0; }
+
+@keyframes landing-pop-in {
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @media (max-width: 900px) {
   .landing-root .nav-inner { grid-template-columns: auto 1fr auto; }
   .landing-root .nav ul { display: none; }
 }
+@media (max-width: 720px) {
+  /* tablet/portrait: move language to footer (i.e. hide inline) */
+  .landing-root .nav .lang-switch { display: none; }
+}
 @media (max-width: 520px) {
   .landing-root .nav-link { display: none; }
+  /* phone: language returns as a single trigger button */
+  .landing-root .nav .lang-switch { display: inline-flex; }
+  .landing-root .lang-row { display: none; }
+  .landing-root .lang-compact { display: inline-flex; }
 }
 
 /* ── buttons ──────────────────────────────────────────────────── */
@@ -473,13 +512,15 @@
   padding: 8px 0;
 }
 .landing-root .editor-side li {
-  padding: 7px 18px;
+  padding: 0;
   font-family: var(--serif);
   font-size: var(--t-sm);
   color: var(--ink-70);
-  cursor: default;
   border-left: 2px solid transparent;
-  transition: background var(--d-2) var(--ease), color var(--d-2) var(--ease);
+  /* Animate the indicator (left-border + bg) on every state change.
+     transform is unused on the LI but the cinnabar border-left is, so
+     we transition background-color + border-color, not `all`. */
+  transition: background-color var(--d-3) var(--ease), border-color var(--d-3) var(--ease), color var(--d-3) var(--ease);
 }
 .landing-root .editor-side li.group-label {
   font-family: var(--mono);
@@ -487,21 +528,35 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-40);
-  padding-top: 14px;
-  padding-bottom: 6px;
+  padding: 14px 18px 6px;
 }
+.landing-root .editor-side .editor-row-btn {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  padding: 7px 18px;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: color var(--d-2) var(--ease);
+}
+.landing-root .editor-side .editor-row-btn:hover { color: var(--ink); }
 .landing-root .editor-side li.active {
   background: var(--ink-04);
   color: var(--ink);
   border-left-color: var(--cinnabar);
 }
+.landing-root .editor-side li.active .editor-row-btn { color: var(--ink); }
 .landing-root .editor-side li.add {
   font-family: var(--mono);
   font-size: var(--t-2xs);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-40);
-  padding-top: 14px;
+  padding: 14px 18px 7px;
 }
 
 .landing-root .editor-main {
@@ -540,6 +595,13 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
+}
+.landing-root .field-anim {
+  animation: landing-field-enter var(--d-3) var(--ease);
+}
+@keyframes landing-field-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 .landing-root .editor-foot {
   margin-top: 18px;
@@ -662,12 +724,28 @@
 }
 .landing-root .menu-section-title:first-child { margin-top: 0; }
 .landing-root .menu-item {
+  /* button reset so it reads as a list item, not a button */
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--ink-08);
   display: flex;
   gap: 8px;
   padding: 6px 0;
-  border-bottom: 1px solid var(--ink-08);
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color var(--d-3) var(--ease), padding var(--d-3) var(--ease), margin var(--d-3) var(--ease);
 }
 .landing-root .menu-item:last-child { border-bottom: 0; }
+.landing-root .menu-item .menu-item-text {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
 .landing-root .menu-item .name {
   font-family: var(--serif);
   font-size: 12px;
@@ -690,7 +768,7 @@
   align-self: start;
 }
 .landing-root .menu-item.highlight {
-  background: var(--cinnabar-08);
+  background-color: var(--cinnabar-08);
   margin: 0 -6px;
   padding-left: 6px;
   padding-right: 6px;
@@ -1121,16 +1199,131 @@
   }
 }
 
-/* ── responsive tightening ────────────────────────────────────── */
+/* ── responsive tightening ────────────────────────────────────────
+   Mobile-first bands:
+   - ≤480px  phone: hero stacks, laptop hidden, phone is the centrepiece
+   - 481-720px tablet portrait: both devices stack vertically (laptop above)
+   - 721px+ desktop: original two-up hero with phone overlapping laptop
+*/
 
-@media (max-width: 680px) {
+/* tablet-portrait: lighten the hero rhythm, both devices stack */
+@media (max-width: 720px) {
   .landing-root { font-size: 16px; }
-  .landing-root .hero h1 { font-size: clamp(42px, 12vw, 64px); }
-  .landing-root section h2 { font-size: clamp(32px, 8vw, 44px); }
-  .landing-root .amt-main { font-size: 56px; }
+  .landing-root .hero { padding: clamp(40px, 8vw, 72px) 0 clamp(48px, 9vw, 80px); }
+  .landing-root .hero-grid { gap: clamp(28px, 5vw, 48px); }
+  .landing-root .hero h1 { font-size: clamp(40px, 9vw, 72px); }
+  .landing-root section h2 { font-size: clamp(30px, 7vw, 48px); }
+  .landing-root .amt-main { font-size: clamp(48px, 10vw, 64px); }
   .landing-root .feat,
   .landing-root .step,
-  .landing-root .menu-card { padding: 28px 22px; }
+  .landing-root .menu-card { padding: clamp(22px, 4vw, 32px); }
   .landing-root .features-head,
-  .landing-root .sec-head { margin-bottom: 36px; }
+  .landing-root .sec-head { margin-bottom: clamp(28px, 5vw, 40px); }
+  .landing-root section,
+  .landing-root .closing { padding: clamp(48px, 8vw, 72px) 0; }
+
+  .landing-root .devices { gap: clamp(24px, 5vw, 36px); }
+  /* devices area: laptop scales to column width, phone follows below */
+  .landing-root .laptop { width: 100%; max-width: 560px; }
+  .landing-root .phone {
+    position: static;
+    margin-top: clamp(20px, 4vw, 32px);
+    width: min(220px, 60%);
+  }
+  /* keep editor sidebar visible on tablet — only collapse on phone */
+}
+
+/* phone: aggressive compaction; laptop hidden entirely. */
+@media (max-width: 480px) {
+  /* hero copy first, devices second; tighten vertical rhythm */
+  .landing-root .hero { padding: clamp(28px, 8vw, 44px) 0 clamp(36px, 8vw, 56px); }
+  .landing-root .hero h1 {
+    font-size: clamp(34px, 11vw, 48px);
+    max-width: none;
+    margin-top: 12px;
+  }
+  .landing-root .hero .tagline {
+    font-size: clamp(16px, 4.4vw, 18px);
+    margin-top: 16px;
+  }
+  .landing-root .hero-ctas { margin-top: 22px; }
+  .landing-root .hero-ctas .btn { width: 100%; justify-content: center; }
+
+  /* meta line: keep it one line, ellipsize the long second clause */
+  .landing-root .meta-line {
+    margin-top: 16px;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow: hidden;
+  }
+  .landing-root .meta-line .meta-part {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .landing-root .meta-line .meta-part:nth-of-type(n+2) { flex: 1 1 auto; }
+
+  /* devices: laptop disappears, phone fills the column */
+  .landing-root .devices {
+    min-height: 0;
+    justify-items: stretch;
+  }
+  .landing-root .laptop { display: none; }
+  .landing-root .phone {
+    position: static;
+    width: 100%;
+    margin-top: 0;
+    display: flex;
+    justify-content: center;
+  }
+  .landing-root .phone-shell {
+    width: min(280px, 80%);
+  }
+  .landing-root .phone-screen { height: clamp(360px, 70vw, 420px); }
+
+  /* sections collapse vertical spacing */
+  .landing-root section,
+  .landing-root .closing { padding: clamp(40px, 9vw, 56px) 0; }
+  .landing-root section h2 { font-size: clamp(28px, 8vw, 38px); }
+  .landing-root .features-head,
+  .landing-root .sec-head { margin-bottom: 28px; }
+  .landing-root .feat,
+  .landing-root .step,
+  .landing-root .menu-card { padding: 22px 18px; }
+  .landing-root .amt-main { font-size: clamp(44px, 12vw, 56px); }
+
+  /* signoff trimmed */
+  .landing-root .signoff { padding: 36px 0; }
+}
+
+/* device reveal: lift on entry, fall to rest. Pairs with .reveal /.in */
+.landing-root .laptop,
+.landing-root .phone {
+  /* reveal class already provides the base opacity:0 + translate; this just
+     swaps the easing/duration tuple to feel like paper, not glass. */
+  transition:
+    opacity var(--d-4) var(--ease-open),
+    transform var(--d-4) var(--ease-open);
+}
+.landing-root .laptop.reveal,
+.landing-root .phone.reveal {
+  transform: translateY(12px);
+}
+.landing-root .laptop.reveal.in,
+.landing-root .phone.reveal.in {
+  transform: translateY(0);
+}
+
+/* ── reduced motion: kill everything ─────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .landing-root *,
+  .landing-root *::before,
+  .landing-root *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0ms !important;
+  }
+  .landing-root .reveal { opacity: 1; transform: none; }
 }

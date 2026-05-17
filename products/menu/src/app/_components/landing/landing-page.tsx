@@ -394,21 +394,73 @@ function ScrollProgress() {
 }
 
 function LangSwitcher({ lang, setLang }: { lang: LangCode; setLang: (l: LangCode) => void }) {
+  const [open, setOpen] = React.useState(false);
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const current = LANGS.find((l) => l.code === lang) ?? LANGS[0];
+
+  // close the compact-mode popover on outside click / escape
+  React.useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   return (
-    <div className="lang-switch" role="group" aria-label="Language">
-      {LANGS.map((l) => (
+    <div className="lang-switch" role="group" aria-label="Language" ref={rootRef}>
+      {/* inline row — visible on tablet+ */}
+      <div className="lang-row">
+        {LANGS.map((l) => (
+          <button
+            key={l.code}
+            type="button"
+            className={"lang-btn" + (lang === l.code ? " active" : "")}
+            onClick={() => setLang(l.code)}
+            title={l.name}
+            aria-label={l.name}
+            aria-pressed={lang === l.code}
+          >
+            <span className="flag" aria-hidden="true">{l.flag}</span>
+          </button>
+        ))}
+      </div>
+      {/* compact — visible on phone only via CSS */}
+      <div className="lang-compact">
         <button
-          key={l.code}
           type="button"
-          className={"lang-btn" + (lang === l.code ? " active" : "")}
-          onClick={() => setLang(l.code)}
-          title={l.name}
-          aria-label={l.name}
-          aria-pressed={lang === l.code}
+          className="lang-btn lang-trigger"
+          onClick={() => setOpen((o) => !o)}
+          aria-haspopup="true"
+          aria-expanded={open}
+          aria-label={current.name}
         >
-          <span className="flag" aria-hidden="true">{l.flag}</span>
+          <span className="flag" aria-hidden="true">{current.flag}</span>
         </button>
-      ))}
+        {open && (
+          <div className="lang-pop" role="menu">
+            {LANGS.filter((l) => l.code !== lang).map((l) => (
+              <button
+                key={l.code}
+                type="button"
+                role="menuitem"
+                className="lang-btn"
+                onClick={() => { setLang(l.code); setOpen(false); }}
+                title={l.name}
+                aria-label={l.name}
+              >
+                <span className="flag" aria-hidden="true">{l.flag}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -442,13 +494,23 @@ function Nav({ c, lang, setLang }: { c: Copy; lang: LangCode; setLang: (l: LangC
   );
 }
 
-function PhonePreview({ menu, c, highlightId }: { menu: DemoMenu; c: Copy; highlightId: number }) {
+function PhonePreview({
+  menu,
+  c,
+  highlightId,
+  onPick,
+}: {
+  menu: DemoMenu;
+  c: Copy;
+  highlightId: number;
+  onPick: (id: number) => void;
+}) {
   return (
-    <div className="phone" aria-hidden="true">
+    <div className="phone reveal">
       <div className="phone-shell">
         <div className="phone-screen">
           <div className="phone-notch" />
-          <div className="phone-status">
+          <div className="phone-status" aria-hidden="true">
             <span>9:41</span>
             <span>·· ◰</span>
           </div>
@@ -461,15 +523,24 @@ function PhonePreview({ menu, c, highlightId }: { menu: DemoMenu; c: Copy; highl
             {menu.sections.map((s, si) => (
               <React.Fragment key={si}>
                 <div className="menu-section-title">{s.title}</div>
-                {s.items.map((it) => (
-                  <div key={it.id} className={"menu-item" + (highlightId === it.id ? " highlight" : "")}>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div className="name">{it.name}</div>
-                      {it.desc && <div className="desc">{it.desc}</div>}
-                    </div>
-                    <div className="price">{String(it.price).includes("€") ? it.price : it.price + " €"}</div>
-                  </div>
-                ))}
+                {s.items.map((it) => {
+                  const active = highlightId === it.id;
+                  return (
+                    <button
+                      key={it.id}
+                      type="button"
+                      onClick={() => onPick(it.id)}
+                      className={"menu-item" + (active ? " highlight" : "")}
+                      aria-pressed={active}
+                    >
+                      <span className="menu-item-text">
+                        <span className="name">{it.name}</span>
+                        {it.desc && <span className="desc">{it.desc}</span>}
+                      </span>
+                      <span className="price">{String(it.price).includes("€") ? it.price : it.price + " €"}</span>
+                    </button>
+                  );
+                })}
               </React.Fragment>
             ))}
           </div>
@@ -483,7 +554,17 @@ function PhonePreview({ menu, c, highlightId }: { menu: DemoMenu; c: Copy; highl
   );
 }
 
-function EditorMock({ menu, c, highlightId }: { menu: DemoMenu; c: Copy; highlightId: number }) {
+function EditorMock({
+  menu,
+  c,
+  highlightId,
+  onPick,
+}: {
+  menu: DemoMenu;
+  c: Copy;
+  highlightId: number;
+  onPick: (id: number) => void;
+}) {
   const editingItem = (() => {
     for (const s of menu.sections)
       for (const it of s.items)
@@ -492,9 +573,9 @@ function EditorMock({ menu, c, highlightId }: { menu: DemoMenu; c: Copy; highlig
   })();
 
   return (
-    <div className="laptop" aria-hidden="true">
+    <div className="laptop reveal">
       <div className="laptop-screen">
-        <div className="laptop-bar">
+        <div className="laptop-bar" aria-hidden="true">
           <i></i><i></i><i></i>
           <span className="url">{APP_HOSTNAME} / house-tavern / editor</span>
         </div>
@@ -505,11 +586,21 @@ function EditorMock({ menu, c, highlightId }: { menu: DemoMenu; c: Copy; highlig
               {menu.sections.map((s, si) => (
                 <React.Fragment key={si}>
                   <li className="group-label">{s.title}</li>
-                  {s.items.map((it) => (
-                    <li key={it.id} className={editingItem.item.id === it.id ? "active" : ""}>
-                      {it.name.length > 18 ? it.name.slice(0, 18) + "…" : it.name}
-                    </li>
-                  ))}
+                  {s.items.map((it) => {
+                    const active = editingItem.item.id === it.id;
+                    return (
+                      <li key={it.id} className={active ? "active" : ""}>
+                        <button
+                          type="button"
+                          className="editor-row-btn"
+                          onClick={() => onPick(it.id)}
+                          aria-pressed={active}
+                        >
+                          {it.name.length > 18 ? it.name.slice(0, 18) + "…" : it.name}
+                        </button>
+                      </li>
+                    );
+                  })}
                 </React.Fragment>
               ))}
               <li className="add">{c.editor.add}</li>
@@ -520,19 +611,19 @@ function EditorMock({ menu, c, highlightId }: { menu: DemoMenu; c: Copy; highlig
             <div className="field-input">{menu.restaurant}</div>
 
             <span className="field-label">{c.editor.item}</span>
-            <div className="field-input">{editingItem.item.name}</div>
+            <div className="field-input field-anim" key={"name-" + highlightId}>{editingItem.item.name}</div>
 
             <span className="field-label">{c.editor.desc}</span>
-            <div className="field-textarea">{editingItem.item.desc}</div>
+            <div className="field-textarea field-anim" key={"desc-" + highlightId}>{editingItem.item.desc}</div>
 
             <div className="editor-row" style={{ marginTop: 0 }}>
               <div>
                 <span className="field-label">{c.editor.section}</span>
-                <div className="field-input">{editingItem.section.title}</div>
+                <div className="field-input field-anim" key={"sec-" + highlightId}>{editingItem.section.title}</div>
               </div>
               <div>
                 <span className="field-label">{c.editor.price}</span>
-                <div className="field-input">{editingItem.item.price}</div>
+                <div className="field-input field-anim" key={"price-" + highlightId}>{editingItem.item.price}</div>
               </div>
             </div>
 
@@ -548,12 +639,22 @@ function EditorMock({ menu, c, highlightId }: { menu: DemoMenu; c: Copy; highlig
   );
 }
 
-function Hero({ c, menu, highlightId }: { c: Copy; menu: DemoMenu; highlightId: number }) {
+function Hero({
+  c,
+  menu,
+  highlightId,
+  onPick,
+}: {
+  c: Copy;
+  menu: DemoMenu;
+  highlightId: number;
+  onPick: (id: number) => void;
+}) {
   return (
     <header className="hero" id="top">
       <div className="container">
         <div className="hero-grid">
-          <div>
+          <div className="hero-copy">
             <div className="eyebrow">{c.hero.eyebrow}</div>
             <h1>{c.hero.headline.roman}</h1>
             <p className="tagline">{c.hero.headline.tagline}</p>
@@ -564,14 +665,18 @@ function Hero({ c, menu, highlightId }: { c: Copy; menu: DemoMenu; highlightId: 
               {c.hero.meta.map((m, i) => (
                 <React.Fragment key={i}>
                   {i > 0 && <span className="dotsep">·</span>}
-                  {typeof m === "string" ? m : (<><span className="serif-it">{m.italic}</span>{m.rest}</>)}
+                  {typeof m === "string" ? (
+                    <span className="meta-part">{m}</span>
+                  ) : (
+                    <span className="meta-part"><span className="serif-it">{m.italic}</span>{m.rest}</span>
+                  )}
                 </React.Fragment>
               ))}
             </div>
           </div>
           <div className="devices">
-            <EditorMock menu={menu} c={c} highlightId={highlightId} />
-            <PhonePreview menu={menu} c={c} highlightId={highlightId} />
+            <EditorMock menu={menu} c={c} highlightId={highlightId} onPick={onPick} />
+            <PhonePreview menu={menu} c={c} highlightId={highlightId} onPick={onPick} />
           </div>
         </div>
       </div>
@@ -746,7 +851,66 @@ export default function LandingPage() {
   const [lang, setLang] = React.useState<LangCode>("en");
   const c = COPY[lang];
   const menu = DEMO_MENUS[lang];
-  const highlightId = 3;
+
+  // every item id that exists in the demo menu — drives the auto-cycle
+  const itemIds = React.useMemo(() => {
+    const ids: number[] = [];
+    for (const s of menu.sections) for (const it of s.items) ids.push(it.id);
+    return ids;
+  }, [menu]);
+
+  const [rawHighlightId, setHighlightId] = React.useState<number>(3);
+  const [userInteracted, setUserInteracted] = React.useState(false);
+
+  // Derived: if the current language doesn't have this id, fall back to the
+  // first item. Avoids a synchronous setState-in-effect on lang flip.
+  const highlightId = itemIds.includes(rawHighlightId) ? rawHighlightId : (itemIds[0] ?? 1);
+
+  const pick = React.useCallback((id: number) => {
+    setHighlightId(id);
+    setUserInteracted(true);
+  }, []);
+
+  // Idle auto-cycle: after 6s of no click, rotate every 4s.
+  // Pauses when tab is hidden. Disabled when prefers-reduced-motion.
+  React.useEffect(() => {
+    if (userInteracted) return;
+    if (typeof window === "undefined") return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) return;
+    if (itemIds.length < 2) return;
+
+    let interval: number | null = null;
+    let timeout: number | null = null;
+
+    const startCycle = () => {
+      interval = window.setInterval(() => {
+        if (document.hidden) return;
+        setHighlightId((prev) => {
+          const i = itemIds.indexOf(prev);
+          return itemIds[(i + 1) % itemIds.length];
+        });
+      }, 4000);
+    };
+
+    timeout = window.setTimeout(startCycle, 6000);
+
+    const onVis = () => {
+      if (document.hidden && interval) {
+        window.clearInterval(interval);
+        interval = null;
+      } else if (!document.hidden && !interval && !timeout) {
+        startCycle();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+
+    return () => {
+      if (timeout) window.clearTimeout(timeout);
+      if (interval) window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [itemIds, userInteracted]);
 
   useReveal([lang]);
 
@@ -761,7 +925,7 @@ export default function LandingPage() {
   return (
     <div className="landing-root" lang={lang}>
       <Nav c={c} lang={lang} setLang={setLang} />
-      <Hero c={c} menu={menu} highlightId={highlightId} />
+      <Hero c={c} menu={menu} highlightId={highlightId} onPick={pick} />
       <Features c={c} />
       <HowItWorks c={c} />
       <Pricing c={c} />
