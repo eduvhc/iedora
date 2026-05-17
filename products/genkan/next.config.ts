@@ -15,7 +15,11 @@ const nextConfig: NextConfig = {
       './node_modules/drizzle-orm/**/*',
       './node_modules/postgres/**/*',
       './drizzle/**/*',
+      // All maintenance scripts ship with the container so kamal-app-exec
+      // can run them. The list grows when a new one-shot lands.
       './scripts/migrate.mjs',
+      './scripts/encrypt-webhook-secrets.mjs',
+      './scripts/backfill-audit-chain.mjs',
     ],
   },
 }
