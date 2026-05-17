@@ -19,11 +19,10 @@ export const CONTACT_EMAIL = `hello@${BRAND_DOMAIN}`
 export const APP_HOSTNAME = `menu.${BRAND_DOMAIN}`
 export const APP_URL = `https://${APP_HOSTNAME}`
 
-// Genkan (the SSO identity service) lives on `auth.` — every unauthenticated
-// menu request bounces there. In development the convention is :3001
-// (menu = :3000, genkan = :3001). Derived from NODE_ENV so the same constant
-// works in server and client components without an extra env round-trip.
-export const GENKAN_HOSTNAME = `auth.${BRAND_DOMAIN}`
+// Genkan — Iedora's identity service. Owns users, organizations, OAuth
+// clients, grants. Every product (menu, future .NET APIs, …) plugs in via
+// standard OIDC. In dev: localhost:3001 (menu = :3000, genkan = :3001).
+export const GENKAN_HOSTNAME = `genkan.${BRAND_DOMAIN}`
 export const GENKAN_URL =
   process.env.NODE_ENV === 'production'
     ? `https://${GENKAN_HOSTNAME}`

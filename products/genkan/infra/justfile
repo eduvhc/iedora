@@ -1,4 +1,4 @@
-# Genkan product (auth.iedora.com) — infra entry point.
+# Genkan product (genkan.iedora.com) — infra entry point.
 #
 # Layout: one Tofu root (tofu/ — Cloudflare tunnel + DNS), one Kamal config
 # (kamal/) for the app, one Dockerfile, and a Bitwarden Secrets Manager hookup

@@ -35,7 +35,7 @@ export const BA_MODELS = {
  * their own instance pointed at a PGLite db to exercise the real adapter
  * wiring (e.g. catch "model X not found in schema object" before deploy).
  *
- * Genkan (auth.iedora.com) is the canonical sign-in surface for the
+ * Genkan (genkan.iedora.com) is the canonical sign-in surface for the
  * iedora ecosystem; menu reads the session cookie Genkan issues. Both
  * apps share BETTER_AUTH_SECRET and the same Postgres `session` table —
  * what makes the session valid here is identical to what makes it valid
@@ -71,7 +71,7 @@ export function makeAuth(database: AuthDb) {
     // walking a /64 to evade per-IP throttles).
     advanced: {
       // Share the auth cookie across every iedora.com subdomain so a session
-      // issued by Genkan at auth.iedora.com is recognised at menu.iedora.com
+      // issued by Genkan at genkan.iedora.com is recognised at menu.iedora.com
       // (and any future product.iedora.com). MUST match Genkan's setting
       // exactly. Local dev leaves COOKIE_DOMAIN blank so the cookie stays
       // host-only on localhost.

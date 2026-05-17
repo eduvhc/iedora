@@ -7,7 +7,7 @@ import type { AuthGateway } from '../ports'
  * Resolves the current session. Redirects to Genkan's /login when the
  * caller is unauthenticated; returns the (non-null) session otherwise.
  *
- * Genkan (auth.iedora.com) owns sign-in/sign-up UI for the iedora
+ * Genkan (genkan.iedora.com) owns sign-in/sign-up UI for the iedora
  * ecosystem; menu is a session consumer. After successful sign-in,
  * Genkan bounces back to its configured DEFAULT_RETURN_TO (menu).
  *

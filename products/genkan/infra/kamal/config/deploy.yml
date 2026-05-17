@@ -1,11 +1,12 @@
-# Genkan (auth.iedora.com) — Kamal 2 deploy onto the same homelab box menu
-# uses. No DB accessory of its own: genkan reads the `auth.*` schema in
-# menu's Postgres over the shared kamal Docker network.
+# Genkan (genkan.iedora.com) — Kamal 2 deploy onto the same homelab box menu
+# uses. Genkan owns ALL identity primitives (users, orgs, sessions, OAuth
+# clients, grants, audit log) in its OWN Postgres instance — no shared DB
+# with menu. Products federate via OIDC, not via SQL.
 
 <%
   public_hostname = ENV.fetch("PUBLIC_HOSTNAME")
   # Cookie domain = the apex zone (everything after the first dot).
-  # auth.iedora.com → .iedora.com
+  # genkan.iedora.com → .iedora.com
   cookie_domain = ".#{public_hostname.split('.', 2)[1]}"
   # The trusted origin pattern matches menu's hostname under the same zone.
   menu_origin = "https://menu.#{public_hostname.split('.', 2)[1]}"
@@ -86,10 +87,24 @@ aliases:
   logs: app logs -f
   migrate: app exec --reuse "node scripts/migrate.mjs"
 
-# Cloudflare Tunnel — outbound only, terminates TLS at the edge.
-# Tunnel ingress (set via tofu apply):
-#   PUBLIC_HOSTNAME  → http://kamal-proxy
 accessories:
+  # Genkan-owned Postgres. Completely separate from menu's instance — different
+  # container name, different volume, different password. Reachable from the
+  # genkan-web app over the shared `kamal` docker network as `genkan-postgres:5432`.
+  postgres:
+    image: postgres:18.4-alpine
+    host: <%= ENV.fetch("ONPREM_HOST") %>
+    env:
+      clear:
+        POSTGRES_USER: postgres
+        POSTGRES_DB: genkan
+      secret:
+        - POSTGRES_PASSWORD
+    directories:
+      - data:/var/lib/postgresql
+
+  # Cloudflare Tunnel — outbound only, terminates TLS at the edge.
+  # Ingress (set via tofu apply): PUBLIC_HOSTNAME → http://kamal-proxy
   cloudflared:
     image: cloudflare/cloudflared:2026.5.0@sha256:59bab8d3aceec09bf6bdb07d6beca0225ca5cd7ab79436a87ea97978fe1dc4f9
     host: <%= ENV.fetch("ONPREM_HOST") %>

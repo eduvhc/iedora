@@ -23,7 +23,7 @@ const serverSchema = z.object({
 
   // Auth ----------------------------------------------------------------
   // Better Auth signs sessions with this; must be ≥32 chars of entropy.
-  // MUST match the value in Genkan (auth.iedora.com) so sessions issued
+  // MUST match the value in Genkan (genkan.iedora.com) so sessions issued
   // by Genkan are readable here — both apps share the same secret + DB.
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.url(),

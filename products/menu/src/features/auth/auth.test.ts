@@ -120,7 +120,7 @@ describe('verifySession', () => {
     } as unknown as AuthGateway
 
     // Genkan is the SSO entryway — every unauthenticated request bounces to
-    // its /login. Dev uses :3001, prod uses https://auth.iedora.com.
+    // its /login. Dev uses :3001, prod uses https://genkan.iedora.com.
     await expect(verifySession(gw)).rejects.toThrow(/__REDIRECT__:.*\/login$/)
   })
 

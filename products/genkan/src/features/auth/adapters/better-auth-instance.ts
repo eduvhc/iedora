@@ -51,7 +51,7 @@ export function makeAuth(database: AuthDb) {
     },
     advanced: {
       // Share the auth cookie across every iedora.com subdomain so a user
-      // signed in at auth.iedora.com is signed in at menu.iedora.com and any
+      // signed in at genkan.iedora.com is signed in at menu.iedora.com and any
       // future <product>.iedora.com automatically. Local dev leaves
       // COOKIE_DOMAIN blank so the cookie stays host-only on localhost.
       crossSubDomainCookies: env.COOKIE_DOMAIN

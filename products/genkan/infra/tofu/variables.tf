@@ -40,7 +40,7 @@ variable "tunnel_name" {
 }
 
 variable "public_hostname" {
-  description = "FQDN visitors hit for the identity service (e.g. auth.iedora.com)."
+  description = "FQDN visitors hit for the identity service (e.g. genkan.iedora.com)."
   type        = string
 
   validation {

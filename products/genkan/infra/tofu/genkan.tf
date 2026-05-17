@@ -1,8 +1,8 @@
-# Genkan (auth.iedora.com) — its own root module with its own encrypted state.
+# Genkan (genkan.iedora.com) — its own root module with its own encrypted state.
 #
 # Owns:
 #   - Cloudflare Tunnel + ingress for the auth app (1 route: kamal-proxy)
-#   - DNS CNAME for auth.iedora.com → tunnel
+#   - DNS CNAME for genkan.iedora.com → tunnel
 #
 # Does NOT own:
 #   - Postgres (shares menu's postgres accessory on the homelab — connects
@@ -14,7 +14,7 @@
 # so we don't carry a redundant zone ID. Same pattern as products/menu/infra/tofu.
 
 locals {
-  # `auth.iedora.com` → `iedora.com`
+  # `genkan.iedora.com` → `iedora.com`
   zone_name = join(".", slice(split(".", var.public_hostname), 1, length(split(".", var.public_hostname))))
 }
 
