@@ -1,0 +1,41 @@
+# @iedora/design-system CI.
+#
+# Editorial CSS + React primitives consumed by every product. jsdom-backed
+# Vitest suite — no DB, no services.
+
+name: Design System
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/design-system/**'
+      - 'bun.lock'
+      - 'package.json'
+      - '.github/workflows/design-system.yml'
+      - '.github/actions/setup/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/design-system/**'
+      - 'bun.lock'
+      - 'package.json'
+      - '.github/workflows/design-system.yml'
+      - '.github/actions/setup/**'
+
+concurrency:
+  group: design-system-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit (Vitest)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: packages/design-system
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: bun run test

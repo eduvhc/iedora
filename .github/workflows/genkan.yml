@@ -1,0 +1,67 @@
+# Genkan CI.
+#
+# Runs typecheck + Vitest whenever genkan source or one of its dependencies
+# changes. No e2e suite yet (see docs/testing.md "Why genkan has no
+# Playwright suite").
+#
+# Self-contained on purpose: one file is the entire genkan CI surface.
+
+name: Genkan
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'products/genkan/**'
+      - 'packages/design-system/**'
+      - 'packages/iedora-identity/**'
+      - 'packages/iedora-auth-testkit/**'
+      - 'bun.lock'
+      - 'package.json'
+      - 'tsconfig*.json'
+      - '.github/workflows/genkan.yml'
+      - '.github/actions/setup/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'products/genkan/**'
+      - 'packages/design-system/**'
+      - 'packages/iedora-identity/**'
+      - 'packages/iedora-auth-testkit/**'
+      - 'bun.lock'
+      - 'package.json'
+      - 'tsconfig*.json'
+      - '.github/workflows/genkan.yml'
+      - '.github/actions/setup/**'
+
+concurrency:
+  group: genkan-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: products/genkan
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: bun run typecheck
+
+  unit:
+    name: Unit (Vitest)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: products/genkan
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - name: Run Vitest
+        # Co-located + __tests__/ suites; some boot @iedora/auth-testkit
+        # for integration coverage (impersonation, role-escalation, JWKS).
+        run: bun run test

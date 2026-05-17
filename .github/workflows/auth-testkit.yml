@@ -1,0 +1,44 @@
+# @iedora/auth-testkit CI.
+#
+# Boots a real Better Auth + @better-auth/oauth-provider against PGLite
+# and walks the OIDC handshake. Re-exports genkan's schema, so a genkan
+# schema change must retrigger this workflow.
+
+name: Auth Testkit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/iedora-auth-testkit/**'
+      - 'products/genkan/src/shared/db/schema.ts'
+      - 'bun.lock'
+      - 'package.json'
+      - '.github/workflows/auth-testkit.yml'
+      - '.github/actions/setup/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/iedora-auth-testkit/**'
+      - 'products/genkan/src/shared/db/schema.ts'
+      - 'bun.lock'
+      - 'package.json'
+      - '.github/workflows/auth-testkit.yml'
+      - '.github/actions/setup/**'
+
+concurrency:
+  group: auth-testkit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit (Vitest)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: packages/iedora-auth-testkit
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: bun run test

@@ -1,0 +1,41 @@
+# @iedora/identity CI.
+#
+# Webhook sender + receiver + envelope crypto. Pure crypto + parsing,
+# no DB. Fast suite (~1 min).
+
+name: Identity
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/iedora-identity/**'
+      - 'bun.lock'
+      - 'package.json'
+      - '.github/workflows/identity.yml'
+      - '.github/actions/setup/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/iedora-identity/**'
+      - 'bun.lock'
+      - 'package.json'
+      - '.github/workflows/identity.yml'
+      - '.github/actions/setup/**'
+
+concurrency:
+  group: identity-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit (Vitest)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: packages/iedora-identity
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: bun run test

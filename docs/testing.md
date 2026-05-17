@@ -313,47 +313,65 @@ the per-PR runtime cost. TODO(genkan-e2e): decide threshold.
 
 ## CI integration
 
-CI is structured as **orchestrator + composite action + reusable
-workflows** — the standard monorepo shape (see `AGENTS.md` ## CI for
-the full breakdown). The pieces:
+CI is structured as **one workflow file per workspace** — every
+product and every shared package owns its own
+`.github/workflows/<name>.yml` (see `AGENTS.md` ## CI for the full
+breakdown). The pieces:
 
 ```
 .github/
   actions/setup/action.yml      composite: Bun install at the workspace root
   workflows/
-    ci.yml                       orchestrator: paths-filter + per-workspace gating
-    _unit.yml                    reusable: ONE Vitest job for ONE workspace
-    _e2e.yml                     reusable: menu Playwright suite + owns env literals
+    menu.yml                     menu's full pipeline
+    genkan.yml                   genkan's pipeline
+    design-system.yml            @iedora/design-system
+    identity.yml                 @iedora/identity
+    auth-testkit.yml             @iedora/auth-testkit
 ```
 
-**Jobs** (each gated on `dorny/paths-filter` outputs so unrelated
-changes skip):
+Each file `on:` triggers via `paths:` filters so a genkan-only change
+doesn't wake menu's pipeline (and vice-versa). A `bun.lock` or root
+config change retriggers everything.
 
-- **Typecheck · menu** — `bun run typecheck`. ~2 min.
-- **Typecheck · genkan** — `bun run typecheck`. ~2 min.
-- **Lint · menu** — `bun run lint`. ~2 min.
-- **Unit · menu** — `bun run test`. Docker available so testcontainers can boot real Redis for the rate-limit suite. ~3 min.
-- **Unit · genkan** — `bun run test`. PGLite + auth-testkit suites. ~3 min.
-- **Unit · `@iedora/identity`** — `bun run test`. No DB; pure crypto + parsing. ~1 min.
-- **Unit · `@iedora/auth-testkit`** — `bun run test`. Boots itself; slowest of the unit jobs but still under 30s. ~1 min.
-- **E2E (Playwright)** — Postgres 18 + LocalStack as service
-  containers. Build runs under Node (`node --run build`); Playwright
-  + everything else uses Bun. Caches `.next/cache` (Turbopack
-  persistent cache) and `~/.cache/ms-playwright`. ~15-20 min.
+**Jobs in `menu.yml`** (parallel except e2e):
 
-`_unit.yml` takes a `workdir` input — every per-workspace job is a
-four-line block in `ci.yml`. The Bun install happens once per runner
-at the workspace root via the composite action, before `cd`-ing into
-the package. Adding a new product = one paths-filter entry + one
-reusable-workflow call. No copy-pasted setup.
+- **Typecheck** — `bun run typecheck`. ~2 min.
+- **Lint** — `bun run lint`. ~2 min.
+- **Unit (Vitest)** — `bun run test`. Docker available so
+  testcontainers can boot real Redis for the rate-limit suite. ~3 min.
+- **E2E (Playwright)** — `needs: [typecheck, lint, unit]`.
+  Postgres 18 + LocalStack as service containers. Build runs under
+  Node (`node --run build`); Playwright + everything else uses Bun.
+  Caches `.next/cache` (Turbopack persistent cache) and
+  `~/.cache/ms-playwright`. The big env block (GENKAN_*, S3_*,
+  DATABASE_URL, NEXT_PUBLIC_GENKAN_URL) lives at the job level
+  inline — they're CI fixtures, not secrets. ~15-20 min.
 
-The e2e job's `if:` uses `!failure() && !cancelled()` instead of
-plain `success()` so it still runs when an upstream was skipped
-(paths-filter short-circuit). Otherwise a docs-only change to menu
-would skip `unit-genkan` → e2e blocked → noise.
+**Jobs in `genkan.yml`** (parallel):
+
+- **Typecheck** — `bun run typecheck`. ~2 min.
+- **Unit (Vitest)** — `bun run test`. PGLite + auth-testkit
+  integration suites. ~3 min.
+
+**Jobs in `design-system.yml`** — `unit` (jsdom-backed Vitest). ~30s.
+
+**Jobs in `identity.yml`** — `unit` (pure crypto + parsing). ~1 min.
+
+**Jobs in `auth-testkit.yml`** — `unit` (boots itself against PGLite
++ walks the OIDC handshake). ~1 min. The workflow's `paths:` filter
+includes `products/genkan/src/shared/db/schema.ts` because the
+testkit re-exports genkan's schema — a schema change retriggers it.
+
+The composite action `.github/actions/setup` is the one shared
+piece across all three workflows: it installs Bun and runs
+`bun install --frozen-lockfile` at the workspace root. Each job
+references it as one line: `uses: ./.github/actions/setup`.
 
 Branch protection is deliberately off — solo, AI-driven project;
-the CI itself is the signal. Revisit when adding collaborators.
+CI itself is the signal. This also dodges the well-known gotcha
+where `paths:`-filtered workflows leave required status checks
+"expected" indefinitely on unrelated PRs. Revisit when adding
+collaborators.
 
 ## Cookie-handling pitfalls (auth-testkit specifically)
 

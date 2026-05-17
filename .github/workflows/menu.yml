@@ -1,25 +1,90 @@
-# Reusable workflow: menu's Playwright e2e suite.
+# Menu CI.
 #
-# Owns Postgres 18 + LocalStack service containers, the build-time env
-# block (GENKAN_* and friends), the Next.js + Playwright caches, and
-# the Playwright report uploads.
+# Runs the full menu pipeline (typecheck + lint + Vitest + Playwright e2e)
+# whenever menu source or one of its dependencies changes.
 #
-# All env literals live here — ci.yml passes nothing through except
-# inherited secrets. Adding a new e2e-relevant env var = one-line edit
-# in this file.
+# Self-contained on purpose: one file is the entire menu CI surface.
+# Genkan's pipeline lives in genkan.yml and runs independently.
 
-name: E2E
+name: Menu
 
 on:
-  workflow_call:
-    secrets:
-      BETTER_AUTH_SECRET:
-        description: 'Server-side auth signing secret. CI value can be any 32+ byte string.'
-        required: true
+  push:
+    branches: [main]
+    paths:
+      - 'products/menu/**'
+      - 'packages/design-system/**'
+      - 'packages/iedora-identity/**'
+      - 'packages/iedora-auth-testkit/**'
+      - 'bun.lock'
+      - 'package.json'
+      - 'tsconfig*.json'
+      - '.github/workflows/menu.yml'
+      - '.github/actions/setup/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'products/menu/**'
+      - 'packages/design-system/**'
+      - 'packages/iedora-identity/**'
+      - 'packages/iedora-auth-testkit/**'
+      - 'bun.lock'
+      - 'package.json'
+      - 'tsconfig*.json'
+      - '.github/workflows/menu.yml'
+      - '.github/actions/setup/**'
+
+concurrency:
+  group: menu-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  playwright:
-    name: Playwright
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: products/menu
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: bun run typecheck
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: products/menu
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: bun run lint
+
+  unit:
+    name: Unit (Vitest)
+    runs-on: ubuntu-24.04
+    # ubuntu-24.04 ships Docker Engine, which testcontainers needs for the
+    # real-Redis integration suite in src/features/rate-limit. No extra
+    # setup step required.
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: products/menu
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - name: Run Vitest
+        # `bun run test` invokes the `vitest` binary whose Node shebang
+        # takes over, so testcontainers' `@testcontainers/*` modules run
+        # under Node here (they fail under Bun's runtime — oven-sh/bun#21342).
+        run: bun run test
+
+  e2e:
+    name: E2E (Playwright)
+    needs: [typecheck, lint, unit]
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     defaults:
@@ -27,8 +92,8 @@ jobs:
         working-directory: products/menu
 
     services:
-      # The service container starts with the default `postgres` admin DB —
-      # globalSetup connects there to CREATE the `metamenu_test` DB before
+      # Service container starts with the default `postgres` admin DB.
+      # globalSetup connects there to CREATE `metamenu_test` before
       # migrations run.
       postgres:
         image: postgres:18.4-alpine
@@ -44,10 +109,9 @@ jobs:
 
       # LocalStack stands in for MinIO/S3 in CI: GH Actions services don't
       # accept `command:` overrides (so `minio/minio` can't boot), and both
-      # the `minio/minio` and `bitnami/minio` public images were removed
-      # from Docker Hub in 2025. LocalStack auto-boots S3 on :4566; the
-      # SDK works as long as `forcePathStyle: true` (already set in
-      # src/features/upload/adapters/s3.ts).
+      # `minio/minio` and `bitnami/minio` public images were removed from
+      # Docker Hub in 2025. LocalStack auto-boots S3 on :4566; the SDK
+      # works because `forcePathStyle: true` is set in s3.ts.
       localstack:
         image: localstack/localstack:4
         env:
@@ -72,8 +136,6 @@ jobs:
       DISABLE_RATE_LIMIT: 'true'
 
       # --- S3 (LocalStack) ---
-      # LocalStack accepts any credentials; we use the conventional `test/test`
-      # pair the AWS SDK uses for local development.
       S3_ENDPOINT: http://localhost:4566
       S3_REGION: us-east-1
       S3_ACCESS_KEY: test
@@ -82,13 +144,11 @@ jobs:
 
       # --- Genkan (the auth-testkit shim) ---
       # Next 16's "collect page data" build pass executes module-level env
-      # validation (src/shared/env.ts), so GENKAN_* must be present at BUILD
-      # time as well as at webServer runtime. These values pass Zod; the
-      # actual issuer URL is resolved by playwright.config.ts's webServer.
-      # NEXT_PUBLIC_GENKAN_URL is also inlined into the client bundle at
-      # build time via src/shared/brand.ts::GENKAN_URL, so it MUST be the
-      # final testkit URL the browser hits. SHIM_PORT in playwright.config.ts
-      # must match the port suffix here.
+      # validation (src/shared/env.ts), so GENKAN_* must be present at
+      # BUILD time. NEXT_PUBLIC_GENKAN_URL is also inlined into the client
+      # bundle at build time via src/shared/brand.ts::GENKAN_URL, so it
+      # MUST be the final testkit URL the browser hits. SHIM_PORT in
+      # playwright.config.ts must match the port suffix here.
       GENKAN_OAUTH_CLIENT_ID: menu
       GENKAN_OAUTH_CLIENT_SECRET: menu-secret
       GENKAN_ISSUER_URL: http://127.0.0.1:4444
@@ -112,9 +172,8 @@ jobs:
         uses: actions/cache@v4
         with:
           # Turbopack's persistent cache lives here in Next 16 — large
-          # saving on warm runs. Keying on source files invalidates when
-          # code changes. Path is repo-root-relative; `actions/cache`
-          # doesn't honour the job's `defaults.run.working-directory`.
+          # saving on warm runs. Path is repo-root-relative;
+          # `actions/cache` doesn't honour `defaults.run.working-directory`.
           path: products/menu/.next/cache
           key: ${{ runner.os }}-nextjs-${{ hashFiles('bun.lock') }}-${{ hashFiles('products/menu/src/**/*.ts', 'products/menu/src/**/*.tsx') }}
           restore-keys: |

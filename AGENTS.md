@@ -219,11 +219,13 @@ iedora/                                  repo root
   bun.lock                               single workspace lockfile
   package.json                           workspaces: packages/* + products/{menu,genkan,house}
   justfile                               just modules: menu::, genkan::, house::
-  .github/                               composite setup action + reusable workflows (see "CI" below)
+  .github/                               composite setup action + one workflow per workspace
     actions/setup/action.yml             composite: install Bun + bun install --frozen-lockfile
-    workflows/ci.yml                       orchestrator: paths-filter → per-concern + reusable calls
-    workflows/_unit.yml                    reusable: one Vitest job per workspace
-    workflows/_e2e.yml                     reusable: menu Playwright suite (owns env literals)
+    workflows/menu.yml                   menu's full pipeline (typecheck + lint + unit + e2e)
+    workflows/genkan.yml                 genkan's pipeline (typecheck + unit)
+    workflows/design-system.yml          @iedora/design-system unit suite
+    workflows/identity.yml               @iedora/identity unit suite
+    workflows/auth-testkit.yml           @iedora/auth-testkit unit suite
   .mcp.json                              shadcn, postgres, bun, next-devtools, playwright MCP servers
   docs/                                  brand-level docs (deploy, scaling, backups, secrets,
                                          security-audit, tenancy, vendors, architecture, testing)
@@ -457,69 +459,67 @@ mutation.
 
 ## CI
 
-Structured as an **orchestrator + composite action + reusable workflows**
-— the industry-standard shape for monorepos that grow more than two
-products (mirrors the pattern in Vercel/Next.js, t3-oss/create-t3-turbo,
-nx, and turborepo's own repos).
+**One workflow file per workspace** — every product and every shared
+package owns its own `.github/workflows/<name>.yml`. Each file is
+self-contained: own trigger paths, own env block, own job graph.
+Adding a new workspace = one new file.
 
 ```
 .github/
   actions/setup/action.yml      composite: install Bun + bun install --frozen-lockfile
   workflows/
-    ci.yml                       orchestrator (paths-filter + job conditionals)
-    _unit.yml                    reusable: ONE Vitest job for ONE workspace
-    _e2e.yml                     reusable: menu Playwright suite + owns ALL e2e env literals
+    menu.yml                     menu's full pipeline (typecheck, lint, unit, e2e)
+    genkan.yml                   genkan's pipeline (typecheck, unit)
+    design-system.yml            @iedora/design-system unit suite
+    identity.yml                 @iedora/identity unit suite
+    auth-testkit.yml             @iedora/auth-testkit unit suite
 ```
 
-**Three load-bearing decisions:**
+**Two load-bearing decisions:**
 
-1. **One composite action for setup.** `actions/setup` runs
-   `oven-sh/setup-bun@v2` + `bun install --frozen-lockfile` at the repo
-   root. Every job that needs deps is one line: `uses: ./.github/actions/setup`.
-   Bumping Bun or adding a cache layer is a one-file edit.
+1. **`paths:` trigger filter per workflow.** Each workflow's `on:`
+   block lists the workspaces that should retrigger it. Menu lists
+   `products/menu/**` plus its workspace deps (`design-system`,
+   `identity`, `auth-testkit`) plus root files (`bun.lock`,
+   `package.json`, `tsconfig*.json`, its own workflow file, the
+   composite action). A change in genkan source DOES NOT wake menu's
+   pipeline — they're truly independent.
 
-2. **Reusable workflow for unit jobs.** Each per-workspace test job is a
-   four-line `uses: ./.github/workflows/_unit.yml` block with `label` +
-   `workdir` inputs. Adding a new product = one filter entry in `changes`
-   + one `uses:` block. No new file, no copy-pasted setup.
+2. **Composite action for setup.** `actions/setup` runs
+   `oven-sh/setup-bun@v2` + `bun install --frozen-lockfile` at the
+   repo root. Every job that needs deps is one line:
+   `uses: ./.github/actions/setup`. Bumping Bun or adding a cache
+   layer is a one-file edit, applies to all workflows.
 
-3. **`dorny/paths-filter` for change detection.** The first job
-   (`changes`) emits per-workspace outputs (`menu`, `genkan`, `house`,
-   `identity`, `authtestkit`, `design-system`, `shared`); every
-   downstream job gates on those outputs via `if: ...`. A docs-only edit
-   to `products/menu/` runs only menu's pipeline; a `bun.lock` change
-   (the `shared` filter) runs everything. Workflow-level `paths:` was
-   rejected because skipped status checks hang PR merges — `if:`
-   short-circuits show as `skipped` (success-equivalent for the gate).
+**The jobs (per file):**
 
-**The jobs:**
-
-- **`changes`** — dorny/paths-filter; emits `outputs.<workspace>`.
-- **`typecheck-menu`, `typecheck-genkan`** — `tsc --noEmit` per product.
-- **`lint-menu`** — menu-only (eslint-plugin-boundaries lives in the
-  menu config). Genkan has a thin `eslint.config.mjs` but no
-  dedicated lint job yet.
-- **`unit-menu`, `unit-genkan`, `unit-identity`, `unit-authtestkit`** —
-  all delegate to `_unit.yml`.
-- **`e2e`** — delegates to `_e2e.yml`; gated on `!failure() && !cancelled()`
-  (not plain `success()`) so a docs-only edit that legitimately skips
-  upstream units doesn't block the gate.
+- **menu.yml** — `typecheck`, `lint`, `unit` (parallel), then `e2e`
+  with `needs: [typecheck, lint, unit]`. The e2e job owns the entire
+  env block (Postgres + LocalStack services, GENKAN_* / S3_* /
+  DATABASE_URL literals) — they're all menu-specific.
+- **genkan.yml** — `typecheck`, `unit` (parallel). No e2e suite
+  (see `docs/testing.md` "Why genkan has no Playwright suite").
+- **design-system.yml** — `unit` (jsdom-backed Vitest).
+- **identity.yml** — `unit` (pure crypto + parsing).
+- **auth-testkit.yml** — `unit` (boots real Better Auth + PGLite,
+  walks the OIDC handshake). Re-exports genkan's schema, so its
+  `paths:` filter ALSO includes `products/genkan/src/shared/db/schema.ts`
+  — a genkan schema change retriggers it.
 
 **Where env lives:**
 
-- **Workflow-level (ci.yml)** — empty: orchestrator doesn't need any.
-- **Job-level (`_e2e.yml` env block)** — every e2e env literal:
-  `DATABASE_URL`, `GENKAN_*`, `NEXT_PUBLIC_GENKAN_URL`, `S3_*`. These
-  aren't secret (they're CI fixtures), so they live in code, not in
-  GH Secrets. The reusable workflow is the single home for them —
-  adding one is a one-line edit there.
+- **Job-level (`env:` in menu.yml's e2e job)** — every CI fixture
+  literal: `DATABASE_URL`, `GENKAN_*`, `NEXT_PUBLIC_GENKAN_URL`,
+  `S3_*`. These aren't secret — they live in code, not in GH Secrets.
 - **GH Secrets** — only `BETTER_AUTH_SECRET` (truly sensitive). When
   deploy workflows land, true per-environment secrets graduate to
   **GitHub Environments** (`environment: production` / `staging`).
 
 **Branch protection: deliberately NOT enabled** — solo, AI-driven
-project; the CI itself is the signal. Revisit when adding collaborators
-or after the first "broken main" incident.
+project; CI itself is the signal. This also dodges the well-known
+gotcha where `paths:`-filtered workflows leave required status
+checks "expected" indefinitely on unrelated PRs. Revisit when
+adding collaborators.
 
 ## Where to look when unsure
 
