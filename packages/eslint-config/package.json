@@ -1,0 +1,28 @@
+{
+  "name": "@iedora/eslint-config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Iedora shared ESLint flat-config factories. Composable: base + next + react + boundaries(elements) + vitest.",
+  "exports": {
+    ".": "./src/index.js",
+    "./base": "./src/base.js",
+    "./next": "./src/next.js",
+    "./react": "./src/react.js",
+    "./typescript": "./src/typescript.js",
+    "./boundaries": "./src/boundaries.js",
+    "./vitest": "./src/vitest.js"
+  },
+  "peerDependencies": {
+    "eslint": ">=9.0.0",
+    "typescript-eslint": ">=8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript-eslint": { "optional": true }
+  },
+  "dependencies": {
+    "@eslint/js": "^9.39.4",
+    "eslint-plugin-boundaries": "^6.0.2",
+    "eslint-config-next": "16.2.6"
+  }
+}

@@ -73,7 +73,7 @@ function fillDailyGaps(
   const out: DailyPoint[] = []
   // `start` is `YYYY-MM-DD`; reconstruct as a UTC date so DST boundaries
   // never shift the bucket walk.
-  const [y, m, d] = start.split('-').map(Number)
+  const [y, m, d] = start.split('-').map(Number) as [number, number, number]
   const startDate = new Date(Date.UTC(y, m - 1, d))
   for (let i = 0; i < span; i++) {
     const day = toDayString(shiftDays(startDate, i))

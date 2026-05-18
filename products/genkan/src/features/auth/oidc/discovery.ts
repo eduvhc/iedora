@@ -1,5 +1,5 @@
 import 'server-only'
-import { auth } from '@/features/auth/adapters/better-auth-instance'
+import { auth } from '../adapters/better-auth-instance'
 
 /**
  * Shared route handlers for the OIDC / OAuth 2.0 well-known discovery

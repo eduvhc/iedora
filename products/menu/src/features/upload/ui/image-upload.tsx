@@ -2,9 +2,9 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { Button } from '@iedora/design-system'
-import { commitAsset, clearAsset, requestUploadUrl } from '@/features/upload/actions'
-import { TARGET_CONSTRAINTS } from '@/features/upload/targets'
-import type { AssetTarget } from '@/features/upload/types'
+import { commitAsset, clearAsset, requestUploadUrl } from '../actions'
+import { TARGET_CONSTRAINTS } from '../targets'
+import type { AssetTarget } from '../types'
 
 export function ImageUpload({
   target,

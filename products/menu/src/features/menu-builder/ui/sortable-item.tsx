@@ -19,7 +19,7 @@ import {
 import { ImageUpload } from '@/features/upload/ui/image-upload'
 import { LocalizedFields } from '@/features/i18n/ui/localized-fields'
 import type { LanguageCode, LocalizedText } from '@/features/i18n'
-import { deleteItem, updateItem } from '@/features/menu-builder/actions'
+import { deleteItem, updateItem } from '../actions'
 import type { BuilderItem } from './types'
 
 function formatPrice(cents: number, currency: string) {

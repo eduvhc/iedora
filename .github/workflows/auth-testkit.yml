@@ -11,6 +11,7 @@ on:
     branches: [main]
     paths:
       - 'packages/iedora-auth-testkit/**'
+      - 'packages/eslint-config/**'
       - 'products/genkan/src/shared/db/schema.ts'
       - 'bun.lock'
       - 'package.json'
@@ -20,6 +21,7 @@ on:
     branches: [main]
     paths:
       - 'packages/iedora-auth-testkit/**'
+      - 'packages/eslint-config/**'
       - 'products/genkan/src/shared/db/schema.ts'
       - 'bun.lock'
       - 'package.json'
@@ -37,6 +39,30 @@ permissions:
   contents: read
 
 jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: packages/iedora-auth-testkit
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: ./.github/actions/setup
+      - run: bun run typecheck
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: packages/iedora-auth-testkit
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: ./.github/actions/setup
+      - run: bun run lint
+
   unit:
     name: Unit (Vitest)
     runs-on: ubuntu-24.04
@@ -45,6 +71,6 @@ jobs:
       run:
         working-directory: packages/iedora-auth-testkit
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: ./.github/actions/setup
       - run: bun run test

@@ -30,11 +30,12 @@ test.describe('Public menu — i18n', () => {
       WHERE id = ${restaurantId}
     `
     const { menuId } = await seedMenu(restaurantId, 'Main')
-    const [{ id: categoryId }] = await sql<{ id: string }[]>`
+    const [catRow] = await sql<{ id: string }[]>`
       INSERT INTO "menu"."category" (id, menu_id, restaurant_id, name, position, updated_at)
       VALUES (gen_random_uuid()::text, ${menuId}, ${restaurantId}, 'Fish', 0, now())
       RETURNING id
     `
+    const categoryId = catRow!.id
     await sql`
       INSERT INTO "menu"."item" (
         id, category_id, restaurant_id, name, name_i18n,

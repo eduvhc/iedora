@@ -14,6 +14,7 @@ on:
     paths:
       - 'products/menu/**'
       - 'packages/design-system/**'
+      - 'packages/eslint-config/**'
       - 'packages/iedora-identity/**'
       - 'packages/iedora-auth-testkit/**'
       - 'bun.lock'
@@ -26,6 +27,7 @@ on:
     paths:
       - 'products/menu/**'
       - 'packages/design-system/**'
+      - 'packages/eslint-config/**'
       - 'packages/iedora-identity/**'
       - 'packages/iedora-auth-testkit/**'
       - 'bun.lock'
@@ -56,7 +58,7 @@ jobs:
       run:
         working-directory: products/menu
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: ./.github/actions/setup
       - run: bun run typecheck
 
@@ -68,7 +70,7 @@ jobs:
       run:
         working-directory: products/menu
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: ./.github/actions/setup
       - run: bun run lint
 
@@ -83,7 +85,7 @@ jobs:
       run:
         working-directory: products/menu
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: ./.github/actions/setup
       - name: Run Vitest
         # `bun run test` invokes the `vitest` binary whose Node shebang
@@ -100,9 +102,9 @@ jobs:
     # the run; --ignore-unfixed avoids failing on CVEs with no patch yet.
     # `.trivyignore` at repo root holds accepted exceptions.
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Trivy vulnerability gate
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -111,7 +113,7 @@ jobs:
           ignore-unfixed: true
           format: table
       - name: Trivy SBOM (SPDX JSON)
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -119,7 +121,7 @@ jobs:
           output: menu-sbom.spdx.json
           exit-code: '0'
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: menu-sbom
           path: menu-sbom.spdx.json
@@ -210,9 +212,9 @@ jobs:
       CI: 'true'
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: '22'
 
@@ -229,7 +231,7 @@ jobs:
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Cache Next.js build output
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           # Turbopack's persistent cache. Key hashes ONLY deps + config —
           # Turbopack does per-module invalidation internally, so hashing
@@ -243,7 +245,7 @@ jobs:
 
       - name: Cache Playwright browsers
         id: pw-cache
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ steps.pw-version.outputs.version }}
@@ -285,7 +287,7 @@ jobs:
 
       - name: Upload Playwright HTML report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-report
           path: products/menu/playwright-report/
@@ -293,7 +295,7 @@ jobs:
 
       - name: Upload traces, screenshots, and videos on failure
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-test-results
           path: products/menu/test-results/

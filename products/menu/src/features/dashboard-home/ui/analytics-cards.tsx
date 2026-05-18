@@ -133,11 +133,12 @@ export function ScansChart({
     month: 'short',
   })
   const parse = (day: string) => {
-    const [y, m, d] = day.split('-').map(Number)
+    const [y, m, d] = day.split('-').map(Number) as [number, number, number]
     return new Date(Date.UTC(y, m - 1, d))
   }
-  const first = breakdown[0]
-  const last = breakdown[breakdown.length - 1]
+  // `breakdown.length >= 2` was guarded above, so both ends exist.
+  const first = breakdown[0]!
+  const last = breakdown[breakdown.length - 1]!
 
   return (
     <article

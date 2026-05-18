@@ -50,6 +50,9 @@ products/*/infra/.env
 *.tsbuildinfo
 next-env.d.ts
 
+# Jazzer fuzz harness build output (transient — produced by `bun run fuzz:build`).
+.fuzz-build/
+
 # Playwright
 test-results/
 playwright-report/

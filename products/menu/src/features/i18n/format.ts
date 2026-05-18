@@ -44,9 +44,10 @@ export function pickLanguage({
     return requested as LanguageCode
   }
   if (acceptLanguage) {
+    // `split` always yields at least one element, so the `[0]!` is safe.
     const tags = acceptLanguage
       .split(',')
-      .map((t) => t.split(';')[0].trim().toLowerCase().split('-')[0])
+      .map((t) => t.split(';')[0]!.trim().toLowerCase().split('-')[0]!)
     for (const tag of tags) {
       if ((supported as readonly string[]).includes(tag)) return tag as LanguageCode
     }

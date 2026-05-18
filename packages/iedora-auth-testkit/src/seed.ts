@@ -14,13 +14,6 @@ export function hashClientSecret(secret: string): string {
   return createHash('sha256').update(secret, 'utf8').digest('base64url')
 }
 
-/** A minimal Drizzle-shaped DB. We constrain to the methods we actually call. */
-type AnyDb = {
-  insert: (...args: never[]) => never
-  select: (...args: never[]) => never
-  update: (...args: never[]) => never
-} & Record<string, unknown>
-
 /**
  * UPSERT a trusted client row directly into `oauth_client`. The
  * `oauthProvider` plugin reads these rows on every authorize/token request;

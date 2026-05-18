@@ -35,7 +35,7 @@ describe("secret-storage — round trip + invariants", () => {
     const envelope = enc.encrypt("payload");
     // Flip one base64url character in the body — touches the ciphertext or
     // tag region and the GCM tag check rejects it on `decipher.final()`.
-    const [prefix, body] = envelope.split(":");
+    const [prefix, body] = envelope.split(":") as [string, string];
     const flipped =
       body[10] === "A" ? body.slice(0, 10) + "B" + body.slice(11)
                        : body.slice(0, 10) + "A" + body.slice(11);
@@ -87,7 +87,7 @@ describe("secret-storage — round trip + invariants", () => {
   it("tamper rejection is via thrown error, never a silent return", () => {
     const enc = createHkdfEncryptor({ masterKey: MASTER });
     const envelope = enc.encrypt("auth-check");
-    const [prefix, body] = envelope.split(":");
+    const [prefix, body] = envelope.split(":") as [string, string];
     const corrupted = `${prefix}:${body.slice(0, -2)}AA`;
     let threw = false;
     try {

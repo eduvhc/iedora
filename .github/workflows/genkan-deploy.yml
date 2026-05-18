@@ -20,17 +20,20 @@ concurrency:
   cancel-in-progress: false
   queue: max
 
-# See menu-deploy.yml for why permissions must be granted at the caller level.
+# Least-privilege default for the GITHUB_TOKEN — see menu-deploy.yml for
+# the rationale. Writes live on the `deploy` job below.
 permissions:
   contents: read
-  packages: write
-  actions: read
-  id-token: write
-  security-events: write
-  attestations: write
 
 jobs:
   deploy:
+    permissions:
+      contents: read
+      packages: write
+      actions: read
+      id-token: write
+      security-events: write
+      attestations: write
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&

@@ -105,7 +105,6 @@ export function createWebhookSender(opts: SenderOptions) {
     ((r: DeliveryResult) => {
       // Sensible default: log failures, silent on success.
       if (r.status === "failed") {
-        // eslint-disable-next-line no-console
         console.warn(
           `[iedora-identity] delivery failed: ${r.event} → ${r.url} attempt=${r.attempt} http=${r.http ?? "-"} error=${r.error ?? "-"}`,
         );

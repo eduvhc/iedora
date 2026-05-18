@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@iedora/design-system'
-import { deleteMenu } from '@/features/menu-builder/actions'
+import { deleteMenu } from '../actions'
 
 export function DeleteMenuButton({
   slug,

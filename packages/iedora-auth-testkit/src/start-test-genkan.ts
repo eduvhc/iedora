@@ -1,5 +1,5 @@
 import http from 'node:http'
-import { AddressInfo } from 'node:net'
+import type { AddressInfo } from 'node:net'
 import { PGlite } from '@electric-sql/pglite'
 import { drizzle } from 'drizzle-orm/pglite'
 import { eq } from 'drizzle-orm'

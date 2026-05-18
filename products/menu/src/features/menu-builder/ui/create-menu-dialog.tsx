@@ -15,7 +15,7 @@ import {
   FieldInput,
   FieldLabel,
 } from '@iedora/design-system'
-import { createMenu } from '@/features/menu-builder/actions'
+import { createMenu } from '../actions'
 
 export function CreateMenuDialog({ slug }: { slug: string }) {
   const [open, setOpen] = useState(false)

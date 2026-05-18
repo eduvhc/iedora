@@ -29,10 +29,10 @@ test.describe('Onboarding — first restaurant', () => {
       LIMIT 1
     `
     expect(rows.length).toBe(1)
-    expect(rows[0].name).toBe(restaurantName)
+    expect(rows[0]!.name).toBe(restaurantName)
     // organization_id is a non-empty UUID-shaped string handed back by the
     // testkit-shim's create-organization endpoint. The exact format is
     // genkan's choice (Better Auth's `generateId`); just check it's set.
-    expect(rows[0].organization_id.length).toBeGreaterThan(8)
+    expect(rows[0]!.organization_id.length).toBeGreaterThan(8)
   })
 })

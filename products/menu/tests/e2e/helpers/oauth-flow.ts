@@ -69,7 +69,8 @@ export async function completeOAuthFlow(
   // wouldn't accompany the redirect to /api/auth/oauth2/authorize.
   const underlyingUrl = getUnderlyingTestkitUrl()
   for (const sc of setCookies) {
-    const head = sc.value.split(';')[0]
+    // `split` always yields at least one element.
+    const head = sc.value.split(';')[0]!
     const eq = head.indexOf('=')
     if (eq < 0) continue
     const name = head.slice(0, eq)

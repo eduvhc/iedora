@@ -58,6 +58,14 @@ on:
 # `inputs.*` causes a startup_failure because `inputs` is evaluated at
 # workflow-registration time, before the caller binds them.
 
+# Least-privilege default for the GITHUB_TOKEN (OpenSSF Scorecard
+# Token-Permissions). Job-level overrides below grant the elevated
+# scopes Kamal needs (packages:write for GHCR push, id-token:write
+# for Tailscale WIF + Sigstore, security-events:write for the post-
+# deploy Trivy SARIF upload, attestations:write for SLSA provenance).
+permissions:
+  contents: read
+
 jobs:
   deploy:
     name: Deploy ${{ inputs.product }}
@@ -92,7 +100,7 @@ jobs:
 
     steps:
       - name: Checkout @ deploy SHA
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           # workflow_run fires with head_sha = the upstream CI's commit. We
           # check out THAT SHA so the deploy matches what CI validated, even
@@ -145,7 +153,7 @@ jobs:
       # tailscale/github-action#284). `hostname` per-run keeps the admin
       # device list readable. `ping` blocks until MagicDNS resolves.
       - name: Connect to tailnet
-        uses: tailscale/github-action@v4
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4
         with:
           oauth-client-id: ${{ steps.ts.outputs.client_id }}
           audience: ${{ steps.ts.outputs.audience }}
@@ -158,13 +166,13 @@ jobs:
       # buildx subprocesses inherit — without this, Kamal's `docker buildx
       # build --cache-to=type=gha,...` can't reach the GHA cache backend.
       - name: Expose GHA runtime to subprocesses
-        uses: crazy-max/ghaction-github-runtime@v4
+        uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
 
       - name: Log in to GHCR
-        uses: docker/login-action@v4
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -199,7 +207,7 @@ jobs:
           echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
 
       - name: Set up Ruby + Kamal
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@97ecb7b512899eb71ab1bf2310a624c6f1589ac6 # v1
         with:
           ruby-version: '3.3'
 
@@ -249,7 +257,7 @@ jobs:
       # `kamal rollback`; the SARIF upload below makes the findings visible
       # in the Security tab regardless of the gate's verdict.
       - name: Trivy image scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ghcr.io/${{ inputs.ghcr_user }}/${{ inputs.product }}:${{ inputs.sha }}
           severity: HIGH,CRITICAL
@@ -263,7 +271,7 @@ jobs:
         # failed the workflow on HIGH/CRITICAL. Without this, a red gate
         # would also lose the diagnostic data.
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@9e0d7b8d25671d64c341c19c0152d693099fb5ba # v4
         with:
           sarif_file: trivy-image.sarif
           category: image-${{ inputs.product }}
@@ -294,7 +302,7 @@ jobs:
 
       - name: Attest SLSA build provenance
         if: success()
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4
         with:
           subject-name: ghcr.io/${{ inputs.ghcr_user }}/${{ inputs.product }}
           subject-digest: ${{ steps.digest.outputs.digest }}
@@ -302,7 +310,7 @@ jobs:
 
       - name: Generate image SBOM
         if: success()
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ghcr.io/${{ inputs.ghcr_user }}/${{ inputs.product }}:${{ inputs.sha }}
           format: spdx-json
@@ -311,7 +319,7 @@ jobs:
 
       - name: Attest image SBOM
         if: success()
-        uses: actions/attest-sbom@v4
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4
         with:
           subject-name: ghcr.io/${{ inputs.ghcr_user }}/${{ inputs.product }}
           subject-digest: ${{ steps.digest.outputs.digest }}

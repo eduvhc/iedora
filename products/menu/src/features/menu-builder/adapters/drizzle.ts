@@ -10,6 +10,16 @@ import type { MenuReadPort, MenuWritePort } from '../ports'
 // Generic over the driver — accepts both postgres-js (prod) and PGLite (tests).
 type AdapterDb = PgDatabase<PgQueryResultHKT, typeof schema>
 
+// INSERT … RETURNING from a single VALUES row always yields exactly one row,
+// and aggregate SELECTs (max, count, …) always yield one row even on empty
+// tables. TS can't model that, so this narrows the array type where Postgres
+// guarantees it.
+function only<T>(rows: T[], op: string): T {
+  const row = rows[0]
+  if (!row) throw new Error(`drizzle: ${op} returned no rows`)
+  return row
+}
+
 /**
  * Production MenuWritePort. Wraps the Drizzle mutations that previously
  * lived inline in `app/dashboard/r/[slug]/m/[menuId]/actions.ts`. Single-
@@ -51,20 +61,26 @@ export function makeDrizzleMenuWrite(db: AdapterDb): MenuWritePort {
   },
 
   async insertCategoryAtEnd(menuId, restaurantId, name) {
-    const [{ next }] = await db
-      .select({ next: max(category.position) })
-      .from(category)
-      .where(eq(category.menuId, menuId))
+    const agg = only(
+      await db
+        .select({ next: max(category.position) })
+        .from(category)
+        .where(eq(category.menuId, menuId)),
+      'max(category.position)',
+    )
 
-    const [row] = await db
-      .insert(category)
-      .values({
-        menuId,
-        restaurantId,
-        name,
-        position: (next ?? -1) + 1,
-      })
-      .returning({ id: category.id })
+    const row = only(
+      await db
+        .insert(category)
+        .values({
+          menuId,
+          restaurantId,
+          name,
+          position: (agg.next ?? -1) + 1,
+        })
+        .returning({ id: category.id }),
+      'insert category',
+    )
     return row.id
   },
 
@@ -126,21 +142,27 @@ export function makeDrizzleMenuWrite(db: AdapterDb): MenuWritePort {
   },
 
   async insertItemAtEnd(categoryId, restaurantId, fields) {
-    const [{ next }] = await db
-      .select({ next: max(item.position) })
-      .from(item)
-      .where(eq(item.categoryId, categoryId))
+    const agg = only(
+      await db
+        .select({ next: max(item.position) })
+        .from(item)
+        .where(eq(item.categoryId, categoryId)),
+      'max(item.position)',
+    )
 
-    const [row] = await db
-      .insert(item)
-      .values({
-        categoryId,
-        restaurantId,
-        name: fields.name,
-        priceCents: fields.priceCents,
-        position: (next ?? -1) + 1,
-      })
-      .returning({ id: item.id })
+    const row = only(
+      await db
+        .insert(item)
+        .values({
+          categoryId,
+          restaurantId,
+          name: fields.name,
+          priceCents: fields.priceCents,
+          position: (agg.next ?? -1) + 1,
+        })
+        .returning({ id: item.id }),
+      'insert item',
+    )
     return row.id
   },
 
@@ -180,15 +202,17 @@ export function makeDrizzleMenuWrite(db: AdapterDb): MenuWritePort {
   },
 
   async getRestaurantLanguageConfig(restaurantId) {
-    const rows = await db
-      .select({
-        defaultLanguage: restaurant.defaultLanguage,
-        supportedLanguages: restaurant.supportedLanguages,
-      })
-      .from(restaurant)
-      .where(eq(restaurant.id, restaurantId))
-      .limit(1)
-    const row = rows[0]!
+    const row = only(
+      await db
+        .select({
+          defaultLanguage: restaurant.defaultLanguage,
+          supportedLanguages: restaurant.supportedLanguages,
+        })
+        .from(restaurant)
+        .where(eq(restaurant.id, restaurantId))
+        .limit(1),
+      'restaurant language config',
+    )
     return {
       defaultLanguage: row.defaultLanguage as LanguageCode,
       supportedLanguages: row.supportedLanguages as LanguageCode[],
@@ -196,19 +220,25 @@ export function makeDrizzleMenuWrite(db: AdapterDb): MenuWritePort {
   },
 
   async createMenu(restaurantId, name) {
-    const [{ next }] = await db
-      .select({ next: max(menu.position) })
-      .from(menu)
-      .where(eq(menu.restaurantId, restaurantId))
+    const agg = only(
+      await db
+        .select({ next: max(menu.position) })
+        .from(menu)
+        .where(eq(menu.restaurantId, restaurantId)),
+      'max(menu.position)',
+    )
 
-    const [row] = await db
-      .insert(menu)
-      .values({
-        restaurantId,
-        name,
-        position: (next ?? -1) + 1,
-      })
-      .returning({ id: menu.id })
+    const row = only(
+      await db
+        .insert(menu)
+        .values({
+          restaurantId,
+          name,
+          position: (agg.next ?? -1) + 1,
+        })
+        .returning({ id: menu.id }),
+      'insert menu',
+    )
     return row.id
   },
 
@@ -224,33 +254,42 @@ export function makeDrizzleMenuWrite(db: AdapterDb): MenuWritePort {
     // menu can't leak if anything along the way fails. The caller has
     // pre-localized text into `default` (plain column) + `i18n` (jsonb map)
     // following AGENTS.md hard rule #10.
-    const [{ next: nextMenuPos }] = await db
-      .select({ next: max(menu.position) })
-      .from(menu)
-      .where(eq(menu.restaurantId, restaurantId))
+    const nextMenuAgg = only(
+      await db
+        .select({ next: max(menu.position) })
+        .from(menu)
+        .where(eq(menu.restaurantId, restaurantId)),
+      'max(menu.position)',
+    )
 
     return db.transaction(async (tx) => {
-      const [insertedMenu] = await tx
-        .insert(menu)
-        .values({
-          restaurantId,
-          name: seed.menuName.default,
-          nameI18n: seed.menuName.i18n,
-          position: (nextMenuPos ?? -1) + 1,
-        })
-        .returning({ id: menu.id })
+      const insertedMenu = only(
+        await tx
+          .insert(menu)
+          .values({
+            restaurantId,
+            name: seed.menuName.default,
+            nameI18n: seed.menuName.i18n,
+            position: (nextMenuAgg.next ?? -1) + 1,
+          })
+          .returning({ id: menu.id }),
+        'insert seed menu',
+      )
 
       for (const [catIdx, c] of seed.categories.entries()) {
-        const [insertedCategory] = await tx
-          .insert(category)
-          .values({
-            menuId: insertedMenu.id,
-            restaurantId,
-            name: c.name.default,
-            nameI18n: c.name.i18n,
-            position: catIdx * 10,
-          })
-          .returning({ id: category.id })
+        const insertedCategory = only(
+          await tx
+            .insert(category)
+            .values({
+              menuId: insertedMenu.id,
+              restaurantId,
+              name: c.name.default,
+              nameI18n: c.name.i18n,
+              position: catIdx * 10,
+            })
+            .returning({ id: category.id }),
+          'insert seed category',
+        )
 
         const itemRows = c.items.map((it, itemIdx) => ({
           categoryId: insertedCategory.id,
@@ -290,7 +329,8 @@ export function makeDrizzleMenuRead(db: AdapterDb): MenuReadPort {
       .from(menu)
       .where(and(eq(menu.id, menuId), eq(menu.restaurantId, restaurantId)))
       .limit(1)
-    if (menuRows.length === 0) {
+    const m = menuRows[0]
+    if (!m) {
       return {
         menu: null,
         defaultLanguage: 'en',
@@ -298,17 +338,18 @@ export function makeDrizzleMenuRead(db: AdapterDb): MenuReadPort {
         categories: [],
       }
     }
-    const m = menuRows[0]
 
-    const langRows = await db
-      .select({
-        defaultLanguage: restaurant.defaultLanguage,
-        supportedLanguages: restaurant.supportedLanguages,
-      })
-      .from(restaurant)
-      .where(eq(restaurant.id, restaurantId))
-      .limit(1)
-    const langs = langRows[0]!
+    const langs = only(
+      await db
+        .select({
+          defaultLanguage: restaurant.defaultLanguage,
+          supportedLanguages: restaurant.supportedLanguages,
+        })
+        .from(restaurant)
+        .where(eq(restaurant.id, restaurantId))
+        .limit(1),
+      'restaurant language config',
+    )
 
     // Project explicitly — the table has `createdAt`/`updatedAt`/`restaurantId`
     // that the builder UI never reads. Smaller payloads = smaller cache

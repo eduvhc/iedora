@@ -31,22 +31,27 @@ concurrency:
   cancel-in-progress: false
   queue: max
 
-# Reusable workflows can only USE permissions the caller grants. Without
-# this block, the perms requested in _kamal-deploy.yml are silently denied
-# and the workflow fails at startup. Grant the union of what the reusable
-# workflow needs — packages:write for GHCR push, id-token:write for the
-# Tailscale WIF token exchange, security-events:write for the post-deploy
-# Trivy image scan to upload SARIF findings to the Security tab.
+# Least-privilege default for the GITHUB_TOKEN (OpenSSF Scorecard
+# Token-Permissions). The elevated scopes the called reusable workflow
+# needs live on the `deploy` job below — reusable workflows can only
+# USE permissions the calling job grants, so granting them at the JOB
+# level (not top-level) satisfies both.
 permissions:
   contents: read
-  packages: write
-  actions: read
-  id-token: write
-  security-events: write
-  attestations: write
 
 jobs:
   deploy:
+    # Job-level permissions: union of what _kamal-deploy.yml's job declares.
+    # packages:write for GHCR push, id-token:write for Tailscale WIF token
+    # exchange + Sigstore attestations, security-events:write for the post-
+    # deploy Trivy SARIF upload, attestations:write for SLSA provenance.
+    permissions:
+      contents: read
+      packages: write
+      actions: read
+      id-token: write
+      security-events: write
+      attestations: write
     # Guards:
     #   - workflow_run: only when the upstream concluded SUCCESS. There is a
     #     well-documented bug (actions/runner#4035) where workflow_run can

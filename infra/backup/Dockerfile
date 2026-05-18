@@ -8,7 +8,7 @@
 # Build + push manually via `make build-backup` (Makefile target). Versioning
 # follows the postgres major in `config/deploy.yml` — when you bump postgres,
 # bump the image tag here too.
-FROM postgres:18.4-alpine
+FROM postgres:18.4-alpine@sha256:96d56f7f57c6aacd1fcb908bc83b345ec5f83231ee486dd66a1baadce274db88
 
 RUN apk add --no-cache aws-cli gnupg tini
 

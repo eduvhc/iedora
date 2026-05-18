@@ -13,7 +13,7 @@ import {
 } from '@iedora/design-system'
 import { LocalizedFields } from '@/features/i18n/ui/localized-fields'
 import type { LanguageCode, LocalizedText } from '@/features/i18n'
-import { updateCategoryTranslations } from '@/features/menu-builder/actions'
+import { updateCategoryTranslations } from '../actions'
 
 // Opens from a "Translate" button next to the category title. Renders only
 // when supportedLanguages.length > 1 — single-language menus keep the inline
