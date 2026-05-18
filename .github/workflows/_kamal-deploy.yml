@@ -53,12 +53,10 @@ on:
         description: 'Private key for root@<onprem_host>. Add to ~/.ssh/authorized_keys via ssh-copy-id.'
         required: true
 
-# Per-product serialization. cancel-in-progress: false so a deploy in flight
-# isn't killed mid-roll. Without queue:max, GHA silently drops queued runs
-# while one is running (May 2026 changelog fixed this).
-concurrency:
-  group: deploy-${{ inputs.product }}
-  cancel-in-progress: false
+# Concurrency lives in the CALLERS (menu-deploy.yml, genkan-deploy.yml), not
+# here — top-level concurrency in a reusable workflow that references
+# `inputs.*` causes a startup_failure because `inputs` is evaluated at
+# workflow-registration time, before the caller binds them.
 
 jobs:
   deploy:

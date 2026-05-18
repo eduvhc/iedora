@@ -22,6 +22,14 @@ on:
         required: false
         type: string
 
+# Per-product serialization. cancel-in-progress: false so a deploy in flight
+# isn't killed mid-roll. Lives in the caller (not the reusable workflow)
+# because the reusable workflow's top-level concurrency referencing
+# `inputs.*` causes a startup_failure.
+concurrency:
+  group: deploy-menu
+  cancel-in-progress: false
+
 jobs:
   deploy:
     # Guards:
