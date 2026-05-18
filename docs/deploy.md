@@ -166,7 +166,7 @@ Generate each value with `openssl rand -hex 32`, except `INFRA_CLOUDFLARE_API_TO
 | GitHub fine-grained PAT (Tofu repo config) | https://github.com/settings/personal-access-tokens?type=beta | `iedora-tofu-admin` |
 | GitHub classic PAT (GHCR push) | https://github.com/settings/tokens | `iedora-ghcr` (note: classic = the exception above) |
 | Tailscale OAuth bootstrap (Tofu auth) | https://login.tailscale.com/admin/settings/oauth | `iedora-tofu-admin` |
-| Tailscale OAuth CI (runner auth) | Tofu-managed via `tailscale_oauth_client.ci` (description) | `iedora-gha-ci` |
+| Tailscale CI runner auth (WIF) | Tofu-managed via `tailscale_federated_identity.ci` (description) | `iedora-gha-ci` (no client secret — see Network reachability for WIF details) |
 | CI SSH keypair (root@homelab) | local `~/.ssh/ci_ed25519` + BWS `INFRA_KAMAL_SSH_PRIVATE_KEY` | comment `ci@iedora-YYYYMMDD-HHMM` (date-stamped on creation) |
 
 Two `iedora-tofu-admin`s coexist in different systems (Tailscale and GitHub) — that's intentional: same role name + different lookup paths = easy to find the right one when rotating.
@@ -319,7 +319,7 @@ ssh root@$ONPREM_HOST 'tailscale up --hostname=iedora-homelab'
 # Verify with `tailscale status` — should print iedora-homelab + 100.x.x.x.
 ```
 
-**The ACL + CI OAuth client are managed by Tofu.** `infra/tofu/tailscale.tf` declares both as resources; `just infra::deploy` applies them and write-throughs the CI client credentials to BWS as `INFRA_CI_TAILSCALE_OAUTH_CLIENT_{ID,SECRET}`. CI fetches those from BWS at deploy time. No GH secret/var lives for Tailscale separately.
+**The ACL + CI federated identity are managed by Tofu.** `infra/tofu/tailscale.tf` declares both as resources; `just infra::deploy` applies them and write-throughs the federated-identity ID + audience to BWS as `INFRA_CI_TAILSCALE_FEDERATED_{ID,AUDIENCE}`. CI fetches those from BWS at deploy time and authenticates via GitHub's per-job OIDC JWT — **no client secret exists**. No GH secret/var lives for Tailscale separately.
 
 **One-time bootstrap** (chicken-and-egg: Tofu needs an OAuth client to manage OAuth clients, and the bootstrap client must already hold every scope it grants downstream — Tailscale's least-privilege model). Three steps, in this exact order; doing them out of order forces a two-run bootstrap.
 
@@ -340,13 +340,14 @@ ssh root@$ONPREM_HOST 'tailscale up --hostname=iedora-homelab'
 
 2. **Generate the bootstrap OAuth client** (Settings → OAuth clients → Generate):
    - Description: `iedora-tofu-admin`
-   - Scopes (all three, write): **`policy_file`** + **`oauth_keys`** + **`auth_keys`**
+   - Scopes (all four, write): **`policy_file`** + **`oauth_keys`** + **`auth_keys`** + **`federated_keys`**
      - `policy_file` (write) — for Tofu to manage the ACL.
-     - `oauth_keys` (write) — for Tofu to mint the narrower CI OAuth client.
-     - `auth_keys` (write) — required because Tailscale only lets you GRANT scopes you HOLD; the CI client gets `auth_keys`, so this one needs it too.
+     - `oauth_keys` (write) — historically required to mint a CI OAuth client; kept because Tofu still uses this scope class for some operations.
+     - `auth_keys` (write) — required because Tailscale only lets you GRANT scopes you HOLD; the CI client needs `auth_keys`, so this one does too.
+     - `federated_keys` (write) — required (since Tailscale WIF GA 2026-02-19) for Tofu to mint the `tailscale_federated_identity.ci` resource that CI authenticates as.
    - Tags: `tag:ci` (auto-required when `auth_keys` is checked).
 
-   *Existing bootstrap with narrower scopes?* Tailscale supports editing in place — Settings → OAuth clients → click the client → add `auth_keys` + `tag:ci`. No need to recreate.
+   *Existing bootstrap missing a scope?* Tailscale supports editing in place — Settings → OAuth clients → click the client → add the missing scope. No need to recreate.
 
 3. **Push credentials to BWS and apply:**
 
@@ -358,15 +359,15 @@ ssh root@$ONPREM_HOST 'tailscale up --hostname=iedora-homelab'
    just infra::deploy
    ```
 
-   One `tofu apply` reconciles the ACL (no-op against the seed), mints `tailscale_oauth_client.ci`, write-throughs CI client ID/secret to BWS as `INFRA_CI_TAILSCALE_OAUTH_CLIENT_{ID,SECRET}`.
+   One `tofu apply` reconciles the ACL (no-op against the seed), mints `tailscale_federated_identity.ci`, and write-throughs the federated ID + audience to BWS as `INFRA_CI_TAILSCALE_FEDERATED_{ID,AUDIENCE}`. No CI-side secret material — GitHub's per-job OIDC JWT is the auth.
 
 After that, no GH secret/var for Tailscale exists — CI reads from BWS via the same `bws secret list` pattern as every other deploy-time value.
 
 **ACL drift warning.** `tailscale_acl.policy` is declared with `overwrite_existing_content = true` so Tofu can converge from the default Tailscale-shipped policy on first apply. The consequence: every subsequent `tofu apply` silently overwrites any UI edits to the policy. **Edit the ACL in `infra/tofu/tailscale.tf`, never in the admin console**, after the first apply.
 
-**Rotation.** `tofu apply -replace=tailscale_oauth_client.ci` mints a fresh CI OAuth client; the write-through in `just infra::deploy` pushes the new ID + secret to BWS atomically. CI picks up the new credentials on the next workflow run.
+**Rotation.** With WIF there's nothing to rotate on the CI auth path — GitHub's OIDC JWT is short-lived per workflow run. If you ever need to alter the trust scope (e.g. lock to `main` only, change the subject pattern), `tofu apply -replace=tailscale_federated_identity.ci` re-mints the resource and the write-through pushes new federated ID/audience to BWS.
 
-**Pinning note** (workflow): `tailscale/github-action@v4`'s `version` input pins the Tailscale CLI installed on the runner. We hold a literal patch version (currently `1.96.5`) rather than `latest`, because `tailscale/github-action#284` documents `latest` resolving to different CLI versions across Linux/macOS/Windows at the same moment. Roll forward deliberately by bumping the pin.
+**Pinning note** (workflow): `tailscale/github-action@v4`'s `version` input pins the Tailscale CLI installed on the runner. We hold a literal patch version (currently `1.98.2`) rather than `latest`, because `tailscale/github-action#284` documents `latest` resolving to different CLI versions across Linux/macOS/Windows at the same moment. Roll forward deliberately by bumping the pin.
 
 **If `ONPREM_HOST` is already a public IP** (cloud VPS): drop the Tailscale step entirely. The runner reaches the box directly over SSH. Hardening is then plain `sshd_config` (key-only login, no password, fail2ban).
 
