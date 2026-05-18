@@ -173,9 +173,12 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure SSH for root@onprem
-        # ssh-agent + known_hosts. ssh-keyscan is best-effort: a first-time
-        # deploy against a brand-new host needs an out-of-band fingerprint
-        # check anyway; for the steady-state homelab, this is just trust.
+        # Auth boundary is already established by the tailnet (only `tag:ci`
+        # ephemeral nodes can reach iedora-homelab per the ACL, and the
+        # OAuth-issued ephemeral node lasts only this job). Strict host key
+        # checking adds nothing over that and was flaking due to fingerprint
+        # variance under MagicDNS resolution. Disabled in CI; local deploys
+        # keep strict checks via the laptop's ~/.ssh/config.
         env:
           SSH_KEY: ${{ secrets.KAMAL_SSH_PRIVATE_KEY }}
           HOST: ${{ inputs.onprem_host }}
@@ -185,7 +188,13 @@ jobs:
           chmod 700 ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          cat > ~/.ssh/config <<EOF
+          Host $HOST
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            LogLevel ERROR
+          EOF
+          chmod 600 ~/.ssh/config
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/id_ed25519
           echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
