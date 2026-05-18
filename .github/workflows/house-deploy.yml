@@ -26,6 +26,7 @@ on:
 concurrency:
   group: deploy-house
   cancel-in-progress: false
+  queue: max
 
 jobs:
   deploy:

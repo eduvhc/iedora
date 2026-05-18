@@ -29,6 +29,7 @@ on:
 concurrency:
   group: deploy-menu
   cancel-in-progress: false
+  queue: max
 
 # Reusable workflows can only USE permissions the caller grants. Without
 # this block, packages:write in _kamal-deploy.yml is silently denied and

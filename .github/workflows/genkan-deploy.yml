@@ -18,6 +18,7 @@ on:
 concurrency:
   group: deploy-genkan
   cancel-in-progress: false
+  queue: max
 
 # See menu-deploy.yml for why permissions must be granted at the caller level.
 permissions:

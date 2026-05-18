@@ -29,6 +29,10 @@ concurrency:
   group: identity-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Workflow-level permissions — least privilege. CI does checkout + test only.
+permissions:
+  contents: read
+
 jobs:
   unit:
     name: Unit (Vitest)
