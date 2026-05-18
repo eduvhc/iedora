@@ -78,8 +78,10 @@ jobs:
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
       - name: Wrangler deploy
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ steps.bws.outputs.token }}
-          workingDirectory: products/house
-          command: deploy
+        # cloudflare/wrangler-action defaults to npm which chokes on Bun's
+        # `workspace:*` protocol. Match the local `just house::deploy` recipe
+        # exactly: bunx wrangler with CLOUDFLARE_API_TOKEN in env.
+        working-directory: products/house
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ steps.bws.outputs.token }}
+        run: bunx wrangler@latest deploy
