@@ -1,52 +1,25 @@
 ---
 /**
- * Editorial header — both the "intro" front (wordmark + statement + meta
- * columns) and the contact "house" (shoji form) live in the same grid cell
- * so the page below never shifts when the form slides open. Host JS toggles
- * `.open` on the <header> when the wordmark is clicked.
+ * Editorial header — minimal intro (just the wordmark) and the contact
+ * "house" (shoji form) live in the same grid cell so the page below
+ * never shifts when the form slides open. Host JS toggles `.open` on
+ * the <header> when the wordmark is clicked.
  */
-import { Wordmark, KeyMark, Statement } from "@iedora/design-system";
+import { Wordmark } from "@iedora/design-system";
 ---
 
 <header class="house" id="houseHeader">
   <div class="header-front">
-    <div class="header-top">
-      <h1
-        class="wordmark-wrap"
-        id="wordmark"
-        role="button"
-        tabindex="0"
-        aria-label="Iedora — click to open contact"
-      >
-        <KeyMark className="wordmark-key" ariaLabel="iedora — identity" />
-        <Wordmark variant="display" />
-        <span class="hint" aria-hidden="true">Open the house</span>
-      </h1>
-      <Statement>
-        A quiet house for digital craftsmanship. A roof over independent <em>works</em>, made slowly, kept carefully.
-      </Statement>
-    </div>
-
-    <div class="header-meta">
-      <div class="col">
-        <span class="k">Practice</span>
-        <span class="v">Interfaces, made patient</span>
-        <span class="v">Tools, for the desk</span>
-        <span class="v">Infrastructure, kept quiet</span>
-      </div>
-      <div class="col">
-        <span class="k">Studio</span>
-        <span class="v">Founded MMXXIV</span>
-        <span class="v">Two craftspeople, independent</span>
-        <span class="v">Lisbon &middot; remote</span>
-      </div>
-      <div class="col">
-        <span class="k">Now</span>
-        <span class="v"><strong>Building</strong> menu, in public</span>
-        <span class="v"><strong>Tending</strong> works in the open</span>
-        <span class="v live">Open for one commission &mdash; spring &rsquo;26</span>
-      </div>
-    </div>
+    <h1
+      class="wordmark-wrap"
+      id="wordmark"
+      role="button"
+      tabindex="0"
+      aria-label="Iedora — click to open contact"
+    >
+      <Wordmark variant="display" />
+      <span class="hint" aria-hidden="true">Open the house</span>
+    </h1>
   </div>
 
   <!-- Contact house: slides open when the wordmark is clicked. -->
@@ -106,8 +79,12 @@ import { Wordmark, KeyMark, Statement } from "@iedora/design-system";
 </header>
 
 <style>
-  /* Both children stack in the same cell so swapping intro ⇄ form keeps
-     the total header height stable. The page below never shifts. */
+  /* Both children stack in the same grid cell so swapping intro ⇄ form
+     keeps the total header height stable. The page below never shifts
+     when the form slides open. The cell's height is the max of the
+     intrinsic heights of `.header-front` and `.contact-house`; since
+     the form is the taller of the two now, the form's content sets the
+     intro's height. The wordmark anchors at the top of that area. */
   .house {
     position: relative;
     padding: 56px 0 64px;
@@ -120,20 +97,11 @@ import { Wordmark, KeyMark, Statement } from "@iedora/design-system";
     align-self: stretch;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    gap: 56px;
-    min-height: 0;
     transition: opacity var(--d-3) var(--ease);
   }
   .house.open .header-front {
     opacity: 0;
     pointer-events: none;
-  }
-  .header-top {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: end;
-    gap: 64px;
   }
   .wordmark-wrap {
     margin: 0;
@@ -141,28 +109,6 @@ import { Wordmark, KeyMark, Statement } from "@iedora/design-system";
     align-items: end;
     cursor: pointer;
     user-select: none;
-  }
-  /* The key sits to the LEFT of "iedora.", riding slightly above the
-     baseline so its quarter-turn motion happens cleanly in the gap
-     between the wordmark and the header-meta strip below. */
-  .wordmark-wrap .wordmark-key {
-    --ds-key-mark-size: 40px;
-    margin-right: 18px;
-    margin-bottom: 16px;
-  }
-  @media (max-width: 760px) {
-    .wordmark-wrap .wordmark-key {
-      --ds-key-mark-size: 30px;
-      margin-right: 12px;
-      margin-bottom: 12px;
-    }
-  }
-  @media (max-width: 420px) {
-    .wordmark-wrap .wordmark-key {
-      --ds-key-mark-size: 24px;
-      margin-right: 10px;
-      margin-bottom: 9px;
-    }
   }
   .wordmark-wrap .hint {
     align-self: end;
@@ -187,52 +133,6 @@ import { Wordmark, KeyMark, Statement } from "@iedora/design-system";
     margin-right: 8px;
   }
   body.ds-loaded .wordmark-wrap:hover .hint { opacity: 1; }
-
-  .header-meta {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 48px;
-    padding-top: 28px;
-    border-top: 1px solid var(--ink-14);
-    opacity: 0;
-    transform: translateY(10px);
-    transition: opacity var(--d-5) 1.05s var(--ease), transform var(--d-5) 1.05s var(--ease);
-  }
-  body.ds-loaded .header-meta { opacity: 1; transform: translateY(0); }
-  .header-meta .col { display: flex; flex-direction: column; gap: 6px; }
-  .header-meta .k {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.20em;
-    text-transform: uppercase;
-    color: var(--ink-40);
-    margin-bottom: 8px;
-  }
-  .header-meta .v {
-    font-family: var(--serif);
-    font-weight: 400;
-    font-size: 15px;
-    line-height: 1.45;
-    color: var(--ink-70);
-  }
-  .header-meta .v strong { font-weight: 500; color: var(--ink); }
-  .header-meta .v.live {
-    color: var(--ink);
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .header-meta .v.live::before {
-    content: "";
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--cinnabar);
-    animation: ds-pulse 2.6s ease-in-out infinite;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .header-meta .v.live::before { animation: none; }
-  }
 
   /* Contact pane — same cell as the front, fades in on .open */
   .contact-house {
@@ -307,28 +207,14 @@ import { Wordmark, KeyMark, Statement } from "@iedora/design-system";
 
   @media (max-width: 1080px) {
     .house { padding: 40px 0 48px; }
-    .header-top { grid-template-columns: 1fr; gap: 32px; align-items: start; }
-    .header-front { gap: 40px; }
-    .header-meta { gap: 28px; padding-top: 24px; }
-  }
-  @media (max-width: 760px) {
-    .header-meta { grid-template-columns: 1fr 1fr; gap: 22px; }
-    /* "Now" takes the full width so the live commission row reads as the
-       last thing on the intro, not a third equal column. */
-    .header-meta .col:nth-child(3) { grid-column: 1 / -1; padding-top: 14px; border-top: 1px solid var(--ink-14); }
-    .header-meta .col { gap: 4px; }
   }
   @media (max-width: 680px) {
     .wordmark-wrap .hint { display: none; }
     .lintel-close .lbl { display: none; }
     .lintel-close { padding: 6px 10px; }
     .house { padding: 24px 0 32px; }
-    .header-front { gap: 24px; }
-    .header-meta { grid-template-columns: 1fr; gap: 18px; }
-    .header-meta .col:nth-child(3) { grid-column: 1; padding-top: 0; border-top: 0; }
   }
   @media (max-width: 420px) {
     .lintel-close .kbd { display: none; }
-    .header-meta .v { font-size: 14.5px; }
   }
 </style>
