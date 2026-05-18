@@ -396,7 +396,8 @@ function ScrollProgress() {
 function LangSwitcher({ lang, setLang }: { lang: LangCode; setLang: (l: LangCode) => void }) {
   const [open, setOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
-  const current = LANGS.find((l) => l.code === lang) ?? LANGS[0];
+  // LANGS is a non-empty constant array, so the [0]! fallback can't be undefined.
+  const current = LANGS.find((l) => l.code === lang) ?? LANGS[0]!;
 
   // close the compact-mode popover on outside click / escape
   React.useEffect(() => {
@@ -569,7 +570,9 @@ function EditorMock({
     for (const s of menu.sections)
       for (const it of s.items)
         if (it.id === highlightId) return { item: it, section: s };
-    return { item: menu.sections[1].items[0], section: menu.sections[1] };
+    // Demo menu is a non-empty constant — sections[1] and its first item exist.
+    const section = menu.sections[1]!;
+    return { item: section.items[0]!, section };
   })();
 
   return (
@@ -888,7 +891,8 @@ export default function LandingPage() {
         if (document.hidden) return;
         setHighlightId((prev) => {
           const i = itemIds.indexOf(prev);
-          return itemIds[(i + 1) % itemIds.length];
+          // itemIds.length >= 2 was guarded above, so the wrap always hits a value.
+          return itemIds[(i + 1) % itemIds.length]!;
         });
       }, 4000);
     };

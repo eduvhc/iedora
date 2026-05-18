@@ -45,6 +45,7 @@ async function insertRestaurantWithDefaultMenu(
     .insert(restaurant)
     .values({ organizationId, name: restaurantName, slug })
     .returning({ id: restaurant.id })
+  if (!created) throw new Error('onboarding: restaurant insert returned no rows')
 
   await tx.insert(menu).values({
     restaurantId: created.id,

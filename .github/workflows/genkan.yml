@@ -14,6 +14,7 @@ on:
     paths:
       - 'products/genkan/**'
       - 'packages/design-system/**'
+      - 'packages/eslint-config/**'
       - 'packages/iedora-identity/**'
       - 'packages/iedora-auth-testkit/**'
       - 'bun.lock'
@@ -26,6 +27,7 @@ on:
     paths:
       - 'products/genkan/**'
       - 'packages/design-system/**'
+      - 'packages/eslint-config/**'
       - 'packages/iedora-identity/**'
       - 'packages/iedora-auth-testkit/**'
       - 'bun.lock'
@@ -56,6 +58,18 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: ./.github/actions/setup
       - run: bun run typecheck
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: products/genkan
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: ./.github/actions/setup
+      - run: bun run lint
 
   unit:
     name: Unit (Vitest)

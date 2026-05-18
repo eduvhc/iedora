@@ -118,7 +118,7 @@ describe('postgresLimiter — semantics', () => {
       await limiter.check(key, 100, windowMs)
     }
 
-    const [{ count }] = await t.db
+    const [agg] = await t.db
       .select({ count: sql<number>`count(*)::int` })
       .from(rateLimitEvent)
       .where(eq(rateLimitEvent.key, key))
@@ -126,8 +126,8 @@ describe('postgresLimiter — semantics', () => {
     // the second wave starts, so each call in the second wave DELETEs the
     // first wave's leftovers before inserting. Only the second wave (± the
     // very last row's neighbour) survives.
-    expect(count).toBeGreaterThanOrEqual(10)
-    expect(count).toBeLessThanOrEqual(11)
+    expect(agg!.count).toBeGreaterThanOrEqual(10)
+    expect(agg!.count).toBeLessThanOrEqual(11)
   })
 
   it('retryAfterSec accurately reflects when the oldest entry expires', async () => {
@@ -156,13 +156,13 @@ describe('postgresLimiter — semantics', () => {
       for (let i = 0; i < limit; i++) {
         await limiter.check(key, limit, windowMs)
       }
-      const [{ count }] = await t.db
+      const [agg] = await t.db
         .select({ count: sql<number>`count(*)::int` })
         .from(rateLimitEvent)
         .where(eq(rateLimitEvent.key, key))
       // Each cycle: prune (drops previous cycle's rows) then insert `limit`
       // fresh rows. The bound is ~2× limit (one cycle in + tail of previous).
-      expect(count).toBeLessThanOrEqual(limit * 2 + 1)
+      expect(agg!.count).toBeLessThanOrEqual(limit * 2 + 1)
       await new Promise((r) => setTimeout(r, windowMs + 50))
     }
   })

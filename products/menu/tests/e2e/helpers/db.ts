@@ -55,7 +55,7 @@ export async function seedRestaurant(
   slug: string,
 ): Promise<{ restaurantId: string }> {
   const sql = testDb()
-  const [{ id }] = await sql<{ id: string }[]>`
+  const [row] = await sql<{ id: string }[]>`
     INSERT INTO "menu"."restaurant" (id, organization_id, name, slug, updated_at)
     VALUES (
       gen_random_uuid()::text,
@@ -66,7 +66,7 @@ export async function seedRestaurant(
     )
     RETURNING id
   `
-  return { restaurantId: id }
+  return { restaurantId: row!.id }
 }
 
 export async function seedMenu(
@@ -75,7 +75,7 @@ export async function seedMenu(
   opts: { active?: boolean; position?: number } = {},
 ): Promise<{ menuId: string }> {
   const sql = testDb()
-  const [{ id }] = await sql<{ id: string }[]>`
+  const [row] = await sql<{ id: string }[]>`
     INSERT INTO "menu"."menu" (id, restaurant_id, name, active, position, updated_at)
     VALUES (
       gen_random_uuid()::text,
@@ -87,7 +87,7 @@ export async function seedMenu(
     )
     RETURNING id
   `
-  return { menuId: id }
+  return { menuId: row!.id }
 }
 
 export async function seedCategoryWithItems(
@@ -97,7 +97,7 @@ export async function seedCategoryWithItems(
   itemNames: string[],
 ): Promise<{ categoryId: string; itemIds: string[] }> {
   const sql = testDb()
-  const [{ id: categoryId }] = await sql<{ id: string }[]>`
+  const [catRow] = await sql<{ id: string }[]>`
     INSERT INTO "menu"."category" (id, menu_id, restaurant_id, name, position, updated_at)
     VALUES (
       gen_random_uuid()::text,
@@ -109,10 +109,11 @@ export async function seedCategoryWithItems(
     )
     RETURNING id
   `
+  const categoryId = catRow!.id
 
   const itemIds: string[] = []
-  for (let i = 0; i < itemNames.length; i++) {
-    const [{ id }] = await sql<{ id: string }[]>`
+  for (const [i, itemName] of itemNames.entries()) {
+    const [itemRow] = await sql<{ id: string }[]>`
       INSERT INTO "menu"."item" (
         id, category_id, restaurant_id, name,
         price_cents, currency, position, updated_at
@@ -121,7 +122,7 @@ export async function seedCategoryWithItems(
         gen_random_uuid()::text,
         ${categoryId},
         ${restaurantId},
-        ${itemNames[i]},
+        ${itemName},
         ${(i + 1) * 100},
         'EUR',
         ${i},
@@ -129,7 +130,7 @@ export async function seedCategoryWithItems(
       )
       RETURNING id
     `
-    itemIds.push(id)
+    itemIds.push(itemRow!.id)
   }
 
   return { categoryId, itemIds }

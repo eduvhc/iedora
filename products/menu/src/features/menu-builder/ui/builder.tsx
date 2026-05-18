@@ -19,7 +19,7 @@ import {
 } from '@dnd-kit/sortable'
 import { Button, Field, FieldInput } from '@iedora/design-system'
 import type { LanguageCode } from '@/features/i18n'
-import { createCategory, reorderCategories } from '@/features/menu-builder/actions'
+import { createCategory, reorderCategories } from '../actions'
 import { SortableCategory } from './sortable-category'
 import type { BuilderCategory } from './types'
 

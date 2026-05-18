@@ -10,11 +10,24 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "fuzz:build": "bun build fuzz/signature-header.fuzz.ts fuzz/verify-signature.fuzz.ts fuzz/ssrf-ip.fuzz.ts --outdir .fuzz-build --target node --format esm",
+    "fuzz:signature-header": "bun run fuzz:build && jazzer .fuzz-build/signature-header.fuzz --sync -- -max_total_time=20",
+    "fuzz:verify-signature": "bun run fuzz:build && jazzer .fuzz-build/verify-signature.fuzz --sync -- -max_total_time=20",
+    "fuzz:ssrf-ip": "bun run fuzz:build && jazzer .fuzz-build/ssrf-ip.fuzz --sync -- -max_total_time=20",
+    "fuzz": "bun run fuzz:signature-header && bun run fuzz:verify-signature && bun run fuzz:ssrf-ip"
   },
   "devDependencies": {
-    "@types/node": "^20.19.41",
-    "typescript": "^5.9.3",
+    "@iedora/eslint-config": "workspace:*",
+    "@jazzer.js/core": "^4.0.0",
+    "@types/node": "^22.19.19",
+    "eslint": "^9.39.4",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.46.0",
     "vitest": "^4.1.6"
-  }
+  },
+  "trustedDependencies": [
+    "@jazzer.js/core"
+  ]
 }

@@ -10,6 +10,7 @@ on:
     branches: [main]
     paths:
       - 'packages/design-system/**'
+      - 'packages/eslint-config/**'
       - 'bun.lock'
       - 'package.json'
       - '.github/workflows/design-system.yml'
@@ -18,6 +19,7 @@ on:
     branches: [main]
     paths:
       - 'packages/design-system/**'
+      - 'packages/eslint-config/**'
       - 'bun.lock'
       - 'package.json'
       - '.github/workflows/design-system.yml'
@@ -34,6 +36,30 @@ permissions:
   contents: read
 
 jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: packages/design-system
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: ./.github/actions/setup
+      - run: bun run typecheck
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: packages/design-system
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: ./.github/actions/setup
+      - run: bun run lint
+
   unit:
     name: Unit (Vitest)
     runs-on: ubuntu-24.04

@@ -14,6 +14,7 @@ on:
     paths:
       - 'products/menu/**'
       - 'packages/design-system/**'
+      - 'packages/eslint-config/**'
       - 'packages/iedora-identity/**'
       - 'packages/iedora-auth-testkit/**'
       - 'bun.lock'
@@ -26,6 +27,7 @@ on:
     paths:
       - 'products/menu/**'
       - 'packages/design-system/**'
+      - 'packages/eslint-config/**'
       - 'packages/iedora-identity/**'
       - 'packages/iedora-auth-testkit/**'
       - 'bun.lock'

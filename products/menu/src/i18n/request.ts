@@ -20,9 +20,10 @@ function isLanguageCode(value: string | undefined): value is LanguageCode {
 // preserve the priority order, and stop at the first match.
 function negotiateFromAcceptLanguage(header: string | null): LanguageCode | null {
   if (!header) return null
+  // `split` always yields at least one element, so the `[0]!` is safe.
   const tags = header
     .split(',')
-    .map((t) => t.split(';')[0].trim().toLowerCase().split('-')[0])
+    .map((t) => t.split(';')[0]!.trim().toLowerCase().split('-')[0]!)
   for (const tag of tags) {
     if (isLanguageCode(tag)) return tag
   }

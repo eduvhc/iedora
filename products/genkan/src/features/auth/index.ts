@@ -37,3 +37,4 @@ export const requireFreshSession = (options?: {
 }) => _requireFreshSession(betterAuthGateway, options)
 
 export type { AuthGateway } from './ports'
+export { auth, type Session } from './adapters/better-auth-instance'

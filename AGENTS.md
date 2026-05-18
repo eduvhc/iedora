@@ -112,10 +112,10 @@ iedora/                                  repo root
   .github/                               composite setup action + one workflow per workspace
     actions/setup/action.yml             composite: install Bun + bun install --frozen-lockfile
     workflows/menu.yml                   menu's full pipeline (typecheck + lint + unit + e2e)
-    workflows/genkan.yml                 genkan's pipeline (typecheck + unit)
-    workflows/design-system.yml          @iedora/design-system unit suite
-    workflows/identity.yml               @iedora/identity unit suite
-    workflows/auth-testkit.yml           @iedora/auth-testkit unit suite
+    workflows/genkan.yml                 genkan's pipeline (typecheck + lint + unit)
+    workflows/design-system.yml          design-system pipeline (typecheck + lint + unit)
+    workflows/identity.yml               iedora-identity pipeline (typecheck + lint + unit + fuzz)
+    workflows/auth-testkit.yml           iedora-auth-testkit pipeline (typecheck + lint + unit)
   .mcp.json                              shadcn, postgres, bun, next-devtools, playwright MCP servers
   docs/                                  brand-level docs (deploy, scaling, backups, secrets,
                                          security-audit, tenancy, vendors, architecture, testing)
@@ -132,6 +132,15 @@ iedora/                                  repo root
     backup/                              self-built Postgres-backup image (Dockerfile + backup.sh + restore.sh + run.sh)
 
   packages/
+    eslint-config/                       @iedora/eslint-config — flat-config factories shared by
+                                         every workspace. Compose `base + typescript + next +
+                                         react + boundaries({ elements }) + vitest` per package.
+                                         See packages/eslint-config/README.md for the consumer
+                                         shape and why per-package over single-root config.
+      src/
+        index.js                         barrel: base, typescript, next, react, boundaries, vitest
+        base.js, typescript.js, …        one factory per file
+      README.md                          consumer recipe + design rationale
     design-system/                       @iedora/design-system — editorial CSS + React primitives
       src/
         index.ts                         component barrel (Wordmark, Card, Dialog, Button, …)

@@ -4,7 +4,7 @@ import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Button } from '@iedora/design-system'
-import { seedSampleMenu } from '@/features/menu-builder/actions'
+import { seedSampleMenu } from '../actions'
 
 export function SeedSampleButton({ slug }: { slug: string }) {
   const router = useRouter()

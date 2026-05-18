@@ -1,7 +1,7 @@
 import 'server-only'
 import { headers } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
-import { auth } from '@/features/auth/adapters/better-auth-instance'
+import { auth } from '@/features/auth'
 
 /**
  * Platform-admin DAL guard. Every /admin page calls this at the top of its

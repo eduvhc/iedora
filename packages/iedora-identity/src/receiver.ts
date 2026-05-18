@@ -187,7 +187,6 @@ export function createWebhookReceiver<Handlers extends Partial<HandlerMap>>(
 
       if (!handler) {
         if (warnOnUnknown) {
-          // eslint-disable-next-line no-console
           console.warn(
             `[iedora-identity] no handler for event "${eventName}"; envelope id=${parsed.id}`,
           );
@@ -201,7 +200,6 @@ export function createWebhookReceiver<Handlers extends Partial<HandlerMap>>(
       try {
         await handler((parsed as IdentityEvent).payload);
       } catch (e) {
-        // eslint-disable-next-line no-console
         console.error(
           `[iedora-identity] handler for "${eventName}" threw:`,
           e,

@@ -1,22 +1,28 @@
-// TODO: enable feature/shared boundary rules. The migration to features/ + shared/
-// is complete; flip these on in a follow-up by adding eslint-plugin-boundaries to
-// the imports below and registering the elements + rules inline here. Reference
-// config in commit history before .eslintrc-boundaries.json was removed.
-import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
+import { defineConfig, globalIgnores } from 'eslint/config'
+import { next, boundaries, vitest } from '@iedora/eslint-config'
 
+/**
+ * Menu's lint config — composes the shared @iedora/eslint-config factories.
+ * Only the slice-element list lives here (slice paths are workspace-local);
+ * the boundary rule body itself is shared.
+ *
+ * Cross-slice imports are policed: they must go through the target slice's
+ * `index.ts` barrel or one of the sanctioned subpath entries
+ * (actions, client, server, ui/**, rsc/**). See AGENTS.md menu rule 14.
+ */
 const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-  // Override default ignores of eslint-config-next.
-  globalIgnores([
-    // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
-  ]),
-]);
+  ...next(),
+  ...boundaries({
+    elements: [
+      { type: 'slice', pattern: 'src/features/*', capture: ['slice'] },
+      { type: 'shared', pattern: 'src/shared/**' },
+      { type: 'app', pattern: 'src/app/**' },
+      { type: 'next-infra', pattern: 'src/i18n/**' },
+      { type: 'next-infra', pattern: 'src/proxy.ts' },
+    ],
+  }),
+  ...vitest(),
+  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts', 'eslint.config.mjs']),
+])
 
-export default eslintConfig;
+export default eslintConfig

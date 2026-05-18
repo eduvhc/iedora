@@ -10,6 +10,7 @@ on:
     branches: [main]
     paths:
       - 'packages/iedora-identity/**'
+      - 'packages/eslint-config/**'
       - 'bun.lock'
       - 'package.json'
       - '.github/workflows/identity.yml'
@@ -18,6 +19,7 @@ on:
     branches: [main]
     paths:
       - 'packages/iedora-identity/**'
+      - 'packages/eslint-config/**'
       - 'bun.lock'
       - 'package.json'
       - '.github/workflows/identity.yml'
@@ -34,6 +36,30 @@ permissions:
   contents: read
 
 jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: packages/iedora-identity
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: ./.github/actions/setup
+      - run: bun run typecheck
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: packages/iedora-identity
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: ./.github/actions/setup
+      - run: bun run lint
+
   unit:
     name: Unit (Vitest)
     runs-on: ubuntu-24.04
@@ -45,3 +71,20 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: ./.github/actions/setup
       - run: bun run test
+
+  # Jazzer.js fuzzing of the three high-value pure functions:
+  # parseSignatureHeader, verifySignature, isBlockedIp. Each harness runs
+  # for ~20s (smoke budget — long enough to catch surface-level crashes,
+  # short enough to not gate every PR). Real long-run fuzzing happens
+  # nightly via the schedule below.
+  fuzz:
+    name: Fuzz (Jazzer.js)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: packages/iedora-identity
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: ./.github/actions/setup
+      - run: bun run fuzz
