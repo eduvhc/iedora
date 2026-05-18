@@ -89,7 +89,7 @@ jobs:
 
     steps:
       - name: Checkout @ deploy SHA
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           # workflow_run fires with head_sha = the upstream CI's commit. We
           # check out THAT SHA so the deploy matches what CI validated, even
@@ -148,11 +148,10 @@ jobs:
           oauth-client-id: ${{ steps.ts.outputs.client_id }}
           oauth-secret: ${{ steps.ts.outputs.client_secret }}
           tags: tag:ci
-          # `latest` is acceptable on a single-platform (ubuntu-24.04) runner —
-          # the cross-platform reproducibility issue (tailscale/github-action#284)
-          # only matters when the same workflow runs on macOS/Windows too.
-          # Re-pin to a specific x.y.z once we know what `latest` resolved to.
-          version: latest
+          # Pinned to the Linux current as of bumping. Roll forward deliberately;
+          # `latest` is non-reproducible across platforms per
+          # tailscale/github-action#284.
+          version: 1.98.2
           hostname: gha-${{ inputs.product }}-${{ github.run_id }}
           ping: iedora-homelab
 
@@ -160,13 +159,13 @@ jobs:
       # buildx subprocesses inherit — without this, Kamal's `docker buildx
       # build --cache-to=type=gha,...` can't reach the GHA cache backend.
       - name: Expose GHA runtime to subprocesses
-        uses: crazy-max/ghaction-github-runtime@v3
+        uses: crazy-max/ghaction-github-runtime@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
