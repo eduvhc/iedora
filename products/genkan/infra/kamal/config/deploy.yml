@@ -80,10 +80,17 @@ env:
     TRUSTED_ORIGINS: <%= menu_origin %>,https://<%= public_hostname %>
     # Where to land users when sign-in completes without a ?return_to.
     DEFAULT_RETURN_TO: <%= menu_origin %>/dashboard
+    # OpenTelemetry — ships spans to the shared OpenObserve accessory on
+    # the Kamal Docker network. Same shape as menu's wiring; both products'
+    # spans land in the same OpenObserve org, stitched by traceparent.
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://infra-openobserve:5080/api/default
+    HOST_NAME: <%= ENV.fetch("ONPREM_HOST") %>
   secret:
     - BETTER_AUTH_SECRET
     - DATABASE_URL
     - TRUSTED_CLIENTS
+    # OpenObserve Basic Auth header (see docs/observability.md).
+    - OTEL_EXPORTER_OTLP_HEADERS
 
 aliases:
   console: app exec --interactive --reuse bash

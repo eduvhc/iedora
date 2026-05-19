@@ -88,6 +88,13 @@ env:
     S3_ENDPOINT: https://<%= assets_hostname %>
     S3_REGION: us-east-1
     S3_BUCKET: menu
+    # OpenTelemetry — ships spans to the shared OpenObserve accessory on
+    # the Kamal Docker network. Path is OpenObserve's org-scoped OTLP-HTTP
+    # receiver; the SDK appends /v1/traces. host.name comes from the env
+    # so cross-product traces filter by host (matches issue #8's fleet
+    # manifest convention).
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://infra-openobserve:5080/api/default
+    HOST_NAME: <%= ENV.fetch("ONPREM_HOST") %>
   secret:
     - BETTER_AUTH_SECRET
     - DATABASE_URL
@@ -95,6 +102,9 @@ env:
     - GENKAN_OAUTH_CLIENT_SECRET
     - S3_ACCESS_KEY
     - S3_SECRET_KEY
+    # OpenObserve Basic Auth: `Authorization=Basic%20<base64(email:pass)>`.
+    # One-time bootstrap stored in BWS as INFRA_OPENOBSERVE_INGEST_HEADER.
+    - OTEL_EXPORTER_OTLP_HEADERS
 
 aliases:
   console: app exec --interactive --reuse bash

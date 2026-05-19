@@ -1,3 +1,4 @@
+import { context, propagation } from "@opentelemetry/api";
 import {
   SIGNATURE_HEADER,
   type IdentityEvent,
@@ -197,8 +198,21 @@ export function createWebhookReceiver<Handlers extends Partial<HandlerMap>>(
         return new Response("ok", { status: 200 });
       }
 
+      // Pick up the trace context the sender injected (`traceparent` +
+      // `tracestate`). Running the handler inside that context means any
+      // spans the handler creates stitch to the upstream trace in
+      // OpenObserve. propagation.extract is no-op safe when no propagator
+      // is registered or the headers aren't present.
+      const incomingHeaders = Object.fromEntries(req.headers);
+      const upstreamContext = propagation.extract(
+        context.active(),
+        incomingHeaders,
+      );
+
       try {
-        await handler((parsed as IdentityEvent).payload);
+        await context.with(upstreamContext, () =>
+          handler((parsed as IdentityEvent).payload),
+        );
       } catch (e) {
         console.error(
           `[iedora-identity] handler for "${eventName}" threw:`,

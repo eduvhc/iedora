@@ -115,3 +115,12 @@ rotate-secret key:
     echo "✓ {{key}} rotated in BWS"
     echo "→ INFRA_POSTGRES_PASSWORD: 'kamal accessory reboot postgres' + redeploy menu + genkan"
     echo "→ INFRA_BACKUP_PASSPHRASE: invalidates ALL historical dumps; don't rotate casually"
+    echo "→ INFRA_OPENOBSERVE_ROOT_USER_PASSWORD: 'kamal accessory reboot openobserve' + redeploy every product (OTEL_EXPORTER_OTLP_HEADERS depends on it)"
+
+# Tail the live OpenObserve binary's logs (UI + OTLP receiver, port 5080).
+observability-logs:
+    bin/with-secrets bash -c 'cd kamal && PATH="{{kamal-bin}}$PATH" exec kamal accessory logs openobserve'
+
+# psql-equivalent: drop into the OpenObserve container shell.
+observability-console:
+    bin/with-secrets bash -c 'cd kamal && PATH="{{kamal-bin}}$PATH" exec kamal accessory exec openobserve --interactive --reuse "/bin/sh"'

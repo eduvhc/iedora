@@ -37,6 +37,24 @@ variable "backups_bucket_location" {
   default     = "EEUR"
 }
 
+variable "observability_bucket_name" {
+  description = "Cloudflare R2 bucket name for OpenObserve long-term storage (parquet shards). Hot data stays on local disk; this is the cold tier."
+  type        = string
+  default     = "iedora-observability"
+}
+
+variable "observability_bucket_location" {
+  description = "R2 location hint for the observability bucket. Same as backups so co-located with the homelab."
+  type        = string
+  default     = "EEUR"
+}
+
+variable "observability_hostname" {
+  description = "Public FQDN for the OpenObserve UI + OTLP ingest endpoint. Internal-feeling but reachable from any product process via OTLP."
+  type        = string
+  default     = "obs.iedora.com"
+}
+
 variable "tailscale_oauth_client_id" {
   description = <<-EOT
     Tailscale BOOTSTRAP OAuth client ID. TF_VAR_tailscale_oauth_client_id

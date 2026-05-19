@@ -1,0 +1,178 @@
+import { registerOTel } from "@vercel/otel";
+import {
+  ParentBasedSampler,
+  TraceIdRatioBasedSampler,
+  AlwaysOnSampler,
+  SamplingDecision,
+  type Sampler,
+  type SamplingResult,
+} from "@opentelemetry/sdk-trace-base";
+import {
+  type Attributes,
+  type Context,
+  type Link,
+  type SpanKind,
+} from "@opentelemetry/api";
+import {
+  ATTR_SERVICE_NAME,
+  ATTR_SERVICE_NAMESPACE,
+  ATTR_SERVICE_VERSION,
+  ATTR_DEPLOYMENT_ENVIRONMENT_NAME,
+} from "@opentelemetry/semantic-conventions";
+// `host.name` is still incubating in semconv 1.41.x — separate subpath
+// in @opentelemetry/semantic-conventions/package.json::exports. The string
+// is well-known and shipped on every fleet host via $HOST_NAME.
+import { ATTR_HOST_NAME } from "@opentelemetry/semantic-conventions/incubating";
+
+/**
+ * Spans whose name matches any of these regexes are dropped at sampling
+ * time — never recorded, never exported. Two big sources of noise:
+ *
+ *   - `/up` health checks: hit by Kamal's proxy + uptime checks. One per
+ *     second per host. Useless in traces, would dominate the budget.
+ *   - `/api/track/[slug]` view beacon: every public-menu visit fires one.
+ *     Same volume problem; the metric is already counted via the row
+ *     insert in view_seen. Tracing it adds nothing.
+ *
+ * Patterns match Next 16's auto-generated span names of shape
+ * `[METHOD] [route]`, e.g. `GET /up` or `GET /api/track/[slug]`.
+ */
+const NOISE_PATTERNS: RegExp[] = [
+  /\s\/up$/,
+  /\s\/api\/track\//,
+];
+
+/**
+ * Wraps an inner Sampler with a span-name regex denylist. Filter happens
+ * BEFORE the inner sampler, so a denied span costs nothing past the
+ * shouldSample() call — no record, no export.
+ */
+class NoiseFilteringSampler implements Sampler {
+  constructor(private readonly inner: Sampler) {}
+
+  shouldSample(
+    context: Context,
+    traceId: string,
+    spanName: string,
+    spanKind: SpanKind,
+    attributes: Attributes,
+    links: Link[],
+  ): SamplingResult {
+    if (NOISE_PATTERNS.some((re) => re.test(spanName))) {
+      return { decision: SamplingDecision.NOT_RECORD };
+    }
+    return this.inner.shouldSample(
+      context,
+      traceId,
+      spanName,
+      spanKind,
+      attributes,
+      links,
+    );
+  }
+
+  toString(): string {
+    return `IedoraNoiseFilter(${this.inner.toString()})`;
+  }
+}
+
+/**
+ * Default sampling: 100% in dev, 10% in prod, error spans always-on (via
+ * parent-based propagation — error-marked parents propagate the sampling
+ * decision down). Override per-call by passing `sampler` to registerIedoraOtel.
+ *
+ * Why parent-based: when menu makes a request to genkan, both processes
+ * must agree on whether the trace is sampled — otherwise we get half-spans
+ * stitched to a nonexistent parent. Parent-based honours the upstream's
+ * decision; the root sampler only fires when there's no parent.
+ */
+function defaultSampler(environment: string): Sampler {
+  const root =
+    environment === "production"
+      ? new TraceIdRatioBasedSampler(0.1)
+      : new AlwaysOnSampler();
+  return new NoiseFilteringSampler(new ParentBasedSampler({ root }));
+}
+
+export type RegisterOptions = {
+  /**
+   * Required. The per-product service name (e.g. `iedora-menu`, `iedora-genkan`).
+   * Becomes the `service.name` resource attribute on every emitted span; this
+   * is what OpenObserve uses to group spans by product.
+   */
+  serviceName: string;
+  /**
+   * Optional sampler override. Defaults to parent-based + 10% ratio in prod,
+   * always-on in dev, with noise filtering wrapping both. Most callers
+   * shouldn't touch this; useful for short-term debugging where you want
+   * 100% sampling temporarily.
+   */
+  sampler?: Sampler;
+};
+
+/**
+ * Wire OpenTelemetry traces into the host process. Idempotent — calling it
+ * twice in the same process is harmless (the second call is a no-op via
+ * `globalThis.__iedora_otel_registered`).
+ *
+ * Behaviour by environment:
+ *
+ *   - `NODE_ENV === 'test'` → no-op. The PGLite Vitest suites stay fast
+ *     and don't try to reach the OTLP collector that isn't running.
+ *   - `OTEL_EXPORTER_OTLP_ENDPOINT` unset → @vercel/otel falls back to its
+ *     internal Vercel-platform exporter (we're not on Vercel, so traces
+ *     just drop). Log once so the gap is visible.
+ *   - Edge runtime → caller's `instrumentation.ts` already gates on
+ *     `NEXT_RUNTIME === 'nodejs'`, so we don't double-check.
+ *
+ * Resource attributes are pulled from the process env so they match the
+ * fleet manifest one-to-one (see issue #8):
+ *
+ *   service.namespace          = "iedora" (constant)
+ *   service.name               = opts.serviceName
+ *   service.version            = $GIT_SHA (Kamal injects on container build)
+ *   deployment.environment     = $DEPLOYMENT_ENV ?? NODE_ENV
+ *   host.name                  = $HOST_NAME (Tofu injects per fleet.tf)
+ */
+export function registerIedoraOtel(opts: RegisterOptions): void {
+  if (process.env.NODE_ENV === "test") return;
+
+  const globalKey = "__iedora_otel_registered" as const;
+  const g = globalThis as { [globalKey]?: boolean };
+  if (g[globalKey]) return;
+  g[globalKey] = true;
+
+  const environment =
+    process.env.DEPLOYMENT_ENV ?? process.env.NODE_ENV ?? "development";
+
+  if (!process.env.OTEL_EXPORTER_OTLP_ENDPOINT) {
+    // Visible at boot, not on every request. Without an OTLP endpoint
+    // @vercel/otel falls back to a no-op (off-Vercel), so traces silently
+    // vanish. One line in the logs is cheaper than wondering why
+    // OpenObserve is empty.
+    console.warn(
+      `[iedora-observability] OTEL_EXPORTER_OTLP_ENDPOINT not set; traces will not be exported (env=${environment}).`,
+    );
+  }
+
+  // Resource attributes — exact semconv keys via the typed constants
+  // (string drift is what breaks dashboards). Build the object literal
+  // and let undefineds get filtered by the spread below.
+  const resource: Record<string, string> = {
+    [ATTR_SERVICE_NAME]: opts.serviceName,
+    [ATTR_SERVICE_NAMESPACE]: "iedora",
+    [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: environment,
+  };
+  if (process.env.GIT_SHA) {
+    resource[ATTR_SERVICE_VERSION] = process.env.GIT_SHA;
+  }
+  if (process.env.HOST_NAME) {
+    resource[ATTR_HOST_NAME] = process.env.HOST_NAME;
+  }
+
+  registerOTel({
+    serviceName: opts.serviceName,
+    attributes: resource,
+    traceSampler: opts.sampler ?? defaultSampler(environment),
+  });
+}

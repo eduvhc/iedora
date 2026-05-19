@@ -20,6 +20,7 @@
     "@better-auth/oauth-provider": "^1.6.11",
     "@iedora/design-system": "workspace:*",
     "@iedora/identity": "workspace:*",
+    "@iedora/observability": "workspace:*",
     "better-auth": "1.6.11",
     "drizzle-orm": "^0.45.2",
     "next": "16.2.6",

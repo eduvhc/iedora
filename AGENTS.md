@@ -8,10 +8,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 > This is a **Bun-workspaces monorepo**. Two Next.js products
 > (`products/menu/`, `products/genkan/`), one Astro static site
-> (`products/house/`), and three workspace packages
+> (`products/house/`), and four workspace packages
 > (`packages/design-system/`, `packages/iedora-identity/`,
-> `packages/iedora-auth-testkit/`). `bun install` runs ONCE at the repo
-> root and resolves every workspace; you almost never `cd` to install.
+> `packages/iedora-observability/`, `packages/iedora-auth-testkit/`).
+> `bun install` runs ONCE at the repo root and resolves every workspace;
+> you almost never `cd` to install.
 >
 > Most hard rules below come in two parts — a "Menu" set (the rules
 > that have been here since the menu app started) and a "Genkan" set
@@ -115,6 +116,7 @@ iedora/                                  repo root
     workflows/genkan.yml                 genkan's pipeline (typecheck + lint + unit)
     workflows/design-system.yml          design-system pipeline (typecheck + lint + unit)
     workflows/identity.yml               iedora-identity pipeline (typecheck + lint + unit + fuzz)
+    workflows/observability.yml          iedora-observability pipeline (typecheck + lint + unit)
     workflows/auth-testkit.yml           iedora-auth-testkit pipeline (typecheck + lint + unit)
   .mcp.json                              shadcn, postgres, bun, next-devtools, playwright MCP servers
   docs/                                  brand-level docs (deploy, scaling, backups, secrets,
@@ -154,11 +156,21 @@ iedora/                                  repo root
         events.ts                        IdentityEvent union (source of truth, both ends)
         signature.ts                     Stripe-style x-iedora-signature header
         sender.ts                        signs, POSTs, retries on 5xx, gives up on 4xx
+                                         + injects W3C traceparent for cross-product trace stitching
         receiver.ts                      verify + dedup + handler dispatch
+                                         + extracts traceparent before handler runs
         ssrf.ts                          DNS-resolve + private-CIDR reject (rebind gap noted)
         secret-storage.ts                AES-256-GCM HKDF cipher used for stored webhook secrets
         __tests__/                       crypto + parsing unit tests (no DB)
       README.md                          surface + security model
+    iedora-observability/                @iedora/observability — one-line OTel wiring per product
+      src/
+        index.ts                         barrel (registerIedoraOtel, tracer, withTenantSpan)
+        register.ts                      wraps @vercel/otel — resource attrs + sampler + noise filter
+        tracer.ts                        pre-configured Tracer for custom spans
+        tenant.ts                        withTenantSpan + IEDORA_RESTAURANT_ID/ORGANIZATION_ID
+        __tests__/                       no-op-in-tests + tenant attribute contract
+      README.md                          quickstart + behaviour table
     iedora-auth-testkit/                 @iedora/auth-testkit — in-process Better Auth + PGLite
       src/
         index.ts                         startTestGenkan + signTestToken
@@ -199,7 +211,7 @@ or package directory.
 
 - **Menu** — see [products/menu/CLAUDE.md](products/menu/CLAUDE.md) § Commands.
 - **Genkan** — see [products/genkan/CLAUDE.md](products/genkan/CLAUDE.md) § Commands. (Genkan runs on **port 3001**; menu on 3000.)
-- **Packages** (`packages/<name>/`) — `bun run test` / `test:watch` (Vitest; no DB for `@iedora/identity`, PGLite for `@iedora/auth-testkit`, jsdom for `@iedora/design-system`); `bun run typecheck`.
+- **Packages** (`packages/<name>/`) — `bun run test` / `test:watch` (Vitest; no DB for `@iedora/identity` and `@iedora/observability`, PGLite for `@iedora/auth-testkit`, jsdom for `@iedora/design-system`); `bun run typecheck`.
 
 ### Deploy (`just <product>::<recipe>` at repo root)
 
@@ -241,6 +253,7 @@ Adding a new workspace = one new file.
     genkan.yml                   genkan's pipeline (typecheck, unit, security)
     design-system.yml            @iedora/design-system unit suite
     identity.yml                 @iedora/identity unit suite
+    observability.yml            @iedora/observability unit suite
     auth-testkit.yml             @iedora/auth-testkit unit suite
     menu-deploy.yml              menu CD (workflow_run after green Menu CI, then _kamal-deploy)
     genkan-deploy.yml            genkan CD (same shape)
@@ -281,6 +294,8 @@ Adding a new workspace = one new file.
   suite"). Same trivy + SBOM shape as menu's security job.
 - **design-system.yml** — `unit` (jsdom-backed Vitest).
 - **identity.yml** — `unit` (pure crypto + parsing).
+- **observability.yml** — `unit` (no-op-in-tests contract + tenant
+  attribute pins). No network, no DB.
 - **auth-testkit.yml** — `unit` (boots real Better Auth + PGLite,
   walks the OIDC handshake). Re-exports genkan's schema, so its
   `paths:` filter ALSO includes `products/genkan/src/shared/db/schema.ts`
@@ -344,7 +359,8 @@ To pause Renovate for a specific dependency: add an entry to
 10. `docs/tenancy.md` — how tenancy works across the federation boundary.
 11. `docs/vendors.md` — every paid + free dependency with rationale.
 12. `docs/deploy.md`, `docs/secrets.md`, `docs/backups.md`, `docs/scaling.md` — ops playbooks (apply across products).
-13. `docs/terraform-style.md` — 10-bullet LLM-safe HCL conventions for every Tofu root + shared module in the repo. Apply before editing any `.tf`.
-14. `docs/infra-declarative-roadmap.md` — what's declarative today vs. what's queued for migration; rationale for tiered priorities.
+13. `docs/observability.md` — OpenTelemetry wiring (every product), OpenObserve operational notes, sampling, tenant-attribute conventions, query recipes.
+14. `docs/terraform-style.md` — 10-bullet LLM-safe HCL conventions for every Tofu root + shared module in the repo. Apply before editing any `.tf`.
+15. `docs/infra-declarative-roadmap.md` — what's declarative today vs. what's queued for migration; rationale for tiered priorities.
 
 The bundled docs match installed versions — trust them over recall.

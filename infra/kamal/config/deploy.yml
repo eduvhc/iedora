@@ -66,6 +66,53 @@ accessories:
     files:
       - ../postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
 
+  # ── OpenObserve (single-binary observability backend) ─────────────────────
+  # Receives OTLP traces from every product (menu, genkan, …) over HTTP on
+  # :5080. UI also on :5080 (separate paths). One binary swallows the LGTM
+  # stack whole — no separate collector, no Grafana, no ClickHouse.
+  #
+  # Hot data: local bind mount at /root/infra-openobserve/data.
+  # Cold tier: R2 bucket `iedora-observability`, scoped token minted by Tofu.
+  #
+  # Why local-mode (ZO_LOCAL_MODE=true): single homelab host, no cluster.
+  # Switching to cluster-mode is a Postgres ZO_META_STORE change + N
+  # replicas + a tunnel-balanced ingest endpoint — not Phase 1's problem.
+  openobserve:
+    image: public.ecr.aws/zinclabs/openobserve:v0.80.3
+    host: <%= ENV.fetch("ONPREM_HOST") %>
+    env:
+      clear:
+        ZO_LOCAL_MODE: "true"
+        ZO_DATA_DIR: /data
+        ZO_HTTP_PORT: "5080"
+        ZO_GRPC_PORT: "5081"
+        # R2 is S3-compatible — `aws` provider + path-style URL.
+        ZO_S3_PROVIDER: aws
+        ZO_S3_REGION_NAME: auto
+        ZO_S3_BUCKET_NAME: <%= ENV.fetch("OPENOBSERVE_BUCKET_NAME", "iedora-observability") %>
+        ZO_S3_SERVER_URL: https://<%= ENV.fetch("CLOUDFLARE_ACCOUNT_ID") %>.r2.cloudflarestorage.com
+        ZO_S3_FEATURE_FORCE_PATH_STYLE: "true"
+      secret:
+        - ZO_ROOT_USER_EMAIL
+        - ZO_ROOT_USER_PASSWORD
+        - ZO_S3_ACCESS_KEY
+        - ZO_S3_SECRET_KEY
+    directories:
+      - openobserve-data:/data
+
+  # Cloudflare Tunnel for obs.iedora.com — outbound only, terminates TLS at
+  # the edge. Ingress (set via tofu apply, see infra/tofu/main.tf):
+  #   obs.iedora.com → http://infra-openobserve:5080
+  # We bypass kamal-proxy because OpenObserve owns its own request
+  # lifecycle (UI + OTLP receiver are the same binary).
+  openobserve-tunnel:
+    image: cloudflare/cloudflared:2026.5.0@sha256:59bab8d3aceec09bf6bdb07d6beca0225ca5cd7ab79436a87ea97978fe1dc4f9
+    host: <%= ENV.fetch("ONPREM_HOST") %>
+    cmd: tunnel --no-autoupdate run
+    env:
+      secret:
+        - TUNNEL_TOKEN
+
   # Daily encrypted pg_dump → Cloudflare R2.
   # Image: self-built (../backup/Dockerfile) on postgres:18-alpine so
   # pg_dump matches the server major exactly. eeshugerman/postgres-backup-s3

@@ -18,9 +18,13 @@
     "fuzz:ssrf-ip": "bun run fuzz:build && jazzer .fuzz-build/ssrf-ip.fuzz --sync -- -max_total_time=20",
     "fuzz": "bun run fuzz:signature-header && bun run fuzz:verify-signature && bun run fuzz:ssrf-ip"
   },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.1"
+  },
   "devDependencies": {
     "@iedora/eslint-config": "workspace:*",
     "@jazzer.js/core": "^4.0.0",
+    "@opentelemetry/context-async-hooks": "^2.7.1",
     "@types/node": "^22.19.19",
     "eslint": "^9.39.4",
     "typescript": "^6.0.3",

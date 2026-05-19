@@ -27,6 +27,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@better-auth/core": "1.6.11",
     "@iedora/design-system": "workspace:*",
+    "@iedora/observability": "workspace:*",
     "better-auth": "1.6.11",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",

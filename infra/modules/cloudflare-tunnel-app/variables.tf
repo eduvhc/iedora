@@ -42,3 +42,14 @@ variable "extra_ingress" {
   type        = list(any)
   default     = []
 }
+
+variable "primary_service" {
+  description = <<-EOT
+    Upstream the primary `public_hostname` route forwards to. Default
+    `http://kamal-proxy` — the per-product apps that sit behind it. Override
+    for shared accessories that don't go through kamal-proxy (e.g. the
+    OpenObserve UI: `http://infra-openobserve:5080`).
+  EOT
+  type        = string
+  default     = "http://kamal-proxy"
+}

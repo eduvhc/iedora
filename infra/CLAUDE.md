@@ -7,11 +7,13 @@ Cross-product infrastructure: declarative resources via OpenTofu + container acc
 **OpenTofu state (`infra/tofu/`)** — the cross-product declarative resources:
 
 - `cloudflare_r2_bucket.backups` + `cloudflare_api_token.backups_r2` — encrypted Postgres dump destination, R2 token scoped to that one bucket.
+- `cloudflare_r2_bucket.observability` + `cloudflare_api_token.observability_r2` — OpenObserve cold-tier parquet shards. Scoped token, same shape as backups.
+- `module.observability_tunnel` — Cloudflare Tunnel + DNS for `obs.iedora.com`. Bypasses kamal-proxy (`primary_service = "http://infra-openobserve:5080"`) because OpenObserve owns its own request lifecycle.
 - `tailscale_acl.policy` — tailnet ACL (declares `tag:ci` ownership).
 - `tailscale_federated_identity.ci` — Workload Identity Federation trust for GitHub OIDC (`repo:eduvhc/iedora:*`). CI authenticates per-job via GitHub's short-lived JWT — no stored secret. The federated ID + audience write through to BWS as `INFRA_CI_TAILSCALE_FEDERATED_{ID,AUDIENCE}` via `just infra::deploy`.
 - `github_actions_secret.secrets[*]` + `github_actions_variable.vars[*]` — the GH Actions config CI depends on. Values flow from BWS via `TF_VAR_*` aliases.
 
-**Kamal accessories (`infra/kamal/`)** — `infra-postgres` (Postgres 18, shared by every product's database) + `infra-backups` (daily `pg_dumpall` → R2, GPG-encrypted with `INFRA_BACKUP_PASSPHRASE`). Container names are deliberately `infra-*` (not `menu-*` or `infra-postgres` for menu only) because they serve every product.
+**Kamal accessories (`infra/kamal/`)** — `infra-postgres` (Postgres 18, shared by every product's database), `infra-backups` (daily `pg_dumpall` → R2, GPG-encrypted with `INFRA_BACKUP_PASSPHRASE`), `infra-openobserve` (single-binary observability backend — OTLP receiver + UI on port 5080, R2 cold tier, local hot disk), and `infra-openobserve-tunnel` (cloudflared sidecar for `obs.iedora.com`). Container names are deliberately `infra-*` (not `menu-*` or `infra-postgres` for menu only) because they serve every product.
 
 **Reusable Tofu modules (`infra/modules/`)** — `cloudflare-tunnel-app/` is the per-product tunnel+ingress+DNS pattern, shared between menu and genkan roots. Adding a 4th product = `module "tunnel" { source = "../../../../infra/modules/cloudflare-tunnel-app"; ... }` in 5 lines.
 

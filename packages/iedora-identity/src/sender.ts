@@ -1,3 +1,4 @@
+import { context, propagation } from "@opentelemetry/api";
 import {
   SIGNATURE_HEADER,
   TIMESTAMP_HEADER,
@@ -153,6 +154,15 @@ export function createWebhookSender(opts: SenderOptions) {
 
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+      // Inject W3C trace context (`traceparent` + `tracestate`) into the
+      // outbound headers. Uses whichever propagator is globally registered;
+      // when @iedora/observability has booted that's the W3C propagator,
+      // and when no SDK is registered it's a no-op (carrier stays empty).
+      // Either way, the call is safe — propagation.inject doesn't throw.
+      const traceCarrier: Record<string, string> = {};
+      propagation.inject(context.active(), traceCarrier);
+
       try {
         const res = await fetchImpl(sub.url, {
           method: "POST",
@@ -160,6 +170,7 @@ export function createWebhookSender(opts: SenderOptions) {
             "content-type": "application/json",
             [SIGNATURE_HEADER]: signature,
             [TIMESTAMP_HEADER]: String(timestampMs),
+            ...traceCarrier,
           },
           body,
           signal: controller.signal,

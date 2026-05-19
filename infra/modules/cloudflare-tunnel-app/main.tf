@@ -51,7 +51,7 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "this" {
       [
         {
           hostname = var.public_hostname
-          service  = "http://kamal-proxy"
+          service  = var.primary_service
         },
       ],
       var.extra_ingress,
