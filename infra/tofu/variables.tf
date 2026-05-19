@@ -55,6 +55,70 @@ variable "observability_hostname" {
   default     = "obs.iedora.com"
 }
 
+# ── Cloudflare Access in front of obs.iedora.com (issue #13) ─────────────────
+# OpenObserve OSS doesn't ship OIDC — Enterprise-only feature. We protect the
+# UI at the edge via Cloudflare Access instead: CF Access handles the SSO
+# challenge using genkan as the OIDC IdP; only authenticated iedora users
+# can REACH obs.iedora.com. OpenObserve still does its own login on top
+# (defense-in-depth + break-glass).
+
+variable "cf_access_team_domain" {
+  description = <<-EOT
+    Cloudflare Zero Trust team domain — the `<team>` portion of
+    `https://<team>.cloudflareaccess.com`. Picked during Zero Trust onboarding,
+    visible in the Zero Trust dashboard under Settings → Custom Pages.
+    Used to derive the OIDC callback URL CF Access registers with genkan.
+  EOT
+  type        = string
+  default     = "iedora"
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]{1,63}$", var.cf_access_team_domain))
+    error_message = "cf_access_team_domain must be lowercase kebab, 1-63 chars."
+  }
+}
+
+variable "cf_access_allowed_emails" {
+  description = <<-EOT
+    Email addresses allowed through Cloudflare Access to obs.iedora.com.
+    One per active iedora team member; rotate when someone joins / leaves.
+    For scalability later, swap for an `email_domain` or `email_list`
+    include rule on the cloudflare_zero_trust_access_policy resource.
+  EOT
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = length(var.cf_access_allowed_emails) > 0
+    error_message = "cf_access_allowed_emails must list at least one address — empty list bricks UI access."
+  }
+}
+
+variable "cf_access_genkan_client_id" {
+  description = <<-EOT
+    OAuth client ID minted for the Cloudflare Access -> genkan handshake.
+    TF_VAR_cf_access_genkan_client_id (set by bin/with-secrets from
+    INFRA_CF_ACCESS_GENKAN_CLIENT_ID). Pre-registered in genkan's
+    TRUSTED_CLIENTS so first-party clients skip consent.
+
+    Mint once: `openssl rand -hex 16`. Goes into BOTH places: BWS (for
+    this Tofu run) and genkan's BWS-backed TRUSTED_CLIENTS env (for
+    pre-registration on container boot).
+  EOT
+  type        = string
+}
+
+variable "cf_access_genkan_client_secret" {
+  description = <<-EOT
+    OAuth client secret matching cf_access_genkan_client_id.
+    TF_VAR_cf_access_genkan_client_secret. Mint via
+    `openssl rand -base64 48`. See cf_access_genkan_client_id description
+    for the two-place storage convention.
+  EOT
+  type        = string
+  sensitive   = true
+}
+
 variable "tailscale_oauth_client_id" {
   description = <<-EOT
     Tailscale BOOTSTRAP OAuth client ID. TF_VAR_tailscale_oauth_client_id

@@ -50,3 +50,20 @@ output "observability_tunnel_token" {
   value       = module.observability_tunnel.token
   sensitive   = true
 }
+
+# ── Cloudflare Access (issue #13) ────────────────────────────────────────────
+
+output "cf_access_callback_url" {
+  description = <<-EOT
+    The OIDC redirect_uri Cloudflare Access registers with genkan. Pre-seed
+    this into genkan's TRUSTED_CLIENTS as the redirect URI for the
+    CF_ACCESS_GENKAN_* OAuth client. Stable across deploys as long as the
+    cf_access_team_domain variable doesn't change.
+  EOT
+  value       = local.cf_access_callback_url
+}
+
+output "cf_access_observability_app_id" {
+  description = "UUID of the Cloudflare Access self-hosted application protecting obs.iedora.com. Useful for the dashboard URL + for the IdP's allowed-apps list."
+  value       = cloudflare_zero_trust_access_application.observability.id
+}

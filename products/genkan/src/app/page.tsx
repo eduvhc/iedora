@@ -11,25 +11,49 @@ import {
 } from '@iedora/design-system'
 import { auth } from '@/features/auth/adapters/better-auth-instance'
 import { env } from '@/shared/env'
+import { postAuthRedirectTarget } from './(auth)/_lib/post-auth-redirect'
 import './landing.css'
 
 export const metadata = { title: 'Genkan — the entryway' }
 
+type SearchParams = Promise<{ return_to?: string }>
+
 /**
  * Root landing for `genkan.iedora.com`.
  *
- * Signed-in visitors bounce to the configured DEFAULT_RETURN_TO (typically
- * the menu app). Anonymous visitors land here — a small editorial page that
- * names what genkan is, what's inside, and where to go next.
+ * Signed-in visitors bounce to `?return_to` (when present + trusted) or
+ * `DEFAULT_RETURN_TO` (typically the menu app). Anonymous visitors land
+ * here — a small editorial page that names what genkan is, what's inside,
+ * and where to go next.
+ *
+ * Anti-loop guard: if the resolved redirect target's origin matches
+ * genkan's own (BETTER_AUTH_URL), `postAuthRedirectTarget` returns null
+ * and we render the landing instead. The previous unconditional redirect
+ * produced "ERR_TOO_MANY_REDIRECTS" the moment DEFAULT_RETURN_TO
+ * accidentally pointed at a genkan-origin path — a real foot-gun during
+ * Cloudflare Access setup.
  *
  * Voice + composition mirrors `products/house/src/pages/index.astro` per
  * the "Brand surface" guidance in CLAUDE.md: editorial chrome
  * (Wordmark + MetaStrip + Statement), no marketing flourish, one cinnabar
  * accent (the Sign-in arrow + the wordmark dot).
  */
-export default async function GenkanLanding() {
+export default async function GenkanLanding({
+  searchParams,
+}: {
+  searchParams: SearchParams
+}) {
   const session = await auth.api.getSession({ headers: await headers() })
-  if (session?.user) redirect(env.DEFAULT_RETURN_TO)
+  if (session?.user) {
+    const { return_to: rawReturnTo } = await searchParams
+    const target = postAuthRedirectTarget({
+      rawReturnTo,
+      ownOrigin: env.BETTER_AUTH_URL,
+    })
+    if (target) redirect(target)
+    // null target → signed in but no safe non-self destination. Fall
+    // through and render the landing.
+  }
 
   return (
     <main className="genkan-landing">

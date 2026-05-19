@@ -6,9 +6,41 @@ import { auth } from '@/features/auth/adapters/better-auth-instance'
 import { ImpersonationBanner } from './impersonation-banner'
 
 /**
+ * Best-effort reconstruction of the current request path so we can pass it
+ * as `?return_to=` to /login. `headers()` ships these on Vercel + Next 16,
+ * with reasonable fallbacks elsewhere. If none are present we send the
+ * user to `/login` without a return_to and the post-login flow falls back
+ * to `DEFAULT_RETURN_TO` — same as the previous behaviour, no regression.
+ */
+async function currentPathFromHeaders(): Promise<string | undefined> {
+  const h = await headers()
+  // Next 16 sets `next-url` on RSC requests. Otherwise we walk
+  // X-Forwarded-* + referer to reconstruct.
+  const nextUrl = h.get('next-url')
+  if (nextUrl) return nextUrl
+  const forwardedProto = h.get('x-forwarded-proto') ?? 'https'
+  const forwardedHost = h.get('x-forwarded-host') ?? h.get('host')
+  const referer = h.get('referer')
+  if (forwardedHost && referer) {
+    try {
+      const u = new URL(referer)
+      // Trust the referer ONLY when it matches the request host. Random
+      // cross-origin referers must not turn into our return_to.
+      if (u.host === forwardedHost && u.protocol === `${forwardedProto}:`) {
+        return u.pathname + u.search
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return undefined
+}
+
+/**
  * Shell for every signed-in page (profile, consent, future settings).
- * Soft check: redirects unauthenticated users to /login with a return_to.
- * Per-page DAL guards still apply for stricter requirements (admin role, etc.).
+ * Soft check: redirects unauthenticated users to /login with a return_to
+ * so they land back here after authenticating. Per-page DAL guards still
+ * apply for stricter requirements (admin role, etc.).
  *
  * Padding and gaps scale via clamp() and the spacing tokens; the MetaStrip
  * collapses to a stacked layout on phones (see globals.css `.ds-shell-meta`).
@@ -20,6 +52,10 @@ export default async function AuthedLayout({
 }) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) {
+    const returnTo = await currentPathFromHeaders()
+    if (returnTo) {
+      redirect(`/login?return_to=${encodeURIComponent(returnTo)}`)
+    }
     redirect('/login')
   }
 

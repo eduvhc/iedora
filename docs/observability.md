@@ -157,6 +157,8 @@ Set these in BWS (project `iedora-deploy`) before the first
 | `INFRA_OPENOBSERVE_ROOT_USER_EMAIL`      | Initial admin email — used to log into the UI                  |
 | `INFRA_OPENOBSERVE_ROOT_USER_PASSWORD`   | Strong random — generated with `openssl rand -base64 32`       |
 | `INFRA_OPENOBSERVE_INGEST_HEADER`        | Pre-baked `Authorization=Basic%20<base64(email:password)>`     |
+| `INFRA_CF_ACCESS_GENKAN_CLIENT_ID`       | Cloudflare Access OAuth client ID — `openssl rand -hex 16`     |
+| `INFRA_CF_ACCESS_GENKAN_CLIENT_SECRET`   | Cloudflare Access OAuth client secret — `openssl rand -base64 48` |
 
 The ingest header gets the URL-encoded form ready to slot straight into
 `OTEL_EXPORTER_OTLP_HEADERS`. Build it once:
@@ -172,6 +174,61 @@ better posture, create a dedicated `iedora-ingest@iedora.com` user with
 ingest-only role in the OpenObserve UI after first boot, and rotate
 `INFRA_OPENOBSERVE_INGEST_HEADER` to use those credentials. That way
 admin login + ingest credentials rotate independently.
+
+### UI access (Cloudflare Access in front of obs.iedora.com)
+
+OpenObserve OSS doesn't ship OIDC SSO (Enterprise-only feature — see
+issue #13 for the research notes). Rather than license OO Enterprise +
+deploy Dex just for UI login, the observability UI is protected at the
+edge by **Cloudflare Access** using Genkan as the OIDC IdP.
+
+Flow:
+
+1. Visitor hits `obs.iedora.com`.
+2. Cloudflare Access intercepts → no session cookie → redirect to Genkan's
+   `/api/auth/oauth2/authorize` (the `Genkan (iedora)` IdP configured in
+   `infra/tofu/access.tf`).
+3. Visitor signs in at Genkan (or skips this step if already signed in).
+4. Genkan bounces back to Cloudflare Access's callback
+   (`https://iedora.cloudflareaccess.com/cdn-cgi/access/callback`).
+5. Cloudflare Access verifies the OIDC id_token's `email` claim against
+   the `cf_access_allowed_emails` allow-list. Allowed → set CF Access
+   session cookie. Denied → "you don't have access" page.
+6. Request forwarded through the tunnel to `infra-openobserve:5080`.
+7. OpenObserve renders **its own** login screen (root creds — kept as
+   break-glass). After OO login, the visitor sees Traces / Metrics / etc.
+
+The OO root password is still load-bearing, but no longer publicly
+reachable — only iedora team members who pass step 5 can even SEE the
+login screen. That's the "defense in depth" win this gets us pending OO
+Enterprise / native OIDC support.
+
+#### Before first apply
+
+Add **2 new BWS secrets** alongside the observability bootstrap ones:
+
+```bash
+bws secret create INFRA_CF_ACCESS_GENKAN_CLIENT_ID  "$(openssl rand -hex 16)"          "$BWS_PROJECT_ID"
+bws secret create INFRA_CF_ACCESS_GENKAN_CLIENT_SECRET "$(openssl rand -base64 48)"    "$BWS_PROJECT_ID"
+```
+
+Set the **`cf_access_allowed_emails` Tofu variable** to your team list
+(default is empty + the validator hard-fails — so this must be set before
+the first `tofu apply`):
+
+```bash
+# In infra/.env (or via TF_VAR_... directly):
+TF_VAR_cf_access_allowed_emails='["eduardoferdcarvalho@gmail.com"]'
+```
+
+Verify the **Cloudflare Zero Trust team domain** matches the default
+(`iedora`). If you picked something else during Zero Trust onboarding,
+set `TF_VAR_cf_access_team_domain` and update the redirect URI in
+`products/genkan/infra/kamal/.kamal/secrets` to match.
+
+After `just infra::deploy` + redeploying genkan with the new
+TRUSTED_CLIENTS, visiting `obs.iedora.com` should bounce through Genkan
+for SSO.
 
 ### Tofu-managed resources
 
