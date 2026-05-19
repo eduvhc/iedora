@@ -1,41 +1,17 @@
 /**
  * Next.js 16 instrumentation hook — runs once per server process at startup.
  *
- * Responsibilities today:
- *   - Wire OpenTelemetry traces via @iedora/observability (the shared
- *     OTel surface that every iedora product calls from its register hook).
- *   - Drain the postgres-js pool on SIGTERM/SIGINT so in-flight queries
- *     finish cleanly during Kamal rolling deploys.
+ * The Node-only work (OTel registration, postgres-js drain on SIGTERM/SIGINT)
+ * lives in `instrumentation.node.ts` and is dynamically imported behind the
+ * `NEXT_RUNTIME` gate. Without that split, Turbopack production builds
+ * statically detect the `process.on(...)` calls and fail with an Edge
+ * Runtime warning even though the calls are guarded at runtime.
  *
- * The dynamic `import('@/shared/db/client')` is intentional: keeping it lazy means the
- * DB module isn't pulled into the build's "collect page data" pass, only the
- * runtime server. See Next.js docs/api-reference/file-conventions/instrumentation.
+ * See https://nextjs.org/docs/app/guides/open-telemetry §"Manual OTel" —
+ * the same pattern Next docs recommend for `@opentelemetry/sdk-node`.
  */
-import { registerIedoraOtel } from '@iedora/observability'
-
 export async function register() {
-  // Edge runtime has no Node `process` signal API and no postgres-js client.
-  // @vercel/otel itself supports edge, but we keep one gate to avoid loading
-  // the DB module on the edge build.
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
-
-  registerIedoraOtel({ serviceName: 'iedora-menu' })
-
-  const { closeDb } = await import('@/shared/db/client')
-
-  let shuttingDown = false
-  const shutdown = async (signal: string) => {
-    if (shuttingDown) return
-    shuttingDown = true
-    console.log(`[instrumentation] ${signal} received, draining DB…`)
-    try {
-      await closeDb({ timeout: 5 })
-      console.log('[instrumentation] DB drained')
-    } catch (err) {
-      console.error('[instrumentation] DB drain failed:', err)
-    }
-  }
-
-  process.on('SIGTERM', () => void shutdown('SIGTERM'))
-  process.on('SIGINT', () => void shutdown('SIGINT'))
+  const { registerNode } = await import('./instrumentation.node')
+  await registerNode()
 }

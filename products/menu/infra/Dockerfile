@@ -15,8 +15,11 @@
 FROM oven/bun:1.3-debian@sha256:9dba1a1b43ce28c9d7931bfc4eb00feb63b0114720a0277a8f939ae4dfc9db6f AS deps
 WORKDIR /workspace
 
-# Workspace root manifest + lock.
-COPY package.json bun.lock ./
+# Workspace root manifest + lock + shared tsconfig that every per-package
+# tsconfig extends. Missing tsconfig.base.json here was the silent regression
+# introduced by PR #6 (TypeScript 6 + shared eslint refactor) — every deploy
+# after #6 failed with `extends: "../../tsconfig.base.json" doesn't resolve`.
+COPY package.json bun.lock tsconfig.base.json ./
 # Every workspace package referenced from menu's package.json must be
 # present so `bun install` can resolve `"@iedora/design-system": "workspace:*"`.
 COPY packages packages
