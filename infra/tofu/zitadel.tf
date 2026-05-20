@@ -48,9 +48,12 @@ locals {
 # Look up the existing iedora org (created by FirstInstance on first boot)
 # by its well-known name so we can import it into state.
 data "zitadel_orgs" "iedora" {
-  count       = local.zitadel_bootstrapped ? 1 : 0
   name        = "iedora"
   name_method = "TEXT_QUERY_METHOD_EQUALS"
+
+  lifecycle {
+    enabled = local.zitadel_bootstrapped
+  }
 }
 
 # Declarative import (OpenTofu 1.6+). Brings the FirstInstance-created
@@ -58,17 +61,20 @@ data "zitadel_orgs" "iedora" {
 # Subsequent applies see no drift and the block is a no-op.
 import {
   for_each = local.zitadel_bootstrapped ? toset(["iedora"]) : toset([])
-  to       = zitadel_org.iedora[0]
-  id       = tolist(data.zitadel_orgs.iedora[0].ids)[0]
+  to       = zitadel_org.iedora
+  id       = tolist(data.zitadel_orgs.iedora.ids)[0]
 }
 
 # The iedora root org. Houses every project, OIDC app, action target, and
 # (Phase 4) every member of every restaurant tenant. Name matches the
 # FirstInstance env so the import lines up cleanly.
 resource "zitadel_org" "iedora" {
-  count      = local.zitadel_bootstrapped ? 1 : 0
   name       = "iedora"
   is_default = true
+
+  lifecycle {
+    enabled = local.zitadel_bootstrapped
+  }
 }
 
 # The iedora project — parent for every menu-side OIDC app.
@@ -76,10 +82,13 @@ resource "zitadel_org" "iedora" {
 # roles in the access token; menu's OIDC client reads them off the
 # id_token claims (no userinfo round-trip).
 resource "zitadel_project" "iedora" {
-  count                  = local.zitadel_bootstrapped ? 1 : 0
   name                   = "iedora"
-  org_id                 = zitadel_org.iedora[0].id
+  org_id                 = zitadel_org.iedora.id
   project_role_assertion = true
+
+  lifecycle {
+    enabled = local.zitadel_bootstrapped
+  }
 }
 
 # ── Menu OIDC app (#20) ──────────────────────────────────────────────────────
@@ -107,9 +116,8 @@ resource "zitadel_project" "iedora" {
 #     container that the FirstInstance step provisioned. Without it the
 #     redirect lands on the legacy /ui/login (different container).
 resource "zitadel_application_oidc" "menu" {
-  count      = local.zitadel_bootstrapped ? 1 : 0
-  org_id     = zitadel_org.iedora[0].id
-  project_id = zitadel_project.iedora[0].id
+  org_id     = zitadel_org.iedora.id
+  project_id = zitadel_project.iedora.id
   name       = "menu"
 
   redirect_uris             = ["https://${var.menu_public_hostname}/api/auth/callback"]
@@ -131,6 +139,10 @@ resource "zitadel_application_oidc" "menu" {
       base_uri = "https://${var.zitadel_hostname}/ui/v2/login"
     }
   }
+
+  lifecycle {
+    enabled = local.zitadel_bootstrapped
+  }
 }
 
 # ── Menu service account ─────────────────────────────────────────────────────
@@ -145,31 +157,40 @@ resource "zitadel_application_oidc" "menu" {
 # client-credentials grant step at runtime for no security gain (the menu
 # container still has a long-lived bearer in env either way).
 resource "zitadel_machine_user" "menu_sa" {
-  count             = local.zitadel_bootstrapped ? 1 : 0
-  org_id            = zitadel_org.iedora[0].id
+  org_id            = zitadel_org.iedora.id
   user_name         = "menu-sa"
   name              = "Menu"
   description       = "Service account menu uses for org provisioning + membership lookups (#20)."
   access_token_type = "ACCESS_TOKEN_TYPE_BEARER"
+
+  lifecycle {
+    enabled = local.zitadel_bootstrapped
+  }
 }
 
 # IAM-level role grant. Required so menu_sa can call `/admin/v1/orgs`
 # (org creation at onboarding) and read memberships across orgs.
 # Once orgs scale we can narrow this to ORG-scoped grants per tenant org.
 resource "zitadel_instance_member" "menu_sa_iam_owner" {
-  count   = local.zitadel_bootstrapped ? 1 : 0
-  user_id = zitadel_machine_user.menu_sa[0].id
+  user_id = zitadel_machine_user.menu_sa.id
   roles   = ["IAM_OWNER"]
+
+  lifecycle {
+    enabled = local.zitadel_bootstrapped
+  }
 }
 
 # Long-lived PAT. 75-year expiry matches the login-client PAT minted by
 # FirstInstance; rotation path is `tofu apply -replace=...menu_sa` (which
 # also recreates the IAM_OWNER grant — same call).
 resource "zitadel_personal_access_token" "menu_sa" {
-  count           = local.zitadel_bootstrapped ? 1 : 0
-  org_id          = zitadel_org.iedora[0].id
-  user_id         = zitadel_machine_user.menu_sa[0].id
+  org_id          = zitadel_org.iedora.id
+  user_id         = zitadel_machine_user.menu_sa.id
   expiration_date = "2099-01-01T00:00:00Z"
+
+  lifecycle {
+    enabled = local.zitadel_bootstrapped
+  }
 }
 
 # ── Menu session-cookie encryption key ───────────────────────────────────────

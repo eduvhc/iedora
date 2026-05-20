@@ -268,17 +268,23 @@ module "zitadel_login" {
 #     bootstrap; menu is back up on the second `just infra::deploy`.
 
 resource "docker_image" "menu" {
-  count = local.zitadel_bootstrapped ? 1 : 0
-  name  = "ghcr.io/${var.github_owner}/menu:${var.menu_image_sha}"
+  name = "ghcr.io/${var.github_owner}/menu:${var.menu_image_sha}"
 
   # Keep the image cached on the host so a container restart doesn't re-pull.
   # New SHA = new name = force-replace = single pull on next apply.
   keep_locally = true
+
+  lifecycle {
+    enabled = local.zitadel_bootstrapped
+  }
 }
 
 module "menu_env" {
-  count  = local.zitadel_bootstrapped ? 1 : 0
   source = "../modules/menu_env"
+
+  lifecycle {
+    enabled = local.zitadel_bootstrapped
+  }
 
   node_env        = "production"
   database_url    = "postgres://postgres:${random_password.postgres.result}@infra-postgres:5432/menu"
@@ -286,9 +292,9 @@ module "menu_env" {
 
   menu_session_secret         = random_password.menu_session_secret.result
   zitadel_issuer_url          = "https://${var.zitadel_hostname}"
-  zitadel_oauth_client_id     = zitadel_application_oidc.menu[0].client_id
-  zitadel_oauth_client_secret = zitadel_application_oidc.menu[0].client_secret
-  zitadel_management_token    = zitadel_personal_access_token.menu_sa[0].token
+  zitadel_oauth_client_id     = zitadel_application_oidc.menu.client_id
+  zitadel_oauth_client_secret = zitadel_application_oidc.menu.client_secret
+  zitadel_management_token    = zitadel_personal_access_token.menu_sa.token
 
   # Shared assets bucket (cloudflare_r2_bucket.assets in main.tf).
   s3_endpoint   = "https://${var.account_id}.r2.cloudflarestorage.com"
@@ -308,9 +314,8 @@ module "menu_env" {
 }
 
 resource "docker_container" "menu_web" {
-  count   = local.zitadel_bootstrapped ? 1 : 0
   name    = "infra-menu-web"
-  image   = docker_image.menu[0].image_id
+  image   = docker_image.menu.image_id
   restart = "unless-stopped"
 
   # Migrate then serve. The Next.js standalone build's server is at /app/server.js
@@ -326,11 +331,15 @@ resource "docker_container" "menu_web" {
   # call into `infra/modules/menu_env`. Adding a new key happens in
   # one place (the module's locals.env_map); both backends pick it up
   # mechanically on next apply.
-  env = module.menu_env[0].env_list
+  env = module.menu_env.env_list
 
   networks_advanced {
     name    = docker_network.iedora.name
     aliases = ["infra-menu-web"]
+  }
+
+  lifecycle {
+    enabled = local.zitadel_bootstrapped
   }
 
   log_opts = {

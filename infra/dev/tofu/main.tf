@@ -107,7 +107,6 @@ resource "docker_volume" "openobserve_data" {
 # Bind-mounted to the host so dev.go can read the menu-sa PAT (passed
 # to `tofu apply` as -var zitadel_pat).
 resource "docker_container" "zitadel_bootstrap_chmod" {
-  count    = var.enable_zitadel ? 1 : 0
   name     = "infra-zitadel-bootstrap-chmod"
   image    = "busybox:1.37"
   command  = ["chmod", "777", "/x"]
@@ -118,12 +117,15 @@ resource "docker_container" "zitadel_bootstrap_chmod" {
     container_path = "/x"
     host_path      = abspath("${path.module}/../.zitadel-bootstrap")
   }
+
+  lifecycle {
+    enabled = var.enable_zitadel
+  }
 }
 
 # ── Services ────────────────────────────────────────────────────────────────
 
 module "postgres" {
-  count  = var.enable_postgres ? 1 : 0
   source = "../../modules/services/postgres"
 
   network_name      = docker_network.iedora.name
@@ -133,10 +135,13 @@ module "postgres" {
   # Same canonical init.sql prod uses — creates every known product DB
   # (currently `menu` + `zitadel`). Single source of truth.
   init_sql = file("${path.module}/../../postgres/init.sql")
+
+  lifecycle {
+    enabled = var.enable_postgres
+  }
 }
 
 module "localstack" {
-  count  = var.enable_localstack ? 1 : 0
   source = "../../modules/services/localstack"
 
   network_name     = docker_network.iedora.name
@@ -149,10 +154,13 @@ module "localstack" {
     awslocal s3 mb s3://iedora-data
     awslocal s3 mb s3://iedora-assets
   EOT
+
+  lifecycle {
+    enabled = var.enable_localstack
+  }
 }
 
 module "openobserve" {
-  count  = var.enable_openobserve ? 1 : 0
   source = "../../modules/services/openobserve"
 
   network_name       = docker_network.iedora.name
@@ -168,6 +176,10 @@ module "openobserve" {
     bucket_prefix = "o2"
     access_key    = "test"
     secret_key    = "test"
+  }
+
+  lifecycle {
+    enabled = var.enable_openobserve
   }
 }
 
@@ -244,7 +256,6 @@ locals {
 }
 
 module "zitadel" {
-  count  = var.enable_zitadel ? 1 : 0
   source = "../../modules/services/zitadel"
 
   network_name      = docker_network.iedora.name
@@ -272,10 +283,13 @@ module "zitadel" {
     module.postgres,
     docker_container.zitadel_bootstrap_chmod,
   ]
+
+  lifecycle {
+    enabled = var.enable_zitadel
+  }
 }
 
 module "zitadel_login" {
-  count  = var.enable_zitadel ? 1 : 0
   source = "../../modules/services/zitadel-login"
 
   network_name   = docker_network.iedora.name
@@ -287,13 +301,16 @@ module "zitadel_login" {
   expose_host_port = 3001
 
   depends_on = [module.zitadel]
+
+  lifecycle {
+    enabled = var.enable_zitadel
+  }
 }
 
 # ── House (built locally) ────────────────────────────────────────────────────
 
 resource "docker_image" "house" {
-  count = var.enable_house ? 1 : 0
-  name  = "iedora-house:dev"
+  name = "iedora-house:dev"
   build {
     context    = local.repo_root
     dockerfile = "products/house/Dockerfile"
@@ -301,15 +318,22 @@ resource "docker_image" "house" {
   triggers = {
     source = local.house_source_hash
   }
+
+  lifecycle {
+    enabled = var.enable_house
+  }
 }
 
 module "house" {
-  count  = var.enable_house ? 1 : 0
   source = "../../modules/services/house"
 
   network_name     = docker_network.iedora.name
-  image_id         = docker_image.house[0].image_id
+  image_id         = docker_image.house.image_id
   expose_host_port = 3002
+
+  lifecycle {
+    enabled = var.enable_house
+  }
 }
 
 # ── Zitadel seed (project + OIDC app + menu env files) ──────────────────────
@@ -348,34 +372,42 @@ provider "zitadel" {
 }
 
 data "zitadel_orgs" "iedora" {
-  count       = local.seed_active ? 1 : 0
   name        = "iedora"
   name_method = "TEXT_QUERY_METHOD_EQUALS"
+
+  lifecycle {
+    enabled = local.seed_active
+  }
 }
 
 import {
   for_each = local.seed_active ? toset(["iedora"]) : toset([])
-  to       = zitadel_org.iedora[0]
-  id       = tolist(data.zitadel_orgs.iedora[0].ids)[0]
+  to       = zitadel_org.iedora
+  id       = tolist(data.zitadel_orgs.iedora.ids)[0]
 }
 
 resource "zitadel_org" "iedora" {
-  count      = local.seed_active ? 1 : 0
   name       = "iedora"
   is_default = true
+
+  lifecycle {
+    enabled = local.seed_active
+  }
 }
 
 resource "zitadel_project" "iedora" {
-  count                  = local.seed_active ? 1 : 0
   name                   = "iedora"
-  org_id                 = zitadel_org.iedora[0].id
+  org_id                 = zitadel_org.iedora.id
   project_role_assertion = true
+
+  lifecycle {
+    enabled = local.seed_active
+  }
 }
 
 resource "zitadel_application_oidc" "menu" {
-  count      = local.seed_active ? 1 : 0
-  org_id     = zitadel_org.iedora[0].id
-  project_id = zitadel_project.iedora[0].id
+  org_id     = zitadel_org.iedora.id
+  project_id = zitadel_project.iedora.id
   name       = "menu"
 
   redirect_uris             = ["http://localhost:3000/api/auth/callback"]
@@ -397,6 +429,10 @@ resource "zitadel_application_oidc" "menu" {
       base_uri = "http://localhost:3001/ui/v2/login"
     }
   }
+
+  lifecycle {
+    enabled = local.seed_active
+  }
 }
 
 # Menu service account — same shape as prod's infra/tofu/zitadel.tf.
@@ -404,41 +440,53 @@ resource "zitadel_application_oidc" "menu" {
 # menu app itself runs with a separate PAT under `menu-sa`, scoped
 # IAM_OWNER for org provisioning + membership lookups.
 resource "zitadel_machine_user" "menu_sa" {
-  count             = local.seed_active ? 1 : 0
-  org_id            = zitadel_org.iedora[0].id
+  org_id            = zitadel_org.iedora.id
   user_name         = "menu-sa"
   name              = "Menu"
   description       = "Service account menu uses for org provisioning + membership lookups (#20)."
   access_token_type = "ACCESS_TOKEN_TYPE_BEARER"
+
+  lifecycle {
+    enabled = local.seed_active
+  }
 }
 
 resource "zitadel_instance_member" "menu_sa_iam_owner" {
-  count   = local.seed_active ? 1 : 0
-  user_id = zitadel_machine_user.menu_sa[0].id
+  user_id = zitadel_machine_user.menu_sa.id
   roles   = ["IAM_OWNER"]
+
+  lifecycle {
+    enabled = local.seed_active
+  }
 }
 
 resource "zitadel_personal_access_token" "menu_sa" {
-  count           = local.seed_active ? 1 : 0
-  org_id          = zitadel_org.iedora[0].id
-  user_id         = zitadel_machine_user.menu_sa[0].id
+  org_id          = zitadel_org.iedora.id
+  user_id         = zitadel_machine_user.menu_sa.id
   expiration_date = "2099-01-01T00:00:00Z"
+
+  lifecycle {
+    enabled = local.seed_active
+  }
 }
 
 resource "random_password" "menu_session_secret" {
-  count   = local.seed_active ? 1 : 0
   length  = 48
   special = false
+
+  lifecycle {
+    enabled = local.seed_active
+  }
 }
 
 # Shared inputs to both menu_env calls — secrets + identifiers that
 # don't depend on where menu runs (container vs host).
 locals {
   menu_env_shared = local.seed_active ? {
-    menu_session_secret         = random_password.menu_session_secret[0].result
-    zitadel_oauth_client_id     = zitadel_application_oidc.menu[0].client_id
-    zitadel_oauth_client_secret = zitadel_application_oidc.menu[0].client_secret
-    zitadel_management_token    = zitadel_personal_access_token.menu_sa[0].token
+    menu_session_secret         = random_password.menu_session_secret.result
+    zitadel_oauth_client_id     = zitadel_application_oidc.menu.client_id
+    zitadel_oauth_client_secret = zitadel_application_oidc.menu.client_secret
+    zitadel_management_token    = zitadel_personal_access_token.menu_sa.token
     s3_region                   = "us-east-1"
     s3_access_key               = "test"
     s3_secret_key               = "test"
@@ -469,8 +517,11 @@ locals {
 # DNS (`infra-postgres`, `infra-localstack`, `infra-openobserve`) for
 # internal calls. Mirrors prod's `module "menu_env"` call shape.
 module "menu_env_container" {
-  count  = local.seed_active ? 1 : 0
   source = "../../modules/menu_env"
+
+  lifecycle {
+    enabled = local.seed_active
+  }
 
   node_env                    = "production"
   database_url                = "postgres://postgres:postgres@infra-postgres:5432/menu"
@@ -495,8 +546,11 @@ module "menu_env_container" {
 # All internal URLs flip to `localhost:<published_port>` because the
 # Next dev server runs on the host (outside the docker network).
 module "menu_env_host" {
-  count  = local.seed_active ? 1 : 0
   source = "../../modules/menu_env"
+
+  lifecycle {
+    enabled = local.seed_active
+  }
 
   node_env                    = "development"
   database_url                = "postgresql://postgres:postgres@localhost:5432/menu"
@@ -519,8 +573,7 @@ module "menu_env_host" {
 # ── Menu container (build local, mirror of prod's docker_container.menu_web) ──
 
 resource "docker_image" "menu" {
-  count = var.enable_menu ? 1 : 0
-  name  = "iedora-menu:dev"
+  name = "iedora-menu:dev"
   build {
     context    = local.repo_root
     dockerfile = "products/menu/Dockerfile"
@@ -528,12 +581,15 @@ resource "docker_image" "menu" {
   triggers = {
     source = local.menu_source_hash
   }
+
+  lifecycle {
+    enabled = var.enable_menu
+  }
 }
 
 resource "docker_container" "menu" {
-  count   = (var.enable_menu && local.seed_active) ? 1 : 0
   name    = "infra-menu-web"
-  image   = docker_image.menu[0].image_id
+  image   = docker_image.menu.image_id
   restart = "unless-stopped"
 
   # Same command as prod (infra/tofu/containers.tf::docker_container.menu_web):
@@ -544,7 +600,7 @@ resource "docker_container" "menu" {
     "node scripts/migrate.mjs && node server.js",
   ]
 
-  env = module.menu_env_container[0].env_list
+  env = module.menu_env_container.env_list
 
   networks_advanced {
     name    = docker_network.iedora.name
@@ -575,22 +631,26 @@ resource "docker_container" "menu" {
     module.postgres,
     module.zitadel,
   ]
+
+  lifecycle {
+    enabled = var.enable_menu && local.seed_active
+  }
 }
 
 # Outputs feed the .env files written by dev.go (host bun-run-dev path).
 output "env_committable_file" {
   description = "Body of products/menu/.env. Empty before the seed runs (first apply)."
-  value       = local.seed_active ? module.menu_env_host[0].env_committable_file : ""
+  value       = local.seed_active ? module.menu_env_host.env_committable_file : ""
   sensitive   = true
 }
 
 output "env_dynamic_file" {
   description = "Real values for the dynamic keys — printed by dev.go for copy-paste into products/menu/.env.local. Empty before the seed runs."
-  value       = local.seed_active ? module.menu_env_host[0].env_dynamic_file : ""
+  value       = local.seed_active ? module.menu_env_host.env_dynamic_file : ""
   sensitive   = true
 }
 
 output "env_dynamic_keys" {
   description = "Sorted list of dynamic key names. dev.go uses this to schema-sync .env.local."
-  value       = local.seed_active ? module.menu_env_host[0].env_dynamic_keys : []
+  value       = local.seed_active ? module.menu_env_host.env_dynamic_keys : []
 }
