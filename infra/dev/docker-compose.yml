@@ -53,6 +53,11 @@ services:
       - "4566:4566"
     volumes:
       - localstack_data:/var/lib/localstack
+      # init.sh runs once when LocalStack reports ready; pre-creates the
+      # iedora-data + iedora-assets buckets so OpenObserve (data cold
+      # tier) and the menu app (assets) find them on first write.
+      # Matches prod's R2 bucket layout 1:1.
+      - ./localstack/init.sh:/etc/localstack/init/ready.d/init.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:4566/_localstack/health | grep -q s3"]
       interval: 10s
@@ -136,26 +141,37 @@ services:
       postgres:
         condition: service_healthy
 
-  # OpenObserve — local OTLP collector + UI. Mirrors prod's
-  # `infra-openobserve` container with the R2 cold tier stripped
-  # (`ZO_LOCAL_MODE=true` keeps everything on local disk — no S3 setup
-  # to mock). Same ports as prod: 5080 HTTP UI + OTLP-HTTP receiver.
-  # Menu's `OTEL_EXPORTER_OTLP_ENDPOINT` in `.env.local` points at it
-  # (`http://localhost:5080/api/default`).
+  # OpenObserve — OTLP collector + UI + cold tier into LocalStack.
+  # Mirrors prod's `infra-openobserve` 1:1: same ZO_S3_* shape, same
+  # `iedora-data` bucket name, same `o2/` prefix. LocalStack stands
+  # in for R2; OO writes parquet shards there exactly as it would in
+  # prod, so the cold-tier flushing path is exercised locally too.
   openobserve:
     image: public.ecr.aws/zinclabs/openobserve:v0.80.3
     restart: unless-stopped
     environment:
-      ZO_LOCAL_MODE: "true"
       ZO_DATA_DIR: /data
       ZO_HTTP_PORT: "5080"
       ZO_GRPC_PORT: "5081"
       ZO_ROOT_USER_EMAIL: dev@iedora.local
       ZO_ROOT_USER_PASSWORD: dev-password
+      # Cold tier → LocalStack. test/test are the canonical LocalStack
+      # credentials (no real IAM check), same shape as the prod R2 token.
+      ZO_S3_PROVIDER: aws
+      ZO_S3_REGION_NAME: us-east-1
+      ZO_S3_BUCKET_NAME: iedora-data
+      ZO_S3_BUCKET_PREFIX: o2
+      ZO_S3_SERVER_URL: http://localstack:4566
+      ZO_S3_FEATURE_FORCE_PATH_STYLE: "true"
+      ZO_S3_ACCESS_KEY: test
+      ZO_S3_SECRET_KEY: test
     ports:
       - "5080:5080"
     volumes:
       - openobserve_data:/data
+    depends_on:
+      localstack:
+        condition: service_healthy
     # No healthcheck — the openobserve image is distroless (no sh / wget /
     # curl), and our compose has nothing depending on it, so `--wait`
     # falling through to "container running" is fine. /healthz is still

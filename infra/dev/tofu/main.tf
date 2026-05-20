@@ -132,13 +132,14 @@ module "menu_env" {
   zitadel_oauth_client_secret = zitadel_application_oidc.menu.client_secret
   zitadel_management_token    = var.zitadel_pat
 
-  # Object storage — compose service `localstack`.
+  # Object storage — LocalStack standing in for R2. Same bucket names
+  # as prod (iedora-assets); LocalStack init.sh pre-creates it.
   s3_endpoint   = "http://localhost:4566"
   s3_region     = "us-east-1"
   s3_access_key = "test"
   s3_secret_key = "test"
-  s3_bucket     = "menu"
-  s3_public_url = "http://localhost:4566/menu"
+  s3_bucket     = "iedora-assets"
+  s3_public_url = "http://localhost:4566/iedora-assets"
 
   # OpenObserve compose service. Login: dev@iedora.local / dev-password
   # (matches docker-compose.yml::services.openobserve env).
