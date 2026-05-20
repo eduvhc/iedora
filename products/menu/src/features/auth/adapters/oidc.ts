@@ -15,6 +15,11 @@ let cached: Promise<oidc.Configuration> | undefined
 
 function getConfig(): Promise<oidc.Configuration> {
   if (!cached) {
+    // openid-client v6 refuses http:// issuer URLs by default. The dev
+    // stack runs Zitadel on http://localhost:8080 (no TLS), so we
+    // gate the `allowInsecureRequests` execution layer on dev only.
+    // Prod stays strict.
+    const isHttpIssuer = env.ZITADEL_ISSUER_URL.startsWith('http://')
     cached = oidc.discovery(
       new URL(env.ZITADEL_ISSUER_URL),
       env.ZITADEL_OAUTH_CLIENT_ID,
@@ -23,6 +28,7 @@ function getConfig(): Promise<oidc.Configuration> {
       // on the token endpoint. Matches OIDC_AUTH_METHOD_TYPE_BASIC on the
       // TF-declared OIDC app.
       oidc.ClientSecretBasic(env.ZITADEL_OAUTH_CLIENT_SECRET),
+      isHttpIssuer ? { execute: [oidc.allowInsecureRequests] } : {},
     )
   }
   return cached

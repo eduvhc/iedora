@@ -1,3 +1,23 @@
+# Dev-only stack for the menu app. Mirrors prod's runtime topology so
+# the OIDC flow, the management API surface, and the asset-upload path
+# all behave identically locally.
+#
+# Start with `bun run dev` — that orchestrates `docker compose up -d`
+# + a one-shot `tofu apply` against the local Zitadel + Drizzle
+# migrations + `next dev`. See `scripts/dev.sh`.
+#
+# Topology:
+#   postgres        shared by menu + zitadel (one container, two DBs).
+#                   Matches prod's infra-postgres pattern.
+#   localstack      S3-compatible mock for the assets bucket.
+#   zitadel         IdP. `start-from-init` provisions org + admin human +
+#                   menu-sa machine user (with PAT) + login-client (with
+#                   PAT) on first boot. PATs land in ./.zitadel-bootstrap/
+#                   on the host.
+#   zitadel-login   v2 Login UI. Reads login-client.pat from the shared
+#                   bind-mount. Listens on host :3001; the main binary's
+#                   LOGINV2_BASEURI redirects browsers there.
+
 services:
   postgres:
     image: postgres:18.4-alpine
@@ -38,6 +58,108 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Zitadel IdP. Same image + same FirstInstance env shape as prod
+  # (infra/tofu/containers.tf), differences:
+  #   - masterkey is a stable dev literal (no rotation concerns locally)
+  #   - PAT instead of JSON key for the machine user — `menu-sa` PAT is
+  #     both the runtime ZITADEL_MANAGEMENT_TOKEN and the TF provider
+  #     credential used by the seed step in `infra/dev/tofu/`
+  #   - LOGINV2_BASEURI points at localhost:3001 (zitadel-login on host)
+  #   - PATs/keys land in ./.zitadel-bootstrap/ on the host (bind mount,
+  #     not a named volume) so the host-side seed can read them without
+  #     docker exec
+  zitadel:
+    image: ghcr.io/zitadel/zitadel:v4.15.0
+    restart: unless-stopped
+    command:
+      - start-from-init
+      - --masterkeyFromEnv
+      - --tlsMode=disabled
+    environment:
+      ZITADEL_MASTERKEY: dev-masterkey-32-characters-XXXX
+      ZITADEL_EXTERNALDOMAIN: localhost
+      ZITADEL_EXTERNALPORT: 8080
+      ZITADEL_EXTERNALSECURE: "false"
+      ZITADEL_TLS_ENABLED: "false"
+
+      ZITADEL_DATABASE_POSTGRES_HOST: postgres
+      ZITADEL_DATABASE_POSTGRES_PORT: 5432
+      ZITADEL_DATABASE_POSTGRES_DATABASE: zitadel
+      ZITADEL_DATABASE_POSTGRES_AWAITINITIALCONN: 5m
+      ZITADEL_DATABASE_POSTGRES_USER_USERNAME: postgres
+      ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: postgres
+      ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: disable
+      ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: postgres
+      ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: postgres
+      ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: disable
+      ZITADEL_DATABASE_POSTGRES_ADMIN_EXISTINGDATABASE: postgres
+
+      # ── FirstInstance: seeds org + admin + machine user + login client ───
+      ZITADEL_FIRSTINSTANCE_ORG_NAME: iedora
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME: zitadel-admin
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_FIRSTNAME: iedora
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_LASTNAME: Admin
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAIL_ADDRESS: dev@iedora.local
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_EMAIL_VERIFIED: "true"
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD: Password1!
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORDCHANGEREQUIRED: "false"
+
+      # Machine user. PAT auto-minted to /zitadel-bootstrap/menu-sa.pat;
+      # FirstInstance grants IAM_OWNER automatically. The host seed step
+      # reads this PAT to drive `tofu apply` against localhost:8080.
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_USERNAME: menu-sa
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_NAME: Menu
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_PAT_EXPIRATIONDATE: "2099-01-01T00:00:00Z"
+      ZITADEL_FIRSTINSTANCE_PATPATH: /zitadel-bootstrap/menu-sa.pat
+
+      # Login client. Separate PAT used by the zitadel-login container.
+      # The `ORG_LOGINCLIENT` prefix is intentional — matches Zitadel's
+      # setup viper layout. (`LOGINCLIENTPATPATH` is the only key WITHOUT
+      # the `ORG_` prefix.)
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_USERNAME: login-client
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_NAME: Login Client
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_PAT_EXPIRATIONDATE: "2099-01-01T00:00:00Z"
+      ZITADEL_FIRSTINSTANCE_LOGINCLIENTPATPATH: /zitadel-bootstrap/login-client.pat
+
+      # Force the v2 login UI. BaseURI is what the main binary redirects
+      # the BROWSER to — so it has to be reachable from the host, not
+      # via the docker network. localhost:3001 is the zitadel-login
+      # container's exposed port.
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_REQUIRED: "true"
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_BASEURI: http://localhost:3001/ui/v2/login
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./.zitadel-bootstrap:/zitadel-bootstrap
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  zitadel-login:
+    image: ghcr.io/zitadel/zitadel-login:v4.15.0
+    restart: unless-stopped
+    # `extra_hosts` aliases `localhost` to the docker host. The container
+    # then hits `http://localhost:8080` which is the host port-forward
+    # back to the zitadel container. Host header becomes "localhost:8080"
+    # — matches ZITADEL_EXTERNALDOMAIN, so the instance lookup resolves.
+    # Without this trick the container would call `zitadel:8080` and
+    # Zitadel would 404 with `Instance not found`.
+    extra_hosts:
+      - "localhost:host-gateway"
+    environment:
+      ZITADEL_API_URL: http://localhost:8080
+      NEXT_PUBLIC_BASE_PATH: /ui/v2/login
+      ZITADEL_SERVICE_USER_TOKEN_FILE: /zitadel-bootstrap/login-client.pat
+      ZITADEL_TLS_ENABLED: "false"
+      EMAIL_VERIFICATION: "false"
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./.zitadel-bootstrap:/zitadel-bootstrap:ro
+    depends_on:
+      zitadel:
+        condition: service_started
 
 volumes:
   postgres_data:

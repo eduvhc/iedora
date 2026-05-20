@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "bun run scripts/check-migrations.ts && next dev",
+    "dev": "go run scripts/dev.go",
+    "dev:fast": "bun run scripts/check-migrations.ts && next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
