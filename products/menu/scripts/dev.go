@@ -1,19 +1,24 @@
 // Dev orchestrator — single command from fresh clone to running app.
 //
-// Sequence (each step idempotent):
-//   1. `docker compose up -d --wait`. Zitadel's FirstInstance writes
-//      both PATs to ./.zitadel-bootstrap/ on first boot. Re-runs are
-//      a no-op when containers are already healthy.
-//   2. Wait up to 60 s for menu-sa.pat (steady-state: file exists, 0 s).
-//   3. `tofu apply` in infra/dev/tofu/ — seeds Zitadel project + OIDC
-//      app, then emits .env.local with every runtime env var the app
-//      needs (mirrors infra/tofu/containers.tf::menu_web.env 1:1).
+// Shape mirrors prod: the shared dev infra (Postgres + LocalStack +
+// Zitadel + Login UI) lives at `infra/dev/`, transversal to every
+// product — same as `infra/tofu/` owns the shared prod stack. This
+// script is the menu-product-specific wrapper that:
+//
+//   1. Brings up `infra/dev/docker-compose.yml`. Zitadel's FirstInstance
+//      writes both PATs to `infra/dev/.zitadel-bootstrap/` on first
+//      boot. Re-runs are a no-op when containers are already healthy.
+//   2. Waits up to 60 s for menu-sa.pat.
+//   3. `tofu apply` in `infra/dev/tofu/` — seeds Zitadel project + OIDC
+//      app, then writes `products/menu/.env.local` with every runtime
+//      env var the app needs (mirrors
+//      `infra/tofu/containers.tf::menu_web.env` 1:1).
 //   4. `bun run db:migrate` — pending Drizzle migrations.
-//   5. exec `bun --bun next dev`. The fresh .env.local is loaded by
+//   5. exec `bun --bun next dev`. The fresh `.env.local` is loaded by
 //      Next on startup.
 //
-// Invoked via `bun run dev` (`scripts/dev.go` resolves via `go run`).
-// No package.json magic, no shell quoting. Stdlib only — no go.mod.
+// Invoked via `bun run dev` (resolved by `go run`). Stdlib only — no
+// go.mod.
 //
 // Exit codes:
 //   0  next is running in the foreground
@@ -32,30 +37,36 @@ import (
 	"time"
 )
 
+// Paths relative to the repo root. Resolved from this file's location
+// so the script can be invoked from anywhere (`bun run dev`, IDE,
+// laptop shell).
+const (
+	devInfraDir = "infra/dev"
+	devTofuDir  = "infra/dev/tofu"
+	patFile     = "infra/dev/.zitadel-bootstrap/menu-sa.pat"
+)
+
 func main() {
-	// `go run scripts/dev.go` keeps cwd as whoever invoked it.
-	// We expect cwd to be `products/menu/`; assert it and resolve from
-	// the source file location to be robust against `go run ../scripts/dev.go`.
+	// Locate the repo root: this file is at
+	//   <repo>/products/menu/scripts/dev.go
+	// → repo root is three levels up from `runtime.Caller`'s file.
 	_, thisFile, _, ok := runtime.Caller(0)
 	if !ok {
 		fail("runtime.Caller failed")
 	}
-	menuDir := filepath.Dir(filepath.Dir(thisFile))
-	if err := os.Chdir(menuDir); err != nil {
-		fail("chdir %s: %v", menuDir, err)
-	}
+	repoRoot := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(thisFile))))
 
-	step(1, "docker compose up -d --wait")
-	run("docker", "compose", "up", "-d", "--wait")
+	step(1, "docker compose up -d --wait  ("+devInfraDir+")")
+	runIn(filepath.Join(repoRoot, devInfraDir), "docker", "compose", "up", "-d", "--wait")
 
-	step(2, "waiting for .zitadel-bootstrap/menu-sa.pat")
-	patFile := ".zitadel-bootstrap/menu-sa.pat"
-	if err := waitForFile(patFile, 60*time.Second); err != nil {
-		fail("%v\nhint: docker compose logs zitadel", err)
+	step(2, "waiting for "+patFile)
+	absPat := filepath.Join(repoRoot, patFile)
+	if err := waitForFile(absPat, 60*time.Second); err != nil {
+		fail("%v\nhint: docker compose -f %s/docker-compose.yml logs zitadel", err, devInfraDir)
 	}
-	patBytes, err := os.ReadFile(patFile)
+	patBytes, err := os.ReadFile(absPat)
 	if err != nil {
-		fail("read %s: %v", patFile, err)
+		fail("read %s: %v", absPat, err)
 	}
 	// FirstInstance writes the PAT with a trailing newline. Zitadel
 	// rejects the `Authorization: Bearer …\n` header with
@@ -63,15 +74,19 @@ func main() {
 	// part of the token.
 	pat := strings.TrimSpace(string(patBytes))
 
-	step(3, "tofu apply (seed Zitadel project + OIDC app + .env.local)")
-	tofuDir := "infra/dev/tofu"
+	step(3, "tofu apply  ("+devTofuDir+")")
+	tofuDir := filepath.Join(repoRoot, devTofuDir)
 	runIn(tofuDir, "tofu", "init", "-upgrade", "-input=false")
 	runIn(tofuDir, "tofu", "apply", "-auto-approve", "-input=false", "-var", "zitadel_pat="+pat)
 
 	step(4, "drizzle migrate")
-	run("bun", "run", "db:migrate")
+	menuDir := filepath.Join(repoRoot, "products/menu")
+	runIn(menuDir, "bun", "run", "db:migrate")
 
 	step(5, "next dev")
+	if err := os.Chdir(menuDir); err != nil {
+		fail("chdir %s: %v", menuDir, err)
+	}
 	execv("bun", "--bun", "next", "dev")
 }
 
@@ -79,10 +94,6 @@ func main() {
 // to read than threading state around for a script this small.
 func step(n int, msg string) {
 	fmt.Printf("[dev] %d/5  %s\n", n, msg)
-}
-
-func run(name string, args ...string) {
-	runIn("", name, args...)
 }
 
 func runIn(dir, name string, args ...string) {
@@ -111,9 +122,9 @@ func execv(name string, args ...string) {
 }
 
 // waitForFile polls every 500 ms until the file exists AND is non-empty.
-// `s -s` semantics: empty file fails the wait (the PAT is written atomically
-// by Zitadel, so a 0-byte intermediate state shouldn't happen, but it's a
-// cheap defensive check).
+// Empty file fails the wait (the PAT is written atomically by Zitadel,
+// so a 0-byte intermediate state shouldn't happen, but it's a cheap
+// defensive check).
 func waitForFile(path string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
