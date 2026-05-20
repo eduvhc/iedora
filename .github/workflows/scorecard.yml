@@ -24,6 +24,16 @@ on:
     - cron: '0 5 * * 1'
   push:
     branches: [main]
+    # Scorecard rates supply-chain posture (workflow files, dep pinning,
+    # signed releases, branch-protection, …). A docs / README / license
+    # commit doesn't change any of that, and the weekly cron picks up
+    # anything we'd miss between code-bearing pushes.
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE*'
+      - '.gitignore'
+      - '.editorconfig'
 
 permissions: read-all
 
