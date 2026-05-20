@@ -46,7 +46,7 @@ Vendors that process customer data or hold the keys. Each must have a current SO
 | **Other compliance** | ISO 27001, GDPR, HIPAA, SOC 3 (public) |
 | **DPA** | Bitwarden DPA accepted |
 | **Compromise impact** | Attacker who steals the BWS access token + project ID gets every production secret. Token is on **one** FileVault-encrypted dev laptop. |
-| **Rotation / exit plan** | Access token via Bitwarden UI → update `infra/.env`. Per-secret via `just infra::rotate-secret <KEY>`. Switching providers (Vault, AWS Secrets Manager, age-encrypted file) is a 1-day project. |
+| **Rotation / exit plan** | Access token via Bitwarden UI → update your shell-sourced secrets file (e.g. `~/.secrets`). Per-secret via `just infra::rotate-secret <KEY>`. Switching providers (Vault, AWS Secrets Manager, age-encrypted file) is a 1-day project. |
 
 ---
 

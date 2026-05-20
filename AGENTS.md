@@ -69,7 +69,7 @@ iedora/                                  repo root
                                          Every always-on container on the Hetzner VPS is declared
                                          here as a Tofu `docker_container` resource: postgres,
                                          openobserve, zitadel + login, caddy, backups, menu_web.
-    Justfile, bin/with-secrets             (BWS-fed deploy wrapper; .env is gitignored)
+    Justfile, bin/with-secrets             (BWS-fed deploy wrapper. Only `BWS_ACCESS_TOKEN` required in operator's shell)
     tofu/                                Single Tofu root. Hetzner VPS + R2 buckets + DNS + GitHub
                                          Actions config + every docker_container on the box.
     backup/                              self-built Postgres-backup image

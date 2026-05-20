@@ -248,8 +248,7 @@ Today (4th product = copy 12 files, edit each, run 6 GH commands, run a `bws sec
 products/<newprod>/
 ├── package.json + src/...                  (Bun workspace boilerplate)
 ├── infra/
-│   ├── .env                                (gitignored, operator-owned)
-│   ├── bin/with-secrets                    (copy from sibling)
+│   ├── bin/with-secrets                    (copy from sibling — wrapper auto-discovers project ID + CF account ID)
 │   ├── justfile                            (copy + edit)
 │   ├── Dockerfile                          (copy + edit)
 │   └── tofu/
@@ -266,7 +265,7 @@ After Tier 1 + Tier 2 (4th product = copy 8 files, declare 1 line in `infra/tofu
 ```
 products/<newprod>/                          (same Bun workspace)
 ├── infra/
-│   ├── .env                                (gitignored: just BWS access + ACCOUNT_ID)
+│   ├── bin/with-secrets                    (auto-discovers everything from BWS_ACCESS_TOKEN)
 │   ├── justfile                            (5-recipe boilerplate, mostly forwarders)
 │   ├── Dockerfile
 │   └── tofu/

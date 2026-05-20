@@ -15,9 +15,9 @@
 #
 # Add a 3rd product:
 #   1. mkdir products/<name>/
-#   2. cp products/house/infra/{justfile,bin/with-secrets} into it,
-#      seed an empty infra/.env (gitignored) with BWS_ACCESS_TOKEN +
-#      BWS_PROJECT_ID + CLOUDFLARE_ACCOUNT_ID (see docs/deploy.md)
+#   2. cp products/house/infra/{justfile,bin/with-secrets} into it.
+#      The wrapper auto-discovers BWS_PROJECT_ID + CLOUDFLARE_ACCOUNT_ID;
+#      operator only needs BWS_ACCESS_TOKEN in shell.
 #   3. echo "mod <name> 'products/<name>/infra'" appended to this file
 
 mod infra 'infra'

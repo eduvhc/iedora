@@ -23,10 +23,10 @@ locals {
   github_variables = {
     BWS_PROJECT_ID       = var.bws_project_id
     MENU_PUBLIC_HOSTNAME = var.menu_public_hostname
-    # Bootstrap input for `bin/with-secrets` (it reads CLOUDFLARE_ACCOUNT_ID
-    # from env, not from BWS — it's the pointer that selects which CF
-    # account owns the rest of the secrets). Local dev gets it from
-    # `infra/.env`; CI gets it from this GHA variable.
+    # Pointer to which CF account owns the rest of the secrets. Local
+    # `bin/with-secrets` auto-discovers this from the CF /accounts API
+    # (only one account on the token). CI uses this GHA variable
+    # directly instead of doing the API roundtrip per workflow run.
     CLOUDFLARE_ACCOUNT_ID = var.account_id
   }
 

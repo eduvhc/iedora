@@ -7,7 +7,7 @@ Where every credential lives, how to rotate it, what breaks when it's gone.
 | Location | Holds | Why |
 |---|---|---|
 | **Bitwarden Secrets Manager** (`iedora-deploy` project) | Every production secret | Single source of truth; survives laptop loss |
-| `infra/.env` (gitignored, local) | `BWS_ACCESS_TOKEN` + non-secret IDs (account/zone/hostnames) | The one credential that unlocks the rest — must be on disk to bootstrap |
+| Operator shell env (e.g. `~/.secrets` sourced from your shell rc) | `BWS_ACCESS_TOKEN` only | The keys-to-the-kingdom; `infra/bin/with-secrets` reads it then derives `BWS_PROJECT_ID` (via `bws project list`) and `CLOUDFLARE_ACCOUNT_ID` (via CF /accounts API). No on-disk `infra/.env`. |
 | `infra/tofu/terraform.tfstate` (encrypted) | Tofu-minted credentials (R2 sub-tokens, GH config write-throughs) | Cross-product shared infra |
 | `products/menu/infra/tofu/terraform.tfstate` (encrypted) | R2 assets bucket token | Menu's product-local resources |
 | `products/house/infra/tofu/terraform.tfstate` (encrypted) | Narrow `workers_deploy` token | House's product-local resources |
@@ -68,7 +68,7 @@ Cloudflare credentials follow a two-tier pattern, deliberately:
 | `INFRA_GHCR_TOKEN` | Classic PAT (`write:packages`) for CI's `docker push` AND Tofu's pull on the box | Attacker can push malicious images to `ghcr.io/eduvhc/menu` | GH UI regenerate → BWS edit → next deploy picks up |
 | `INFRA_STATE_PASSPHRASE` | Tofu state encryption (PBKDF2 + AES-GCM, 600k iterations) | Old encrypted state in git becomes decryptable | **`fallback` block rotation** — see below |
 | `INFRA_SSH_PRIVATE_KEY` | Private SSH key Tofu uses to reach the Hetzner Docker daemon. Tofu pushes it to GH as `INFRA_SSH_PRIVATE_KEY` | SSH as root to the VPS | Generate new keypair → `ssh-copy-id root@$(tofu -chdir=infra/tofu output -raw hetzner_ipv4)` → BWS edit → `just infra::deploy` → remove old pubkey from `/root/.ssh/authorized_keys` |
-| `BWS_ACCESS_TOKEN` (in `infra/.env`, NOT in BWS) | Unlocks BWS itself | Read every other secret | **Blue/green** — see below |
+| `BWS_ACCESS_TOKEN` (operator shell env — e.g. `~/.secrets`, NOT in BWS) | Unlocks BWS itself | Read every other secret | **Blue/green** — see below |
 
 ### App secrets
 
@@ -139,7 +139,8 @@ bin/with-secrets tofu -chdir=tofu apply -replace=cloudflare_api_token.observabil
 For `BWS_ACCESS_TOKEN`:
 1. Bitwarden UI → Machine accounts → `iedora-deploy` → Access tokens → revoke old
 2. Generate new
-3. Replace `BWS_ACCESS_TOKEN=` in `infra/.env`
+3. Replace the value in your shell-sourced secrets file (e.g. `~/.secrets`) and re-source it
+4. Tofu in CI gets it automatically (Tofu pushes the new token to `BWS_ACCESS_TOKEN` GH Actions secret on next `just infra::deploy`)
 
 No code changes — `bin/with-secrets` reads it at runtime.
 
@@ -217,7 +218,7 @@ encryption {
 ### BWS access token — blue/green
 
 1. Bitwarden UI → Machine accounts → `iedora-deploy` → Access tokens → **Create a SECOND token** (don't revoke yet).
-2. Update `infra/.env` to new value, `just infra::deploy` (write-throughs to GH).
+2. Update `BWS_ACCESS_TOKEN` in your shell-sourced secrets file (e.g. `~/.secrets`), re-source, then `just infra::deploy` (write-throughs to GH Actions secret).
 3. `gh workflow run infra-deploy.yml` — verify CI authenticates.
 4. **Then** revoke the OLD token.
 
@@ -241,10 +242,8 @@ GitHub: secret scanning is enabled by default. If you accidentally commit a toke
 
 Configuration data (no security benefit to hiding):
 
-- `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_ZONE_ID` — identifiers, not credentials.
-- `GHCR_USER` — public username.
-
-These live in `infra/.env`.
+- `CLOUDFLARE_ACCOUNT_ID` — discovered by `bin/with-secrets` via CF `/accounts` (one account per token); CI reads it from the `CLOUDFLARE_ACCOUNT_ID` GHA variable that `infra/tofu/github.tf` writes out.
+- `GHCR_USER` — TF variable default in `infra/tofu/variables.tf` (`var.github_owner = "eduvhc"`).
 
 The Hetzner public IPv4 is NOT in BWS. Tooling that needs it reads `tofu output -raw hetzner_ipv4` from the encrypted state — the Tofu output is the source of truth. Survives a box reprovision.
 

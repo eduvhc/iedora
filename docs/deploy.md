@@ -73,42 +73,47 @@ git clone https://github.com/<you>/iedora.git
 cd iedora
 ```
 
-`infra/.env` is gitignored and operator-owned — create it yourself with the keys below. All production secrets live in Bitwarden Secrets Manager; this file holds only non-secret IDs + the BWS access token that unlocks the vault. Alternative: skip the file and export these as shell env vars before running `just infra::deploy`.
+**The only env var you need locally is `BWS_ACCESS_TOKEN`.** Keep it in your password manager / `~/.secrets` / shell profile — losing it means losing every other secret.
 
 ```bash
-CLOUDFLARE_ACCOUNT_ID=your-account-id
-CLOUDFLARE_ZONE_ID=your-zone-id
-GHCR_USER=eduvhc
-BWS_ACCESS_TOKEN=0.…
-BWS_PROJECT_ID=…uuid…
+# in ~/.secrets (or whichever profile your shell sources)
+export BWS_ACCESS_TOKEN=0.…
 ```
 
-Install `bws`: `brew install bitwarden/tap/bws` or download from https://github.com/bitwarden/sdk-sm/releases. Then populate BWS:
+`infra/bin/with-secrets` derives the rest:
+
+| Was an input | Now |
+|---|---|
+| `BWS_PROJECT_ID` | discovered via `bws project list` (picks `iedora-deploy`) |
+| `CLOUDFLARE_ACCOUNT_ID` | discovered via CF `/accounts` API using `INFRA_CLOUDFLARE_API_TOKEN` from BWS |
+| `GHCR_USER`, `OPENOBSERVE_BUCKET_NAME` | TF variable defaults in `infra/tofu/variables.tf` |
+| `ONPREM_HOST` | `tofu output -raw hetzner_ipv4` after pass 1 |
+
+Install `bws`: `brew install bitwarden/tap/bws` or download from https://github.com/bitwarden/sdk-sm/releases. Then populate BWS (the wrapper expects every `INFRA_*` key below):
 
 ```bash
-source infra/.env
+PROJECT_ID=$(bws project list -o json | jq -r '.[] | select(.name=="iedora-deploy") | .id')
 for KEY in INFRA_CLOUDFLARE_API_TOKEN INFRA_STATE_PASSPHRASE \
            INFRA_HCLOUD_TOKEN INFRA_GITHUB_API_TOKEN \
            INFRA_POSTGRES_PASSWORD INFRA_BACKUP_PASSPHRASE INFRA_GHCR_TOKEN \
-           INFRA_SSH_PRIVATE_KEY \
+           INFRA_SSH_PRIVATE_KEY INFRA_CLAUDE_CODE_OAUTH_TOKEN \
            INFRA_ZITADEL_MASTERKEY INFRA_ZITADEL_FIRST_ADMIN_PASSWORD \
-           INFRA_OPENOBSERVE_ROOT_USER_PASSWORD; do
+           INFRA_OPENOBSERVE_ROOT_USER_EMAIL INFRA_OPENOBSERVE_ROOT_USER_PASSWORD; do
   read -s -p "$KEY: " V && echo
-  bws secret create "$KEY" "$V" "$BWS_PROJECT_ID" -o none
+  bws secret create "$KEY" "$V" "$PROJECT_ID" -o none
 done
 ```
 
 Generate random values with `openssl rand -hex 32`, except:
-- `INFRA_CLOUDFLARE_API_TOKEN` — from step 3.
+- `INFRA_CLOUDFLARE_API_TOKEN` — from step 3. Must have **Account:Read** scope so the wrapper can resolve `CLOUDFLARE_ACCOUNT_ID`.
 - `INFRA_HCLOUD_TOKEN` — Hetzner console → Security → API tokens (R/W).
 - `INFRA_GHCR_TOKEN` — classic PAT with `write:packages` (see "Why classic" below).
 - `INFRA_GITHUB_API_TOKEN` — fine-grained PAT scoped to the repo.
 - `INFRA_SSH_PRIVATE_KEY` — contents of `~/.ssh/id_ed25519`. Load-bearing across BWS / GH secrets / `kreuzwerker/docker` provider / rotation playbook. Don't rename.
 - `INFRA_ZITADEL_MASTERKEY` — must be exactly 32 chars: `openssl rand -base64 24 | head -c 32`.
+- `INFRA_CLAUDE_CODE_OAUTH_TOKEN` — Claude Code OAuth token for the in-repo automation agent. Generate via `claude login`.
 
 > **Why classic for GHCR.** Every other PAT is fine-grained; `INFRA_GHCR_TOKEN` stays classic because fine-grained + personal account + GHCR is GitHub's worst-supported combination — the Packages permission only reliably surfaces for org-scoped tokens with org-owned packages. Revisit if iedora moves into a GH org.
-
-Keep `BWS_ACCESS_TOKEN` in your password manager — losing it means losing every other secret. `infra/.env` is gitignored.
 
 ## Step 6 — Deploy
 
@@ -141,7 +146,7 @@ just infra::wipe-postgres    # destructive — drops the data dir
 just infra::rotate-secret X  # prompt-driven BWS rotation
 ```
 
-All wrappers around `tofu` or direct `ssh`. The justfile loads `infra/.env` and runs each recipe through `bin/with-secrets`, which exports every BWS secret as `TF_VAR_*` aliases.
+All wrappers around `tofu` or direct `ssh`. Each recipe runs through `bin/with-secrets`, which needs only `BWS_ACCESS_TOKEN` in your shell — `BWS_PROJECT_ID` is discovered via `bws project list`, `CLOUDFLARE_ACCOUNT_ID` via CF's `/accounts` API, and every BWS secret is exported as a `TF_VAR_*` alias.
 
 **No `migrate` recipe.** Migrations run on container start via the menu container's `cmd`. Drizzle's migrator takes a `pg_advisory_lock` so multiple replicas don't race.
 
@@ -217,8 +222,9 @@ Failures = image is from outside our CI, registry returned wrong content, or att
 
 ## How values flow
 
-- `infra/.env` → justfile `set dotenv-load` → visible to every `tofu` subprocess.
-- App + infra secrets → `bin/with-secrets` extracts from BWS, exports as `TF_VAR_*` aliases → Tofu reads them as variable inputs → sets them as container env in `docker_container.menu_web.env` (or the matching infra container).
+- `BWS_ACCESS_TOKEN` (shell env) → `bin/with-secrets` calls `bws project list` to pick the `iedora-deploy` project, then `bws secret list` to load every `INFRA_*` secret into env.
+- `INFRA_CLOUDFLARE_API_TOKEN` (loaded above) → wrapper calls CF `/accounts` API → `CLOUDFLARE_ACCOUNT_ID` exported as `TF_VAR_account_id`.
+- All other BWS secrets → exported as `TF_VAR_*` aliases → Tofu reads them as variable inputs → sets them as container env in `docker_container.menu_web.env` (or the matching infra container).
 - Registry pull → `docker_registry_image.menu` uses `INFRA_GHCR_TOKEN` as registry auth.
 
 Every secret has exactly one source (BWS), one consumer (Tofu resource or container env), zero hops where a human pastes a value between systems.
@@ -239,7 +245,9 @@ Cost: ~30 lines duplicated per root (versions.tf, credentials, `data.cloudflare_
 
 ## Troubleshooting
 
-**`just infra::deploy` errors with `key not found`** — `infra/.env` is missing or a required key isn't filled. Create the file (see Step 5) or export the missing keys in your shell.
+**`just infra::deploy` errors with `BWS_ACCESS_TOKEN missing`** — export it in your shell (e.g. `source ~/.secrets`) before running. That's the only env var the wrapper requires; everything else self-discovers (see Step 5).
+
+**`just infra::deploy` errors with `INFRA_X missing in BWS`** — that secret hasn't been populated. Add it with `bws secret create INFRA_X <value> $(bws project list -o json | jq -r '.[]|select(.name=="iedora-deploy")|.id') -o none`.
 
 **Tofu plan fails with "unable to parse docker host"** — the Hetzner box hasn't been provisioned yet; the `kreuzwerker/docker` provider is connecting too early. Pass 1 of the recipe handles this. If you hit it directly: `tofu apply -target=hcloud_server.iedora` first.
 
