@@ -147,10 +147,22 @@ module "menu_env" {
   otel_exporter_otlp_headers  = "Authorization=Basic%20${base64encode("dev@iedora.local:dev-password")}"
 }
 
-# Expose the rendered env file so `infra/dev/dev.go` can write it via
-# `tofu output -raw menu_env_file`.
-output "menu_env_file" {
-  description = "Body of products/menu/.env.local — rendered by infra/modules/menu_env."
-  value       = module.menu_env.env_file
+# Two outputs feed `infra/dev/dev.go`:
+#   - env_committable_file → products/menu/.env (committed; statics + placeholders)
+#   - env_dynamic_file     → products/menu/.env.local (gitignored; real dynamic values)
+output "env_committable_file" {
+  description = "Body of the committed products/menu/.env."
+  value       = module.menu_env.env_committable_file
+  # The CONTENT only has dev defaults + placeholders (zero real secrets
+  # for the dynamic keys), but its inputs include sensitive-flagged vars
+  # so TF taints the output. Marking sensitive=true here suppresses the
+  # static-analysis warning; `tofu output -raw` still works for the
+  # dev.go file-write step.
+  sensitive = true
+}
+
+output "env_dynamic_file" {
+  description = "Body of the gitignored products/menu/.env.local."
+  value       = module.menu_env.env_dynamic_file
   sensitive   = true
 }

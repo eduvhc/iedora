@@ -142,20 +142,67 @@ locals {
     GIT_SHA                     = var.git_sha
   }
 
-  # Stable key order so prod containers + dev .env diff cleanly across applies.
-  env_keys_sorted = sort(keys(local.env_map))
+  # Keys whose values are random per dev install (Zitadel-minted IDs +
+  # random session secret). The committed `products/menu/.env` carries
+  # placeholders for these so a fresh clone has a Zod-valid env file
+  # (IDE / lint / typecheck green at clone time); `just dev` then writes
+  # the real values to `.env.local` which Next loads with higher
+  # precedence than `.env`. Add a new dynamic key here when it appears.
+  dynamic_keys = toset([
+    "MENU_SESSION_SECRET",
+    "ZITADEL_OAUTH_CLIENT_ID",
+    "ZITADEL_OAUTH_CLIENT_SECRET",
+    "ZITADEL_MANAGEMENT_TOKEN",
+  ])
+
+  # Placeholders chosen to satisfy src/shared/env.ts Zod constraints
+  # (MENU_SESSION_SECRET requires ≥ 32 chars; the rest need ≥ 1).
+  placeholders = {
+    MENU_SESSION_SECRET         = "PLACEHOLDER-bun-run-dev-overrides-via-env-local"
+    ZITADEL_OAUTH_CLIENT_ID     = "PLACEHOLDER-bun-run-dev-overrides-via-env-local"
+    ZITADEL_OAUTH_CLIENT_SECRET = "PLACEHOLDER-bun-run-dev-overrides-via-env-local"
+    ZITADEL_MANAGEMENT_TOKEN    = "PLACEHOLDER-bun-run-dev-overrides-via-env-local"
+  }
+
+  env_committable = {
+    for k, v in local.env_map :
+    k => contains(local.dynamic_keys, k) ? local.placeholders[k] : v
+  }
+  env_dynamic = {
+    for k, v in local.env_map :
+    k => v if contains(local.dynamic_keys, k)
+  }
+
+  # Stable key order so committed `.env` diffs cleanly across applies.
+  env_keys_sorted             = sort(keys(local.env_map))
+  env_committable_keys_sorted = sort(keys(local.env_committable))
+  env_dynamic_keys_sorted     = sort(keys(local.env_dynamic))
 }
 
 # ── Outputs — one shape per consumer ─────────────────────────────────────────
 
+# Prod path: docker_container.env consumes the full list (no .env file,
+# values injected directly).
 output "env_list" {
-  description = "List of KEY=value strings — what docker_container.env consumes."
+  description = "Full env as KEY=value strings — feeds docker_container.env."
   value       = [for k in local.env_keys_sorted : "${k}=${local.env_map[k]}"]
   sensitive   = true
 }
 
-output "env_file" {
-  description = "Same map rendered as a Next-loadable .env file body."
-  value       = join("\n", [for k in local.env_keys_sorted : "${k}=${local.env_map[k]}"])
+# Dev path: two files.
+#   `env_committable`  → committed `products/menu/.env`   (statics + placeholders)
+#   `env_dynamic`      → gitignored `products/menu/.env.local` (real Zitadel + session)
+# Next loads both; `.env.local` overrides `.env` on the dynamic keys.
+# The user can also drop their own override into `.env.local` between
+# `just dev` runs (TF rewrites the file each run, so manual overrides
+# are session-scoped — comment block in the file makes this explicit).
+output "env_committable_file" {
+  description = "products/menu/.env body — statics + placeholders for the dynamic keys."
+  value       = join("\n", [for k in local.env_committable_keys_sorted : "${k}=${local.env_committable[k]}"])
+}
+
+output "env_dynamic_file" {
+  description = "products/menu/.env.local body — real Zitadel + session values, only the dynamic keys."
+  value       = join("\n", [for k in local.env_dynamic_keys_sorted : "${k}=${local.env_dynamic[k]}"])
   sensitive   = true
 }
