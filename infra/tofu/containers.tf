@@ -392,6 +392,37 @@ resource "docker_image" "menu" {
   keep_locally = true
 }
 
+module "menu_env" {
+  count  = local.zitadel_bootstrapped ? 1 : 0
+  source = "../modules/menu_env"
+
+  node_env        = "production"
+  database_url    = "postgres://postgres:${var.infra_postgres_password}@infra-postgres:5432/menu"
+  menu_public_url = "https://${var.menu_public_hostname}"
+
+  menu_session_secret         = random_password.menu_session_secret.result
+  zitadel_issuer_url          = "https://${var.zitadel_hostname}"
+  zitadel_oauth_client_id     = zitadel_application_oidc.menu[0].client_id
+  zitadel_oauth_client_secret = zitadel_application_oidc.menu[0].client_secret
+  zitadel_management_token    = zitadel_personal_access_token.menu_sa[0].token
+
+  # Shared assets bucket (cloudflare_r2_bucket.assets in main.tf).
+  s3_endpoint   = "https://${var.account_id}.r2.cloudflarestorage.com"
+  s3_region     = "auto"
+  s3_access_key = cloudflare_api_token.assets_r2.id
+  s3_secret_key = sha256(cloudflare_api_token.assets_r2.value)
+  s3_bucket     = cloudflare_r2_bucket.assets.name
+  s3_public_url = "https://${var.assets_hostname}"
+
+  # OpenObserve runs in ZO_LOCAL_MODE — Basic auth header is the same
+  # shape as the dev compose, fed from BWS-backed credentials.
+  otel_exporter_otlp_endpoint = "http://infra-openobserve:5080/api/default"
+  otel_exporter_otlp_headers  = "Authorization=Basic%20${base64encode("${var.infra_openobserve_root_user_email}:${var.infra_openobserve_root_user_password}")}"
+
+  host_name = hcloud_server.iedora.name
+  git_sha   = var.menu_image_sha
+}
+
 resource "docker_container" "menu_web" {
   count   = local.zitadel_bootstrapped ? 1 : 0
   name    = "infra-menu-web"
@@ -407,42 +438,11 @@ resource "docker_container" "menu_web" {
     "node scripts/migrate.mjs && node server.js",
   ]
 
-  env = [
-    "NEXT_TELEMETRY_DISABLED=1",
-    "DATABASE_URL=postgres://postgres:${var.infra_postgres_password}@infra-postgres:5432/menu",
-
-    # ── Auth (#20) ────────────────────────────────────────────────────────
-    # The menu app is a thin Zitadel OIDC client. Issuer URL drives
-    # openid-client's discovery + the JWKS used to verify access tokens.
-    "MENU_PUBLIC_URL=https://${var.menu_public_hostname}",
-    "MENU_SESSION_SECRET=${random_password.menu_session_secret.result}",
-    "ZITADEL_ISSUER_URL=https://${var.zitadel_hostname}",
-    "ZITADEL_OAUTH_CLIENT_ID=${zitadel_application_oidc.menu[0].client_id}",
-    "ZITADEL_OAUTH_CLIENT_SECRET=${zitadel_application_oidc.menu[0].client_secret}",
-    # PAT for the menu service account (IAM_OWNER). The identity slice
-    # calls Zitadel management API with this bearer for memberships +
-    # onboarding-time org creation.
-    "ZITADEL_MANAGEMENT_TOKEN=${zitadel_personal_access_token.menu_sa[0].token}",
-
-    # ── Object storage ────────────────────────────────────────────────────
-    # Shared assets bucket (`cloudflare_r2_bucket.assets` in main.tf).
-    # When a second product needs assets, mint its own scoped token over
-    # the same bucket + namespace under a sibling prefix.
-    "S3_ENDPOINT=https://${var.account_id}.r2.cloudflarestorage.com",
-    "S3_REGION=auto",
-    "S3_BUCKET=${cloudflare_r2_bucket.assets.name}",
-    "S3_ACCESS_KEY=${cloudflare_api_token.assets_r2.id}",
-    "S3_SECRET_KEY=${sha256(cloudflare_api_token.assets_r2.value)}",
-    "S3_PUBLIC_URL=https://${var.assets_hostname}",
-
-    # ── Observability ─────────────────────────────────────────────────────
-    # OpenObserve runs in ZO_LOCAL_MODE (see openobserve container above),
-    # so no Basic auth header is required for ingest — anonymous OTLP
-    # accepted on the internal port.
-    "OTEL_EXPORTER_OTLP_ENDPOINT=http://infra-openobserve:5080/api/default",
-    "OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic%20${base64encode("${var.infra_openobserve_root_user_email}:${var.infra_openobserve_root_user_password}")}",
-    "HOST_NAME=${hcloud_server.iedora.name}",
-  ]
+  # Runtime env is the SAME shape as dev's `.env.local` because both
+  # call into `infra/modules/menu_env`. Adding a new key happens in
+  # one place (the module's locals.env_map); both backends pick it up
+  # mechanically on next apply.
+  env = module.menu_env[0].env_list
 
   networks_advanced {
     name    = docker_network.iedora.name
