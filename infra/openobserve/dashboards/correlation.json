@@ -351,5 +351,11 @@
         "value": "iedora-menu"
       }
     ]
+  },
+  "defaultDatetimeDuration": {
+    "type": "relative",
+    "relativeTimePeriod": "30d",
+    "startTime": null,
+    "endTime": null
   }
 }

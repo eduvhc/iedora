@@ -367,16 +367,22 @@
         "name": "restaurant_id",
         "label": "Restaurant",
         "query_data": {
-          "streamType": "metrics",
           "stream": "default",
           "field": "tenant_restaurant_id",
-          "maxRecordSize": null
+          "stream_type": "traces",
+          "max_record_size": null
         },
         "value": "",
         "options": [],
-        "multiSelect": true,
-        "selectAllValueForMultiSelect": "all"
+        "multi_select": true,
+        "select_all_value_for_multi_select": "all"
       }
     ]
+  },
+  "defaultDatetimeDuration": {
+    "type": "relative",
+    "relativeTimePeriod": "30d",
+    "startTime": null,
+    "endTime": null
   }
 }
