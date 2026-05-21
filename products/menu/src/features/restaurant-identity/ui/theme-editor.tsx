@@ -74,6 +74,10 @@ export function ThemeEditor({
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
       <div className="space-y-8">
+        {/* Slug first — operators consistently look for "URL" / "slug"
+            at the top of settings, not buried under brand assets. */}
+        <SlugSection currentSlug={slug} />
+        <Separator />
         <IdentitySection
           slug={slug}
           restaurantId={restaurant.id}
@@ -84,8 +88,6 @@ export function ThemeEditor({
           onChange={setIdentity}
           onSaved={() => router.refresh()}
         />
-        <Separator />
-        <SlugSection currentSlug={slug} />
         <Separator />
         <LanguagesSection
           slug={slug}
@@ -486,6 +488,7 @@ function SlugSection({ currentSlug }: { currentSlug: string }) {
   return (
     <form
       className="space-y-4"
+      data-testid="slug-section"
       onSubmit={(e) => {
         e.preventDefault()
         if (dirty && looksValid) onSave()
