@@ -136,24 +136,31 @@ function SessionsTable({ rows }: { rows: SessionAdminRow[] }) {
       {rows.length === 0 ? (
         <p className="text-sm text-[var(--ink-55)]">No active sessions.</p>
       ) : (
-        <Table>
-          <thead>
-            <tr>
-              <Th>User</Th>
-              <Th>Account</Th>
-              <Th>SID</Th>
-              <Th>Permissions</Th>
-              <Th>Last seen</Th>
-              <Th>Client</Th>
-              <Th>Actions</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <SessionRow key={row.id} row={row} />
-            ))}
-          </tbody>
-        </Table>
+        // overflow-x-auto: 7 narrow text columns + Revoke buttons don't
+        // collapse cleanly under 640px. Rather than re-stacking the row
+        // as a card on mobile (extra UI we'd need to keep in sync), we
+        // let the table scroll horizontally inside its own pane while
+        // the rest of the page stays full-width.
+        <div className="overflow-x-auto border border-[var(--ink-14)]">
+          <Table className="min-w-[920px]">
+            <thead>
+              <tr>
+                <Th>User</Th>
+                <Th>Account</Th>
+                <Th>SID</Th>
+                <Th>Permissions</Th>
+                <Th>Last seen</Th>
+                <Th>Client</Th>
+                <Th>Actions</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <SessionRow key={row.id} row={row} />
+              ))}
+            </tbody>
+          </Table>
+        </div>
       )}
     </section>
   )
