@@ -58,6 +58,7 @@ Path: `products/menu/src/features/`.
 - **`plans/`** — plan registry (free, casa). Same shape as i18n + templates.
 - **`rate-limit/`** — token-bucket rate limiter backed by Redis (testcontainers in dev/CI). Guards `/api/auth/*` and other unauth'd endpoints.
 - **`restaurant-identity/`** — restaurant CRUD + theme/identity settings.
+- **`restaurant-slug/`** — owner of the `restaurant.slug` column. `slugify(name)` + `isValidSlugShape(s)` (pure), `nextAvailableSlug(base)` (onboarding auto-pick), `rename(restaurantId, newSlug)` (operator rename, race-safe via DB unique index). One shape rule, two surfaces.
 - **`upload/`** — S3-compatible uploads. Presign + commit + clear, with the `r/{restaurantId}/...` key-prefix invariant verified twice. LocalStack in dev, `adobe/s3mock` in CI (LocalStack `:latest` requires a paid licence as of 2026); real R2 in production.
 
 ## Shared packages
@@ -144,6 +145,8 @@ Registry-shaped features (asset targets, languages, plans, templates) have dedic
 - `env.ts` — Zod-validated runtime env. Build-time stub Proxy when `SKIP_ENV_VALIDATION=1`.
 - `brand.ts` — brand strings; inlined into the client bundle at build.
 - `ui/` — shadcn primitives + generic cross-slice components.
+- `url.ts` — `publicUrl(path, searchParams?)` for every absolute URL the server hands the browser (CLAUDE.md rule 16). Never derive URLs from `req.url` / `req.nextUrl.origin`.
+- `url-validate.ts` — `isSameOriginPath(raw)`, pure (no env import) so unit tests can use it without env standup.
 - `utils.ts` — `cn()` and other framework-agnostic helpers.
 - `testing/pglite.ts` — `makeTestDb()` fixture.
 

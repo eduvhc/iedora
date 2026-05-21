@@ -36,7 +36,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 Each product's CLAUDE.md is auto-loaded under its subtree.
 
-- **[products/menu/CLAUDE.md](products/menu/CLAUDE.md)** — 15 rules: tenant scoping, schema source-of-truth, auth in DAL (not layouts), `proxy.ts` (not middleware), money in cents, dnd-kit position columns, registry pattern for templates/languages/plans, public-menu cache by tag, beacon view tracking, vertical slice boundaries, **co-located E2E + testing surface per slice**.
+- **[products/menu/CLAUDE.md](products/menu/CLAUDE.md)** — 16 rules: tenant scoping, schema source-of-truth, auth in DAL (not layouts), `proxy.ts` (not middleware), money in cents, dnd-kit position columns, registry pattern for templates/languages/plans, public-menu cache by tag, beacon view tracking, vertical slice boundaries, co-located E2E + testing surface per slice, **redirects via `publicUrl()`**.
 - **[products/house/CLAUDE.md](products/house/CLAUDE.md)** — none.
 
 ## Adding a feature (the slice pattern)

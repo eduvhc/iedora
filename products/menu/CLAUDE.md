@@ -40,6 +40,8 @@ Paths starting with `src/...` are menu-relative.
 
 15. **Tests co-locate with the slice they exercise.** Each slice owns `testing/` (`'server-only'`: `profile.ts` derived from `./scopes`, `seeds.ts`, `routes.ts`, barrel `index.ts`) and `e2e/<capability>.spec.ts` (Playwright specs). Cross-slice flows live ONLY at `tests/e2e/journeys/`. `tests/e2e/helpers/` is zero-domain — anything with domain knowledge moves into the owning slice's `testing/`. Production code (adapters / use-cases / ui / actions / rsc) MUST NOT import `testing/*` (enforced by `no-restricted-imports`). Tag specs with `@smoke` / `@critical` for selective execution. See [`../../docs/testing.md`](../../docs/testing.md) for the spec template + multi-tenant pattern.
 
+16. **Redirects build URLs via `publicUrl()`.** Every absolute URL the server hands to the browser (NextResponse.redirect Location, OIDC `redirect_uri`, post-logout URL) MUST be built via `publicUrl()` from `@/shared/url`. Never derive from `req.url`, `req.nextUrl.origin`, `req.nextUrl.clone()`, or `req.headers.get('host')` — Caddy fronts Next in prod and the upstream bind is `HOSTNAME=0.0.0.0 PORT=3000`; any URL built from those carries the internal bind and the browser can't follow `http://0.0.0.0:3000/...`. User-supplied path inputs (`?next=`, `return_url=`) MUST be validated with `isSameOriginPath()` from `@/shared/url-validate` (env-free, safe to import from unit tests) BEFORE being passed to `publicUrl()`. `req.nextUrl` is fine as a *path source* — pass `req.nextUrl.pathname` AS A PATH into `publicUrl()`. ESLint doesn't catch this; `bun run docs:audit` does.
+
 ## File layout
 
 ```
@@ -80,6 +82,7 @@ products/menu/
       qr-codes/                      physical-sticker registry (cross-tenant, iedora-admin only)
       rate-limit/                    Postgres-backed sliding-window limiter
       restaurant-identity/           restaurant CRUD + theme/identity
+      restaurant-slug/               public-URL identifier — slugify + nextAvailableSlug + rename
       sessions/                      menu.session store (authoritative roles/permissions)
       upload/                        S3-compatible uploads + presign/commit/clear (LocalStack in dev, adobe/s3mock in CI)
     shared/
@@ -88,8 +91,10 @@ products/menu/
       brand.ts                       brand strings (inlined into client bundle at build)
       ui/                            shadcn primitives + editorial-list
       testing/pglite.ts              makeTestDb() fixture
+      url.ts                         publicUrl() — single source for absolute-URL construction (rule 16)
+      url-validate.ts                isSameOriginPath() — pure, env-free path validator
       utils.ts                       cn() helper
-    proxy.ts                         Next 16 proxy — optimistic redirects only
+    proxy.ts                         Next 16 proxy — optimistic redirects only (uses publicUrl)
     i18n/                            next-intl request config + message catalogues
   drizzle/                           generated SQL migrations
   drizzle.config.ts

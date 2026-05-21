@@ -85,7 +85,7 @@ const CHECKS: Check[] = [
   {
     name: 'CLAUDE.md rule count matches AGENTS.md',
     reason: 'AGENTS.md advertises "N rules" — keep it in sync with menu/CLAUDE.md.',
-    find: /15 rules/,
+    find: /16 rules/,
     mode: 'require',
     paths: ['AGENTS.md'],
     fix: 'Bump the rule count in AGENTS.md (or trim CLAUDE.md back to match).',
@@ -97,6 +97,33 @@ const CHECKS: Check[] = [
     mode: 'require',
     paths: ['products/menu/CLAUDE.md'],
     fix: 'Confirm rule 14 says "Six sanctioned exceptions" and includes testing/.',
+  },
+  {
+    name: 'no `${env.MENU_PUBLIC_URL}` string-concat in source',
+    reason:
+      'CLAUDE.md rule 16: absolute URLs MUST be built via `publicUrl()` from @/shared/url. String-templating `env.MENU_PUBLIC_URL` skips the centralised guard against absolute-input injection.',
+    find: /\$\{\s*env\.MENU_PUBLIC_URL\s*\}/,
+    mode: 'forbid',
+    paths: ['products/menu/src'],
+    fix: "Replace `${env.MENU_PUBLIC_URL}/path` with `publicUrl('/path').toString()`.",
+  },
+  {
+    name: 'no `req.nextUrl.clone()` outside @/shared/url',
+    reason:
+      'CLAUDE.md rule 16: req.nextUrl carries the upstream Next bind (`0.0.0.0:3000` behind Caddy). Cloning then mutating leaks that into the Location header.',
+    find: /req\.nextUrl\.clone\(\)/,
+    mode: 'forbid',
+    paths: ['products/menu/src'],
+    fix: "Use `publicUrl(req.nextUrl.pathname, req.nextUrl.searchParams)` instead.",
+  },
+  {
+    name: 'restaurant-slug slice listed in menu inventory',
+    reason:
+      'The slice landed in 5a57d82 + 8190a07 — keep the architecture doc in step with reality.',
+    find: /restaurant-slug/,
+    mode: 'require',
+    paths: ['docs/architecture.md', 'products/menu/CLAUDE.md'],
+    fix: 'Add `restaurant-slug/` to the slice inventory in both files.',
   },
 ]
 
@@ -180,22 +207,38 @@ function runCheck(check: Check): Finding[] {
     return findings
   }
 
-  // forbid mode: any match is a finding.
+  // forbid mode: any match is a finding. Skip comment lines so that
+  // the rationale-in-comments pattern (e.g. proxy.ts explaining why
+  // we DON'T use `req.nextUrl.clone()`) doesn't flag itself. Catches
+  // line comments (`//`), JSDoc continuations (`*`), block-comment
+  // openers (`/*`), and markdown blockquotes-as-warnings (`>`).
   for (const file of filesInScope) {
     const content = readFileSync(file, 'utf8')
     const lines = content.split(/\r?\n/)
     for (let i = 0; i < lines.length; i++) {
-      if (matchOnce(lines[i]!, check.find)) {
+      const line = lines[i]!
+      if (isCommentLine(line)) continue
+      if (matchOnce(line, check.find)) {
         findings.push({
           check,
           file: relative(ROOT, file),
           line: i + 1,
-          excerpt: lines[i]!.trim().slice(0, 120),
+          excerpt: line.trim().slice(0, 120),
         })
       }
     }
   }
   return findings
+}
+
+function isCommentLine(line: string): boolean {
+  const t = line.trimStart()
+  return (
+    t.startsWith('//') ||
+    t.startsWith('*') ||
+    t.startsWith('/*') ||
+    t.startsWith('#')
+  )
 }
 
 function matchOnce(text: string, pattern: string | RegExp): boolean {
