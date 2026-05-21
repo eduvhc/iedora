@@ -12,7 +12,10 @@ fleet conventions so adding product N+1 = one line in its
 import {
   registerIedoraOtel,
   tracer,
+  meter,
+  logger,
   withTenantSpan,
+  tenantContext,
   IEDORA_RESTAURANT_ID,
 } from "@iedora/observability";
 ```
@@ -22,8 +25,11 @@ import {
 | `registerIedoraOtel`   | Called once from the product's `instrumentation.ts::register()`.               |
 | `tracer`               | Pre-configured `Tracer` instance for custom spans.                             |
 | `meter`                | Pre-configured `Meter` instance for counters / histograms / gauges.            |
+| `logger`               | Pre-configured `Logger` (api-logs). Most code uses pino — the bridge forwards records automatically. |
 | `withTenantSpan`       | Wrap a request-scoped operation in a span tagged with `tenant.restaurant_id`.  |
+| `tenantContext.run`    | Set tenant on the active scope once at an entrypoint; child spans inherit attribution via `TenantContextSpanProcessor`. |
 | `tenantAttributes`     | Build the canonical tenant-attribute record for metric `.add` / `.record` calls. |
+| `TenantContextSpanProcessor` | The processor wired automatically by `registerIedoraOtel` — exported for tests. |
 | `IEDORA_RESTAURANT_ID` / `IEDORA_ORGANIZATION_ID` | Stable attribute-key constants for dashboards. |
 
 ## Quickstart
@@ -91,8 +97,48 @@ manifest → resource-attribute derivation.
 
 Tenancy lives on **spans**, not resources. One Node process serves N
 restaurants; `restaurant.id` on a resource would be wrong (resources are
-per-process). Always use `withTenantSpan` (or set the constants manually)
-when the work is scoped to one tenant.
+per-process). Three ways to attribute:
+
+1. **`tenantContext.run({ restaurantId, organizationId }, fn)`** — set
+   once at an entrypoint (typically the auth boundary,
+   `requireRestaurantAccess`). Every span started inside `fn` — including
+   ones deep inside Drizzle adapters or `withTenantSpan` blocks that
+   don't know what tenant they belong to — gets `tenant.restaurant_id`
+   stamped on by `TenantContextSpanProcessor`. This is the canonical
+   pattern, modeled on Trigger.dev's `DatasourceAttributeSpanProcessor`
+   (`apps/webapp/app/v3/tracer.server.ts`).
+2. **`withTenantSpan('op-name', { restaurantId, ... }, fn)`** — wrap a
+   single operation. Explicit, useful at slice boundaries where you
+   want a span name pinned to a business verb.
+3. **`tenantAttributes({ restaurantId, ... })`** on metric `.add()` /
+   `.record()` calls. Same key constants, so the same OO query filter
+   joins spans and metrics in lock-step.
+
+The processor reads from an `AsyncLocalStorage`-backed store (not OTel's
+Context). That sidesteps the NoopContextManager-in-tests problem: ALS
+propagates through async hops in both test and production runtimes
+without any setup.
+
+### Logs (`@opentelemetry/sdk-logs` + `@opentelemetry/instrumentation-pino`)
+
+`registerIedoraOtel` wires a `BatchLogRecordProcessor` over `OTLPLogExporter`
+when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. Pair that with pino in app
+code — `@opentelemetry/instrumentation-pino` is registered automatically
+and bridges every pino record into the global LoggerProvider, injecting
+`trace_id` and `span_id` from the active context.
+
+```ts
+import pino from "pino";
+const log = pino();
+
+log.info({ restaurantId: "r_abc" }, "menu published");
+// In OO, this record carries: { trace_id, span_id, restaurant_id, ... }
+```
+
+Apps that haven't migrated to pino are unaffected — the instrumentation
+is a no-op until pino is required. Direct `logger.emit(...)` calls
+against the package's `logger` export work too, for the rare case where
+you want to emit a structured event without going through pino.
 
 ### Sampling
 
@@ -101,9 +147,14 @@ when the work is scoped to one tenant.
 | `production`  | `TraceIdRatioBasedSampler(0.1)` (10%)   | Yes              |
 | anything else | `AlwaysOnSampler` (100%)                | Yes              |
 
-Both wrap a `NoiseFilteringSampler` that drops `GET /up` (Caddy + uptime
-health checks) and `GET /api/track/*` (public-menu view beacon) before
-any decision is made.
+Both wrap a `NoiseFilteringSampler` that drops the high-volume,
+low-value spans before any decision is made:
+
+- `GET /up` — Caddy + uptime health checks (one per second per host).
+- `GET /api/track/*` — public-menu view beacon (already counted via
+  the `iedora.restaurant_views_total` metric).
+- `GET /api/health` / `GET /api/ready` — reserved for future container
+  probes following the same convention.
 
 ### Metrics export
 

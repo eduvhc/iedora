@@ -255,6 +255,210 @@ describe("registerIedoraOtel", () => {
     }
   });
 
+  it("passes a TenantContextSpanProcessor to @vercel/otel via spanProcessors", async () => {
+    // Load-bearing: without this processor in the pipeline, every
+    // tenantContext.run(...) call would silently fail to stamp tenant
+    // attribution on child spans — dashboards filtered by
+    // tenant.restaurant_id would silently miss spans.
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    process.env.NODE_ENV = "production";
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT =
+      "http://infra-openobserve.test:5080/api/default";
+
+    vi.resetModules();
+    const registerOtelSpy = vi.fn();
+    vi.doMock("@vercel/otel", () => ({ registerOTel: registerOtelSpy }));
+
+    try {
+      const { registerIedoraOtel } = await import("../register");
+      const { TenantContextSpanProcessor } = await import("../processor");
+      registerIedoraOtel({ serviceName: "iedora-test-spanproc" });
+
+      const config = registerOtelSpy.mock.calls[0]?.[0] as {
+        spanProcessors: unknown[];
+      };
+      expect(Array.isArray(config.spanProcessors)).toBe(true);
+      // First processor MUST be the tenant context processor — that's
+      // what makes tenantContext.run(...) work end-to-end. Pinned to
+      // the index so a future "always-prepend something" refactor
+      // doesn't accidentally bury it behind another processor.
+      expect(config.spanProcessors[0]).toBeInstanceOf(TenantContextSpanProcessor);
+    } finally {
+      vi.doUnmock("@vercel/otel");
+      process.env.NODE_ENV = originalNodeEnv;
+      if (originalEndpoint !== undefined) {
+        process.env.OTEL_EXPORTER_OTLP_ENDPOINT = originalEndpoint;
+      } else {
+        delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+      }
+    }
+  });
+
+  it("appends extraSpanProcessors after the TenantContextSpanProcessor", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    process.env.NODE_ENV = "production";
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT =
+      "http://infra-openobserve.test:5080/api/default";
+
+    vi.resetModules();
+    const registerOtelSpy = vi.fn();
+    vi.doMock("@vercel/otel", () => ({ registerOTel: registerOtelSpy }));
+
+    try {
+      const { registerIedoraOtel } = await import("../register");
+      const { TenantContextSpanProcessor } = await import("../processor");
+      const extraProcessor = {
+        onStart: () => {},
+        onEnd: () => {},
+        forceFlush: () => Promise.resolve(),
+        shutdown: () => Promise.resolve(),
+      };
+      registerIedoraOtel({
+        serviceName: "iedora-test-extra-procs",
+        extraSpanProcessors: [extraProcessor],
+      });
+
+      const config = registerOtelSpy.mock.calls[0]?.[0] as {
+        spanProcessors: unknown[];
+      };
+      expect(config.spanProcessors).toHaveLength(2);
+      expect(config.spanProcessors[0]).toBeInstanceOf(TenantContextSpanProcessor);
+      expect(config.spanProcessors[1]).toBe(extraProcessor);
+    } finally {
+      vi.doUnmock("@vercel/otel");
+      process.env.NODE_ENV = originalNodeEnv;
+      if (originalEndpoint !== undefined) {
+        process.env.OTEL_EXPORTER_OTLP_ENDPOINT = originalEndpoint;
+      } else {
+        delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+      }
+    }
+  });
+
+  it("wires a BatchLogRecordProcessor when OTLP endpoint is set", async () => {
+    // Without this, pino records bridged through PinoInstrumentation
+    // would emit against the global LoggerProvider, which @vercel/otel
+    // only installs when at least one logRecordProcessor is supplied.
+    // Empty array = no global provider → pino records silently drop.
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    process.env.NODE_ENV = "production";
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT =
+      "http://infra-openobserve.test:5080/api/default";
+
+    vi.resetModules();
+    const registerOtelSpy = vi.fn();
+    vi.doMock("@vercel/otel", () => ({ registerOTel: registerOtelSpy }));
+
+    try {
+      const { registerIedoraOtel } = await import("../register");
+      registerIedoraOtel({ serviceName: "iedora-test-logs" });
+
+      const config = registerOtelSpy.mock.calls[0]?.[0] as {
+        logRecordProcessors: unknown[];
+      };
+      expect(Array.isArray(config.logRecordProcessors)).toBe(true);
+      expect(config.logRecordProcessors).toHaveLength(1);
+      // BatchLogRecordProcessor (vs SimpleLogRecordProcessor) is the
+      // pinned choice — 5s batch window avoids per-record export
+      // amplification at our log volume.
+      expect(config.logRecordProcessors[0]?.constructor.name).toBe(
+        "BatchLogRecordProcessor",
+      );
+    } finally {
+      vi.doUnmock("@vercel/otel");
+      process.env.NODE_ENV = originalNodeEnv;
+      if (originalEndpoint !== undefined) {
+        process.env.OTEL_EXPORTER_OTLP_ENDPOINT = originalEndpoint;
+      } else {
+        delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+      }
+    }
+  });
+
+  it("does NOT wire log processors when OTLP endpoint is unset and no override is provided", async () => {
+    // Local dev without an OO instance running: the SDK should not
+    // try to batch logs against a non-existent endpoint. Empty array
+    // is the expected shape — @vercel/otel skips global LoggerProvider
+    // installation in that case, which is fine for dev.
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    process.env.NODE_ENV = "development";
+    delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+
+    vi.resetModules();
+    const registerOtelSpy = vi.fn();
+    vi.doMock("@vercel/otel", () => ({ registerOTel: registerOtelSpy }));
+    // Suppress the unset-endpoint warning during this test.
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    try {
+      const { registerIedoraOtel } = await import("../register");
+      registerIedoraOtel({ serviceName: "iedora-test-no-logs" });
+
+      const config = registerOtelSpy.mock.calls[0]?.[0] as {
+        logRecordProcessors: unknown[];
+      };
+      expect(config.logRecordProcessors).toEqual([]);
+    } finally {
+      vi.doUnmock("@vercel/otel");
+      process.env.NODE_ENV = originalNodeEnv;
+      if (originalEndpoint !== undefined) {
+        process.env.OTEL_EXPORTER_OTLP_ENDPOINT = originalEndpoint;
+      }
+    }
+  });
+
+  it("registers PinoInstrumentation alongside the fetch instrumentation", async () => {
+    // The pino bridge is what makes logger.info(...) calls in app code
+    // flow through OTel — without it, logs only land on stdout and trace
+    // correlation breaks. The fetch instrumentation must stay too
+    // (it's how outbound traces propagate W3C traceparent across services).
+    const originalNodeEnv = process.env.NODE_ENV;
+    const originalEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+    process.env.NODE_ENV = "production";
+    process.env.OTEL_EXPORTER_OTLP_ENDPOINT =
+      "http://infra-openobserve.test:5080/api/default";
+
+    vi.resetModules();
+    const registerOtelSpy = vi.fn();
+    vi.doMock("@vercel/otel", () => ({ registerOTel: registerOtelSpy }));
+
+    try {
+      const { registerIedoraOtel } = await import("../register");
+      registerIedoraOtel({ serviceName: "iedora-test-pino" });
+
+      const config = registerOtelSpy.mock.calls[0]?.[0] as {
+        instrumentations: unknown[];
+      };
+      expect(Array.isArray(config.instrumentations)).toBe(true);
+      // "fetch" is @vercel/otel's named default — keep it.
+      expect(config.instrumentations).toContain("fetch");
+      // Pino instrumentation is identified by its constructor name —
+      // matching by instance type would force importing the class here,
+      // which makes the doMock branch above more fragile.
+      const pinoInstr = config.instrumentations.find(
+        (i): i is { constructor: { name: string } } =>
+          typeof i === "object" &&
+          i !== null &&
+          "constructor" in i &&
+          (i as { constructor?: { name?: string } }).constructor?.name ===
+            "PinoInstrumentation",
+      );
+      expect(pinoInstr).toBeDefined();
+    } finally {
+      vi.doUnmock("@vercel/otel");
+      process.env.NODE_ENV = originalNodeEnv;
+      if (originalEndpoint !== undefined) {
+        process.env.OTEL_EXPORTER_OTLP_ENDPOINT = originalEndpoint;
+      } else {
+        delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+      }
+    }
+  });
+
   it("constructs the OTLP metric exporter with DELTA temporality (counters are sum-aggregatable)", async () => {
     // Pinned against the OTLP exporter default (CUMULATIVE). Caught by
     // Codex on PR #14: a CUMULATIVE counter sends process-lifetime totals

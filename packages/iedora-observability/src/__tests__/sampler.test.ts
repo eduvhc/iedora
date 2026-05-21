@@ -131,12 +131,19 @@ describe("NoiseFilteringSampler", () => {
   });
 
   it("NOISE_PATTERNS is the pinned filter contract", () => {
-    // Two patterns are load-bearing for the budget. Adding more later
-    // is fine; reordering or removing one breaks the dashboard noise
-    // floor in OO. Pin to catch accidental removal.
-    expect(NOISE_PATTERNS).toHaveLength(2);
+    // Load-bearing patterns for the trace budget. The first two
+    // (/up + /api/track/) carry the bulk of volume; /api/health and
+    // /api/ready are reserved for future container probes following the
+    // same convention. Reordering or removing one breaks the dashboard
+    // noise floor in OO. Pin to catch accidental removal.
+    expect(NOISE_PATTERNS).toHaveLength(4);
     expect(NOISE_PATTERNS[0]!.test("GET /up")).toBe(true);
     expect(NOISE_PATTERNS[1]!.test("GET /api/track/x")).toBe(true);
+    expect(NOISE_PATTERNS[2]!.test("GET /api/health")).toBe(true);
+    expect(NOISE_PATTERNS[3]!.test("GET /api/ready")).toBe(true);
+    // Spot-check that adjacent paths are NOT swept up — `/api/healthy`
+    // (hypothetical) should not match `/api/health` due to the `$` anchor.
+    expect(NOISE_PATTERNS[2]!.test("GET /api/healthy")).toBe(false);
   });
 });
 

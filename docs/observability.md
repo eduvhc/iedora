@@ -57,7 +57,24 @@ Filter by `service.namespace = "iedora"` to scope to the estate; by `service.nam
 
 ## Tenant attributes (per span)
 
-Tenancy lives on **spans**, not resources — one process serves N restaurants. Use `withTenantSpan`:
+Tenancy lives on **spans**, not resources — one process serves N restaurants. Three ways to attribute, in order of preference:
+
+### 1. `tenantContext.run(...)` — set once at an entrypoint
+
+```ts
+import { tenantContext } from '@iedora/observability'
+
+// Inside requireRestaurantAccess, after the auth check:
+return tenantContext.run({ restaurantId, organizationId }, () =>
+  loadRestaurantSnapshot(slug),
+)
+```
+
+Every span started inside the block — including ones deep inside Drizzle adapters, `@vercel/otel`'s outbound fetches, or nested `withTenantSpan` calls — automatically gets `tenant.restaurant_id` and `tenant.organization_id` stamped on by `TenantContextSpanProcessor`. The pattern is modeled on Trigger.dev's `DatasourceAttributeSpanProcessor` (`apps/webapp/app/v3/tracer.server.ts`).
+
+`AsyncLocalStorage`-backed under the hood — propagates through async hops naturally, no SDK setup needed for tests.
+
+### 2. `withTenantSpan(...)` — wrap one operation explicitly
 
 ```ts
 import { withTenantSpan } from '@iedora/observability'
@@ -69,7 +86,18 @@ await withTenantSpan(
 )
 ```
 
-Sets `tenant.restaurant_id` and `tenant.organization_id`. Search OpenObserve by those keys to follow one tenant's traffic.
+Use at slice boundaries where you want the span name pinned to a business verb. Redundant inside a `tenantContext.run(...)` block (the attributes get stamped either way), but the named span itself is still valuable.
+
+### 3. `tenantAttributes(...)` on metric calls
+
+```ts
+import { meter, tenantAttributes } from '@iedora/observability'
+counter.add(1, tenantAttributes({ restaurantId, organizationId }))
+```
+
+Same key constants — so the same OO query filter joins spans and metrics in lock-step.
+
+Search OpenObserve by `tenant.restaurant_id` to follow one tenant's traffic across all three signals.
 
 ## Cross-product trace context
 
@@ -251,9 +279,54 @@ GROUP BY http_route ORDER BY p95_ms DESC
 
 No PR to `@iedora/observability` for routine additions — only wrapper plumbing lives there.
 
+## Logs
+
+`registerIedoraOtel` wires `@opentelemetry/sdk-logs` automatically. A `BatchLogRecordProcessor` (5s default flush) exports records over OTLP-HTTP to the same OpenObserve endpoint as traces and metrics. The `@opentelemetry/instrumentation-pino` bridge is registered alongside, so any pino logger in app code auto-flows into the global `LoggerProvider`:
+
+```ts
+import pino from 'pino'
+const log = pino()
+
+log.info({ restaurantId: 'r_abc' }, 'menu published')
+// → OO receives the record with trace_id, span_id, restaurant_id, etc.
+```
+
+Inside a `tenantContext.run(...)` block, the active trace context is propagated automatically — no explicit `traceId` plumbing.
+
+For one-off structured events without pino, use the package's `logger` export:
+
+```ts
+import { logger, SeverityNumber } from '@iedora/observability'
+
+logger.emit({
+  severityNumber: SeverityNumber.ERROR,
+  body: 'menu publish failed',
+  attributes: { 'iedora.error.code': 'E_PUBLISH' },
+})
+```
+
+We chose `0.218.0` of `sdk-logs` (still pre-1.0) deliberately — the API surface has stabilised and the OTLP wire format is the same across minor bumps. The earlier "wait for 1.0" stance from this doc is obsolete: Trigger.dev, GrowthBook, Dittofeed, VoltAgent all ship sdk-logs in production.
+
+### Query recipes (Logs tab in OpenObserve)
+
+```sql
+-- All errors for one restaurant in the last hour
+SELECT * FROM "default"
+WHERE severity_text = 'ERROR'
+  AND attributes.tenant_restaurant_id = 'r_abc123'
+  AND timestamp > now() - INTERVAL '1 hour'
+ORDER BY timestamp DESC
+
+-- Log volume per service, last 24h
+SELECT service_name, count(*) AS records
+FROM "default"
+WHERE timestamp > now() - INTERVAL '24 hour'
+GROUP BY service_name
+ORDER BY records DESC
+```
+
 ## Not yet shipped
 
-- **Logs.** `@opentelemetry/sdk-logs` is still 0.x. Container logs via `just infra::logs <svc>` until 1.0.
-- **Browser RUM.** OpenObserve has a RUM SDK; not wired yet.
+- **Browser RUM.** OpenObserve has a RUM SDK; not wired yet. Most large TS SaaS we surveyed (Cal.com, Dub, Langfuse, Formbricks) don't ship browser OTel either — only Highlight does, with a custom `OTLPTraceExporterBrowserWithXhrRetry` because the upstream browser exporter loses spans on page unload. Revisit only when Core Web Vitals become a business problem.
 - **OpenObserve UI SSO via Zitadel.** Currently uses root creds. Plan: `oauth2-proxy` accessory in front of Caddy → OpenObserve.
 - **Upstream IdP telemetry.** Zitadel ships its own traces — we ingest them via the same OTLP collector but treat them as a separate service in OpenObserve (filter by `service.name = zitadel`).
