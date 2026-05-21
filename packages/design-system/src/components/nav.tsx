@@ -3,6 +3,7 @@ import type {
   HTMLAttributes,
   ReactNode,
 } from "react";
+import { Slot } from "radix-ui";
 import { cn } from "../lib/cn";
 
 /**
@@ -90,23 +91,39 @@ export function NavLinks({
 export type NavLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
   /** Mark the link as the current route. Drives the cinnabar underline. */
   active?: boolean;
+  /**
+   * Render through the child element instead of a plain `<a>`. Use this
+   * to compose with a framework router primitive (`next/link`,
+   * `<Link>` from react-router, etc.) so navigation stays client-side
+   * and prefetch behavior is preserved:
+   *
+   *   <NavLink asChild active={isActive} data-test-id="nav-billing">
+   *     <Link href="/dashboard/billing">Billing</Link>
+   *   </NavLink>
+   *
+   * Backed by Radix `Slot` — `data-active`, `aria-current`, className
+   * and any `data-*` test id all merge onto the child.
+   */
+  asChild?: boolean;
 };
 
 export function NavLink({
   active,
+  asChild,
   className,
   children,
   ...rest
 }: NavLinkProps) {
+  const Comp = asChild ? Slot.Slot : "a";
   return (
-    <a
+    <Comp
       {...rest}
       data-active={active ? "true" : "false"}
       aria-current={active ? "page" : undefined}
       className={cn("ds-nav__link", className)}
     >
       {children}
-    </a>
+    </Comp>
   );
 }
 

@@ -57,9 +57,6 @@ export type ComboboxProps = {
   "aria-label"?: string;
 };
 
-const LIST_ID_PREFIX = "ds-combobox-list-";
-let nextListId = 0;
-
 export function Combobox({
   options,
   value,
@@ -81,13 +78,12 @@ export function Combobox({
   const inputRef = React.useRef<HTMLInputElement>(null);
   const wrapperRef = React.useRef<HTMLDivElement>(null);
   const listRef = React.useRef<HTMLUListElement>(null);
-  // Stable list id so aria-controls always points at the listbox even
-  // before it's mounted.
-  const listIdRef = React.useRef<string | null>(null);
-  if (listIdRef.current === null) {
-    listIdRef.current = `${LIST_ID_PREFIX}${++nextListId}`;
-  }
-  const listId = listIdRef.current;
+  // `useId` gives the same string on server and client — a module-scope
+  // counter would race the SSR + hydration passes and warn about
+  // mismatched `aria-controls`. The listbox is always mounted via
+  // Radix's portal at the same DOM node, but the id is read at render
+  // time so it has to be deterministic across both passes.
+  const listId = React.useId();
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();

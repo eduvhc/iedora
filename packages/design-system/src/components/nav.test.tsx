@@ -90,6 +90,24 @@ describe("NavLink", () => {
     );
     expect(html).toContain('data-test-id="nav-billing"');
   });
+
+  it("renders through asChild — merges class + data-active onto the child", () => {
+    const html = renderToStaticMarkup(
+      <NavLink asChild active data-test-id="nav-billing">
+        <a href="/dashboard/billing" className="custom-link">
+          Billing
+        </a>
+      </NavLink>,
+    );
+    // Single anchor (no extra wrapper) with merged className + slot attrs.
+    expect(html).toMatch(/^<a[^>]*href="\/dashboard\/billing"/);
+    expect(html).toContain("ds-nav__link");
+    expect(html).toContain("custom-link");
+    expect(html).toContain('data-active="true"');
+    expect(html).toContain('aria-current="page"');
+    expect(html).toContain('data-test-id="nav-billing"');
+    expect(html).not.toMatch(/<a[^>]*><a/); // not double-anchored
+  });
 });
 
 describe("NavActions", () => {

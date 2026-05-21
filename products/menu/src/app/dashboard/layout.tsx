@@ -61,12 +61,15 @@ export default async function DashboardLayout({
 
         <NavLinks aria-label="Dashboard">
           {navItems.map((item) => (
+            // `asChild` so navigation goes through Next's <Link> —
+            // client-side routing + prefetch on hover. A plain <a> would
+            // trigger a full reload on every nav click.
             <NavLink
               key={item.href}
-              href={item.href}
+              asChild
               data-test-id={item.testId}
             >
-              {item.label}
+              <Link href={item.href}>{item.label}</Link>
             </NavLink>
           ))}
         </NavLinks>
