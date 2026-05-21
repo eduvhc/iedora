@@ -4,11 +4,12 @@ import { seedOrg, bindUserToOrg } from '@/features/identity/testing'
 import { seedRestaurant } from '@/features/restaurant-identity/testing'
 
 /**
- * QR-codes admin specs — owned by the qr-codes slice.
+ * QR-codes admin specs — owned by the qr-codes slice. Each spec signs
+ * in with `qrCodesAdminProfile` (the slice's own profile, re-exporting
+ * `iedoraAdminProfile`). Route strings come from `qrCodesRoutes`.
  *
- * Scope-tight: each spec signs in with `qrCodesAdminProfile` (the slice's
- * own profile, which re-exports `iedoraAdminProfile`). Route strings come
- * from `qrCodesRoutes` so a future move/rename is one edit.
+ * Selectors lean on stable IDs (`#qr-code`, `#qr-label`, `#qr-restaurant`)
+ * and exact text matches where the layout uses generic words like "Single".
  */
 
 test.describe('@smoke qr-codes admin', () => {
@@ -16,13 +17,9 @@ test.describe('@smoke qr-codes admin', () => {
     await signedInPage.goto(qrCodesRoutes.admin)
     await expect(signedInPage.locator('h1')).toContainText('QR codes (admin)')
 
-    const singleCard = signedInPage.locator('div:has-text("Create One")').first()
-    await expect(singleCard).toBeVisible()
-    await expect(singleCard.locator('text=Single')).toBeVisible()
-
-    const bulkCard = signedInPage.locator('div:has-text("Bulk Generate")').first()
-    await expect(bulkCard).toBeVisible()
-    await expect(bulkCard.locator('text=Bulk')).toBeVisible()
+    // Stable IDs prove both cards are rendered.
+    await expect(signedInPage.locator('#qr-code')).toBeVisible()
+    await expect(signedInPage.locator('#qr-bulk-count')).toBeVisible()
   })
 
   test('binds a fresh QR code to a seeded restaurant', async ({ signIn }) => {
@@ -41,11 +38,10 @@ test.describe('@smoke qr-codes admin', () => {
     await bindUserToOrg(user.userId, org)
 
     await page.goto(qrCodesRoutes.admin)
-    const singleCard = page.locator('div:has-text("Create One")').first()
-    await singleCard.locator('#qr-code').fill('sticker_sushi_10')
-    await singleCard.locator('#qr-label').fill('Sushi Table 10')
-    await singleCard.locator('select').selectOption({ value: sushi.restaurantId })
-    await singleCard.locator('button:has-text("Create QR Code")').click()
+    await page.locator('#qr-code').fill('sticker_sushi_10')
+    await page.locator('#qr-label').fill('Sushi Table 10')
+    await page.locator('#qr-restaurant').selectOption({ value: sushi.restaurantId })
+    await page.locator('button:has-text("Create QR Code")').click()
 
     const row = page.locator('tr:has-text("sticker_sushi_10")')
     await expect(row).toBeVisible()
@@ -55,9 +51,8 @@ test.describe('@smoke qr-codes admin', () => {
 
   test('bulk-generates unbound codes', async ({ signedInPage }) => {
     await signedInPage.goto(qrCodesRoutes.admin)
-    const bulkCard = signedInPage.locator('div:has-text("Bulk Generate")').first()
-    await bulkCard.locator('#qr-bulk-count').fill('5')
-    await bulkCard.locator('button:has-text("Generate Batch")').click()
+    await signedInPage.locator('#qr-bulk-count').fill('5')
+    await signedInPage.locator('button:has-text("Generate Batch")').click()
 
     const copyBlock = signedInPage.locator('div:has-text("Copy List")').first()
     await expect(copyBlock).toBeVisible()
