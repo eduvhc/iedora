@@ -127,8 +127,41 @@ deploy:
 # Tear down EVERY Tofu-managed resource — Hetzner VPS + Cloudflare + the
 # infra containers (containers go with the VPS). Destructive: wipes the
 # Hetzner data dir; restore from R2 dump to recover.
+#
+# Three load-bearing flags:
+#
+# `-var allow_masterkey_rotation=true` lifts the lifecycle.prevent_destroy
+# guard on random_password.zitadel_masterkey. The guard exists to block
+# accidental in-place rotation (which would orphan the encrypted projection
+# table); during a full destroy the postgres data dir is wiped too, so
+# there's nothing to orphan. The recipe is the explicit user signal that
+# "yes, this is the destroy-everything case, not a sneaky rotate-in-place".
+#
+# `-var infra_zitadel_sa_key_json=` makes `local.zitadel_bootstrapped` false
+# → zitadel provider Configure() uses the placeholder access_token, never
+# attempts OIDC discovery against auth.iedora.com (which is mid-teardown
+# alongside everything else). Without this, the destroy races: Tofu
+# parallel-destroys Caddy/Hetzner BEFORE the provider finishes calling
+# DELETE on PATs / OIDC apps / project roles, then those calls hit the
+# already-dead Caddy upstream and the destroy aborts mid-way, leaving
+# half-wiped state.
+#
+# State-rm of every zitadel_* + the local-exec null_resources is the same
+# pattern the dev orchestrator uses: refresh during destroy would try to
+# read these via the provider, hit the gone Zitadel, error out. Strip
+# them from state first; the live objects vanish with the VPS anyway.
 destroy:
-    {{tofu}} destroy -auto-approve
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{tofu}} init -input=false >/dev/null
+    echo "→ Step 1/2: state rm zitadel_* + provisioner null_resources..."
+    {{tofu}} state list 2>/dev/null \
+      | grep -E "^(zitadel_|data\.zitadel_|null_resource\.(iedora_admin_grants|menu_permissions_router_touch))" \
+      | xargs -r -n1 {{tofu}} state rm || true
+    echo "→ Step 2/2: tofu destroy..."
+    {{tofu}} destroy -auto-approve \
+      -var allow_masterkey_rotation=true \
+      -var infra_zitadel_sa_key_json=
 
 # Stop + remove the Postgres container AND wipe its bind-mount data dir on
 # the Hetzner box. Destructive: menu + zitadel databases all gone.
