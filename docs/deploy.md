@@ -265,7 +265,7 @@ Cost: ~30 lines duplicated per root (versions.tf, credentials, `data.cloudflare_
 
 ## Troubleshooting
 
-> **Where the deploy logic lives.** The `just deploy`/`doctor` recipes at the repo root are 1-line shims into `infra/cmd/iedora/` — a Go orchestrator with unit tests under `*_test.go`. `just deploy --destroy` is the same shim with a flag; the Go binary dispatches deploy vs destroy on the flag, no bash branching. Pass 1/2/3 logic, the DNS-override CONNECT proxy that sidesteps the macOS NXDOMAIN cache, and the Let's-Encrypt-vs-internal-CA cert probe all live there. For the catalogue of every failure mode the recipe has tripped over (with detection signature + fix), see [`tasks/deploy-fluency/failure-modes.md`](../tasks/deploy-fluency/failure-modes.md).
+> **Where the deploy logic lives.** The `just deploy`/`doctor` recipes at the repo root are 1-line shims into `infra/cmd/iedora/` — a Go orchestrator with unit tests under `*_test.go`. `just deploy --destroy` is the same shim with a flag; the Go binary dispatches deploy vs destroy on the flag, no bash branching. Pass 1/2/3 logic, the DNS-override CONNECT proxy that sidesteps the macOS NXDOMAIN cache, and the Let's-Encrypt-vs-internal-CA cert probe all live there. For the catalogue of every failure mode the recipe has tripped over (with detection signature + fix), see [`deploy-failure-modes.md`](deploy-failure-modes.md).
 
 **Run `just doctor` first.** It validates PATH, BWS auth, and every required bootstrap secret before mutating anything — catches 90% of the bad-environment foot-guns below in <1s.
 

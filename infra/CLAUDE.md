@@ -45,8 +45,8 @@ infra/
                                         Owns the Pass 1/2/3 dance, the localhost HTTPS_PROXY that
                                         sidesteps the macOS NXDOMAIN cache for the zitadel TF
                                         provider, and the cert-issuer probe (LE vs Caddy internal).
-                                        Unit-tested via *_test.go. See docs/deploy-fluency-brief.md
-                                        + tasks/deploy-fluency/ for the brief and post-mortem.
+                                        Unit-tested via *_test.go. See docs/deploy-failure-modes.md
+                                        for the failure-mode catalogue.
   bin/iedora                            BWS-wrapped entrypoint for the orchestrator (callable
                                         directly; the justfile shims just exec this).
   bin/with-secrets                      BWS wrapper. Operator only needs `BWS_ACCESS_TOKEN` in shell; the wrapper discovers `BWS_PROJECT_ID` via `bws project list` and `CLOUDFLARE_ACCOUNT_ID` via CF /accounts API, then exports every BWS secret as `TF_VAR_*`. No on-disk `infra/.env`.

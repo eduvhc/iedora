@@ -11,7 +11,7 @@
 // to branch in bash — exactly what Go was supposed to subsume. Single
 // entry point, single dispatch, all in type-checked Go.
 //
-// Design goals (per docs/deploy-fluency-brief.md):
+// Design goals (see docs/deploy-failure-modes.md for what tripped us up):
 //   - One Go binary, easy to type-check + unit-test, easy to extend.
 //   - Idempotent: `iedora deploy -d && iedora deploy` from any prior state
 //     lands a green stack with zero manual steps, on operator macOS + CI.
