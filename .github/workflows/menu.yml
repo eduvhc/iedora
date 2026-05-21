@@ -187,6 +187,24 @@ jobs:
     defaults:
       run:
         working-directory: products/menu
+    # Job-level env so every step — and the Playwright test process — sees
+    # the same S3 + DB + Zitadel shim wiring. Without this, the test SDK
+    # in `@/shared/testing/e2e-storage.ts` falls back to its localhost:4566
+    # default, which doesn't exist in CI.
+    env:
+      DATABASE_URL: postgresql://postgres:Password1!@localhost:5432/menu_test
+      MENU_PUBLIC_URL: http://localhost:3000
+      MENU_SESSION_SECRET: test-secret-do-not-use-in-prod-test-secret-do-not-use-in-prod
+      ZITADEL_ISSUER_URL: http://127.0.0.1:4444
+      ZITADEL_OAUTH_CLIENT_ID: menu
+      ZITADEL_OAUTH_CLIENT_SECRET: menu-secret
+      ZITADEL_MANAGEMENT_TOKEN: test-pat
+      ZITADEL_ACTION_SIGNING_KEY: test-signing-key
+      S3_ENDPOINT: http://localhost:9090
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
+      S3_BUCKET: menu-test
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: ./.github/actions/setup
@@ -202,8 +220,6 @@ jobs:
           echo "S3Mock did not become ready in 30s" >&2; exit 1
 
       - name: Apply DB migrations
-        env:
-          DATABASE_URL: postgresql://postgres:Password1!@localhost:5432/menu_test
         run: bun run db:migrate
 
       - name: Install Playwright browsers
@@ -211,19 +227,6 @@ jobs:
 
       - name: Build menu
         env:
-          DATABASE_URL: postgresql://postgres:Password1!@localhost:5432/menu_test
-          MENU_PUBLIC_URL: http://localhost:3000
-          MENU_SESSION_SECRET: test-secret-do-not-use-in-prod-test-secret-do-not-use-in-prod
-          ZITADEL_ISSUER_URL: http://127.0.0.1:4444
-          ZITADEL_OAUTH_CLIENT_ID: menu
-          ZITADEL_OAUTH_CLIENT_SECRET: menu-secret
-          ZITADEL_MANAGEMENT_TOKEN: test-pat
-          ZITADEL_ACTION_SIGNING_KEY: test-signing-key
-          S3_ENDPOINT: http://localhost:9090
-          S3_REGION: us-east-1
-          S3_ACCESS_KEY: test
-          S3_SECRET_KEY: test
-          S3_BUCKET: menu-test
           NODE_ENV: production
         # `next build` runs under Node (it's a Node-shebanged binary) even
         # when invoked via `bun run`. The unstable combo flagged by
@@ -234,7 +237,6 @@ jobs:
       - name: Run Playwright
         env:
           CI: 'true'
-          DATABASE_URL: postgresql://postgres:Password1!@localhost:5432/menu_test
         run: bun run test:e2e -- --grep-invert "@flaky" --shard=${{ matrix.shard }}
 
       - name: Upload Playwright report
