@@ -36,7 +36,7 @@
           },
           "queries": [
             {
-              "query": "SELECT tenant_restaurant_id AS x_axis_1, approx_percentile_cont(duration / 1000.0, 0.95) AS y_axis_1, COUNT(*) AS z_axis_1 FROM \"default\" WHERE service_name = 'iedora-menu' AND tenant_restaurant_id IS NOT NULL GROUP BY x_axis_1 HAVING COUNT(*) > 10 ORDER BY y_axis_1 DESC LIMIT 50",
+              "query": "SELECT tenant_restaurant_id AS x_axis_1, approx_percentile_cont(duration / 1000.0, 0.95) AS y_axis_1, COUNT(*) AS z_axis_1 FROM \"default\" WHERE service_name = 'iedora-menu' AND tenant_restaurant_id IN (${restaurant_id:singlequote}) GROUP BY x_axis_1 HAVING COUNT(*) > 10 ORDER BY y_axis_1 DESC LIMIT 50",
               "customQuery": true,
               "fields": {
                 "stream": "traces",
@@ -103,7 +103,7 @@
           },
           "queries": [
             {
-              "query": "SELECT tenant_restaurant_id AS x_axis_1, COUNT(*) AS y_axis_1 FROM \"default\" WHERE service_name = 'iedora-menu' AND span_status = 'ERROR' AND tenant_restaurant_id IS NOT NULL GROUP BY x_axis_1 ORDER BY y_axis_1 DESC LIMIT 50",
+              "query": "SELECT tenant_restaurant_id AS x_axis_1, COUNT(*) AS y_axis_1 FROM \"default\" WHERE service_name = 'iedora-menu' AND span_status = 'ERROR' AND tenant_restaurant_id IN (${restaurant_id:singlequote}) GROUP BY x_axis_1 ORDER BY y_axis_1 DESC LIMIT 50",
               "customQuery": true,
               "fields": {
                 "stream": "traces",
@@ -164,7 +164,7 @@
           },
           "queries": [
             {
-              "query": "SELECT tenant_restaurant_id AS x_axis_1, COUNT(*) AS y_axis_1, approx_percentile_cont(duration / 1000.0, 0.95) AS z_axis_1 FROM \"default\" WHERE service_name = 'iedora-menu' AND operation_name = 'menu.load-snapshot' AND tenant_restaurant_id IS NOT NULL GROUP BY x_axis_1 HAVING COUNT(*) > 10",
+              "query": "SELECT tenant_restaurant_id AS x_axis_1, COUNT(*) AS y_axis_1, approx_percentile_cont(duration / 1000.0, 0.95) AS z_axis_1 FROM \"default\" WHERE service_name = 'iedora-menu' AND operation_name = 'menu.load-snapshot' AND tenant_restaurant_id IN (${restaurant_id:singlequote}) GROUP BY x_axis_1 HAVING COUNT(*) > 10",
               "customQuery": true,
               "fields": {
                 "stream": "default",
@@ -344,6 +344,20 @@
   ],
   "variables": {
     "list": [
+      {
+        "type": "query_values",
+        "name": "restaurant_id",
+        "label": "Restaurant",
+        "query_data": {
+          "stream_type": "traces",
+          "stream": "default",
+          "field": "tenant_restaurant_id",
+          "max_record_size": null
+        },
+        "value": "r_load_test1,r_load_test2",
+        "options": [],
+        "multi_select": true
+      },
       {
         "type": "constant",
         "name": "service",

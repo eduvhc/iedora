@@ -369,7 +369,7 @@
           },
           "queries": [
             {
-              "query": "SELECT histogram(_timestamp, '1 minute') AS x_axis_1, operation_name AS breakdown_1, approx_percentile_cont(duration / 1000.0, 0.95) AS y_axis_1 FROM \"default\" WHERE service_name = 'iedora-menu' AND operation_name LIKE 'menu.load-snapshot%' GROUP BY x_axis_1, breakdown_1 ORDER BY x_axis_1",
+              "query": "SELECT histogram(_timestamp, '1 minute') AS x_axis_1, operation_name AS breakdown_1, approx_percentile_cont(duration / 1000.0, 0.95) AS y_axis_1 FROM \"default\" WHERE service_name = 'iedora-menu' AND operation_name LIKE 'menu.load-snapshot%' AND tenant_restaurant_id IN (${restaurant_id:singlequote}) GROUP BY x_axis_1, breakdown_1 ORDER BY x_axis_1",
               "customQuery": true,
               "fields": {
                 "stream": "default",
@@ -545,6 +545,20 @@
   ],
   "variables": {
     "list": [
+      {
+        "type": "query_values",
+        "name": "restaurant_id",
+        "label": "Restaurant",
+        "query_data": {
+          "stream_type": "traces",
+          "stream": "default",
+          "field": "tenant_restaurant_id",
+          "max_record_size": null
+        },
+        "value": "r_load_test1,r_load_test2",
+        "options": [],
+        "multi_select": true
+      },
       {
         "type": "constant",
         "name": "service",
