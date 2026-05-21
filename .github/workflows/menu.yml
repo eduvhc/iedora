@@ -195,15 +195,20 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: ./.github/actions/setup
 
-      - name: Wait for S3Mock
+      - name: Wait for S3Mock + create bucket
+        # adobe/s3mock's `initialBuckets` env didn't seed the bucket in
+        # this image build (still NoSuchBucket on PUT). Belt-and-braces:
+        # wait for readiness, then PUT the bucket explicitly. S3Mock
+        # accepts unauthenticated PUT /<bucket> by default.
         run: |
           for i in $(seq 1 30); do
             if curl -fsS http://localhost:9090/ >/dev/null 2>&1; then
-              echo "S3Mock ready"; exit 0
+              echo "S3Mock ready"; break
             fi
             sleep 1
           done
-          echo "S3Mock did not become ready in 30s" >&2; exit 1
+          curl -fsS -X PUT http://localhost:9090/menu-test
+          echo "menu-test bucket ready"
 
       - name: Apply DB migrations
         run: bun run db:migrate:test
