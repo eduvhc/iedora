@@ -1,6 +1,6 @@
 # Architecture — the iedora monorepo
 
-How code is organised across the product and shared packages, and what you do when adding a feature.
+How code is organised across the products and shared packages, plus the menu-side conventions and anti-patterns. The **slice contract itself** (file layout, ports/adapters/use-cases, cross-slice rules, how to add a feature) lives in [`docs/agents/slice-pattern.md`](agents/slice-pattern.md) — auto-loaded into agent context via AGENTS.md. This doc is the human-readable companion: monorepo overview, current slice inventory, where things go.
 
 ## Shape
 
@@ -21,27 +21,9 @@ iedora/
 
 Bun workspaces because: `bun install` is fast, the lockfile is a single `bun.lock`, `workspace:*` deps resolve via symlinks (edit a package, re-run a product's test — no rebuild). Considered pnpm (mature, similar story) and Nx/Turbo (orchestration). Both add a layer we don't need at this scale; CI runs are fast enough that per-package caching hasn't been worth the config cost.
 
-## Vertical slices + light hexagonal
+## Slice pattern
 
-Menu's slices share the same five files (give or take co-located tests and UI):
-
-```
-src/features/<slice>/
-├── README.md                     short doc — public API + the why
-├── index.ts                      public API: cached page guards + types
-├── ports.ts                      narrow interfaces describing every external effect
-├── adapters/
-│   ├── drizzle.ts                production adapter against Drizzle + Postgres
-│   └── …                         alternative adapters (zitadel-oidc, s3, …)
-├── use-cases/<verb>.ts           pure-ish (port, input) -> result
-├── actions.ts                    'use server' shells: auth guard → use-case → revalidate
-├── ui/                           slice-owned React components (optional)
-├── <slice>.test.ts               co-located Vitest suite — fakes the port, hits PGLite
-├── testing/                      server-only test surface (profile + seeds + routes + barrel)
-└── e2e/<capability>.spec.ts      Playwright specs scoped to this slice
-```
-
-Reference: `products/menu/src/features/auth/` — ports, two adapters, several use-cases, one co-located test. Larger slices (e.g. `menu-builder`, `menu-publishing`, `upload`) add `types.ts` / `format.ts` for domain helpers; smaller slices collapse the boilerplate (e.g. `i18n` has no adapter — the language registry is pure data).
+The full contract — file layout, ports/adapters/use-cases, cross-slice rules, Next.js boundary, how to add a feature — lives in [`docs/agents/slice-pattern.md`](agents/slice-pattern.md). Read that first; the rest of this doc is product-specific context.
 
 ## Menu's slice inventory
 
@@ -98,46 +80,6 @@ One-line OTel wiring per product. Wraps `@vercel/otel` — resource attrs + samp
 - **Next 16 long-running background job (cron, queue consumer)?**
   → A slice use-case + a `start*()` driver in the slice, wired from `src/instrumentation.ts`. Gated on `NEXT_RUNTIME === 'nodejs'`.
 
-## The contract
-
-- **`ports.ts`** — narrow interfaces describing the slice's effects on the outside world. One method per atomic operation. No Drizzle / Next / OIDC-library types leak through; the slice's `Session` shape is defined in `auth/ports.ts` and is plain TS, not an upstream re-export.
-- **`adapters/`** — implementations. Production adapters marked `'server-only'`. Tests build their own adapter against PGLite.
-- **`use-cases/<verb>.ts`** — `async function verb(port: Port, input): Promise<Result>`. Pure-ish. The only Next API allowed inline is `redirect()` / `notFound()` — tests mock those.
-- **`index.ts`** — binds the production adapter, wraps page-level loaders in `React.cache()`, re-exports the types callers need. Does NOT export the adapter.
-- **`actions.ts`** — `'use server'` at the top. Each export: auth guard → call the use-case with the production adapter → revalidate (`revalidateRestaurant(slug)` per the cache rule).
-
-## Cross-slice rules
-
-- Files **inside** a slice import siblings via relative paths.
-- Files **across** slices import only via the sibling barrel (`@/features/auth`). Reaching into `@/features/auth/use-cases/...` is a boundary violation flagged by `eslint-plugin-boundaries`.
-- `src/shared/*` is freely importable — the only horizontal layer.
-- Use-cases inside a slice don't call into other slices. If two slices need to coordinate, the coordination happens in the action shell or in the page component that composes both.
-- **No cross-product imports.** Menu reaches `@iedora/observability`; nothing reaches across products' source trees.
-
-## The Next.js boundary
-
-- **`'use server'`** lives only in `actions.ts`. Next's directive doesn't traverse barrels reliably — re-exporting an action through `index.ts` silently breaks it.
-- **`'server-only'`** lives at the top of adapters, use-cases, and slice barrels that touch the DB. Crashes at import if anything pulls the module into a Client Component.
-- **Slice-owned UI** lives at `src/features/<slice>/ui/*`. Client components declare `'use client'`; Server Components do not need a marker.
-- **Route files** in `src/app/` are composition shells: call slice loaders + render slice UI. The route should be small enough to read in one screen.
-- **`src/instrumentation.ts`** is Next 16's process-init hook — use it to start long-running jobs. Gate on `NEXT_RUNTIME === 'nodejs'`.
-- **No `middleware.ts`.** Next 16 renamed it to `proxy.ts`. The proxy is for *optimistic* redirects only.
-
-## How to add a feature
-
-1. `mkdir src/features/<slice>/{adapters,use-cases,ui}` — `ui/` only if needed.
-2. Sketch **`ports.ts`** first. One method per atomic effect.
-3. Implement **`adapters/drizzle.ts`** (or the relevant production adapter). Mark `'server-only'`.
-4. Write **`use-cases/<verb>.ts`** — pure functions taking the port as the first arg. Validate input with Zod inline; return `{ error: '...' }` on failure (don't throw).
-5. Wire **`index.ts`**: bind production adapter, wrap loaders in `React.cache()`, re-export types.
-6. If mutations, add **`actions.ts`** with `'use server'`. Each action: auth guard → use-case → revalidate.
-7. Co-located **`<slice>.test.ts`** — use `makeTestDb()` from `@/shared/testing/pglite`, hand-roll a port adapter against the test DB.
-8. **`testing/`** + **`e2e/`** — slice's E2E surface (`profile.ts` / `seeds.ts` / `routes.ts` / barrel) + Playwright specs. See [products/menu/CLAUDE.md](../products/menu/CLAUDE.md) rule 15.
-9. Short **`README.md`** at the slice root.
-10. Compose the slice from `src/app/`. The route file should be a thin shell.
-
-Registry-shaped features (asset targets, languages, plans, templates) have dedicated skills under `.claude/skills/` — use them.
-
 ## What goes in `src/shared/`
 
 - `db/client.ts` — singleton `postgres-js` client (HMR-safe via `globalThis`).
@@ -168,4 +110,4 @@ If it knows about menus, restaurants, plans, languages, uploads, it does NOT bel
 - **A Server Action in a non-`actions.ts` file.** Next's `'use server'` doesn't traverse barrels reliably.
 - **Reaching into a sibling slice's internals.** Importing `@/features/auth/use-cases/...` bypasses the barrel and breaks the lint rule.
 
-See [`AGENTS.md`](../AGENTS.md) for hard rules and the full file layout. See [`testing.md`](testing.md) for the test pyramid.
+See [`AGENTS.md`](../AGENTS.md) for hard rules + the full file layout. See [`agents/slice-pattern.md`](agents/slice-pattern.md) for the slice contract. See [`testing.md`](testing.md) for the test pyramid.

@@ -32,28 +32,24 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **@dnd-kit** — menu's drag-and-drop builder.
 - **Bun** — package manager, test runner, dev orchestrator. **Production runtime is Node** — `bun + next build` is unstable as of 2026 (oven-sh/bun#23944); `next start` runs under Node in the production container.
 
+## Hard rules — cross-product
+
+Cross-product rules live in [`docs/agents/cross-product-rules.md`](docs/agents/cross-product-rules.md) and are auto-included below. Two rules today: `data-test-id` on interactive components + visible UI text via translation.
+
+@docs/agents/cross-product-rules.md
+
 ## Hard rules — per product
 
 Each product's CLAUDE.md is auto-loaded under its subtree.
 
-- **[products/menu/CLAUDE.md](products/menu/CLAUDE.md)** — 17 rules: tenant scoping, schema source-of-truth, auth in DAL (not layouts), `proxy.ts` (not middleware), money in cents, dnd-kit position columns, registry pattern for templates/languages/plans, public-menu cache by tag, beacon view tracking, vertical slice boundaries, co-located E2E + testing surface per slice, redirects via `publicUrl()`, **`data-test-id` on every interactive component**.
-- **[products/house/CLAUDE.md](products/house/CLAUDE.md)** — none.
+- **[products/menu/CLAUDE.md](products/menu/CLAUDE.md)** — 16 rules: tenant scoping, schema source-of-truth, auth in DAL (not layouts), `proxy.ts` (not middleware), money in cents, dnd-kit position columns, registry pattern for templates/languages/plans, public-menu cache by tag, beacon view tracking, vertical slice boundaries, co-located E2E + testing surface per slice, **redirects via `publicUrl()`**.
+- **products/house/** — no house-specific hard rules; cross-product rules above suffice.
 
-## Adding a feature (the slice pattern)
+## Slice pattern
 
-Reference: `products/menu/src/features/auth/`.
+The slice contract (file layout, cross-slice rules, the Next.js boundary, how to add a feature) lives in [`docs/agents/slice-pattern.md`](docs/agents/slice-pattern.md) and is auto-included below.
 
-1. `mkdir src/features/<slice>/{adapters,use-cases,ui}`.
-2. **`ports.ts`** — narrow interfaces for every external effect. No Drizzle / Next types leak through.
-3. **`adapters/drizzle.ts`** (`'server-only'`) — implements the port against the real world.
-4. **`use-cases/<verb>.ts`** — pure-ish `(port, input) => result`. No `redirect()` / `headers()` except through the port.
-5. **`index.ts`** — `React.cache()`-memoized page loaders; re-export public types. Don't export the adapter.
-6. **`actions.ts`** with `'use server'` for mutations: auth guard → `runUseCase(productionAdapter, input)` → `revalidateRestaurant(slug)`. Server actions never live in `index.ts` — Next's directive doesn't traverse barrels.
-7. Co-located **`<slice>.test.ts`** — `makeTestDb()` from `@/shared/testing/pglite`, real Drizzle queries, fakes only at the port boundary.
-8. **`testing/`** + **`e2e/`** — slice's public test surface + Playwright specs (menu only today; convention is portable). See [products/menu/CLAUDE.md](products/menu/CLAUDE.md) rule 15 for the contract and [docs/testing.md](docs/testing.md) for the spec template.
-9. Short **`README.md`** at the slice root.
-
-For asset targets, languages, plans, templates: use the matching skill (`add-asset-target`, `add-language`, `add-template`).
+@docs/agents/slice-pattern.md
 
 ## File layout
 
@@ -152,15 +148,17 @@ One workflow per workspace. Each is self-contained: own `paths:` trigger, own en
 3. `node_modules/drizzle-orm/` — query builder, types.
 4. `products/menu/src/features/<slice>/README.md` — every slice has a short doc.
 5. `packages/<package>/README.md` — every shared package documents its surface.
-6. `docs/architecture.md` — slice playbook + how to add a feature.
-7. `docs/testing.md` — test pyramid (Vitest+PGLite unit, Playwright e2e).
-8. `docs/security-audit.md` — threat register + supply-chain perimeter.
-9. `docs/tenancy.md` — how tenancy works + the queued migrations.
-10. `docs/vendors.md` — every dependency with rationale.
-11. `docs/deploy.md`, `docs/secrets.md`, `docs/backups.md`, `docs/scaling.md` — ops playbooks.
-12. `docs/observability.md` — OTel wiring + OpenObserve recipes.
-13. `docs/infra/auth.md` — Zitadel deploy, bootstrap, day-2 ops.
-14. `docs/terraform-style.md` — LLM-safe HCL conventions.
-15. `docs/ai.md` — Claude Code Action + MCP servers.
+6. `docs/agents/slice-pattern.md` — slice contract + how to add a feature. (Auto-imported.)
+7. `docs/agents/cross-product-rules.md` — the 2 rules every frontend product enforces. (Auto-imported.)
+8. `docs/architecture.md` — monorepo overview + menu's slice inventory + anti-patterns.
+9. `docs/testing.md` — test pyramid (Vitest+PGLite unit, Playwright e2e).
+10. `docs/security-audit.md` — threat register + supply-chain perimeter.
+11. `docs/tenancy.md` — how tenancy works + the queued migrations.
+12. `docs/vendors.md` — every dependency with rationale.
+13. `docs/deploy.md`, `docs/secrets.md`, `docs/backups.md`, `docs/scaling.md` — ops playbooks.
+14. `docs/observability.md` — OTel wiring + OpenObserve recipes.
+15. `docs/infra/auth.md` — Zitadel deploy, bootstrap, day-2 ops.
+16. `docs/terraform-style.md` — LLM-safe HCL conventions.
+17. `docs/ai.md` — Claude Code Action + MCP servers.
 
 The bundled docs match installed versions — trust them over recall.

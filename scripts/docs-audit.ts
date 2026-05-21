@@ -85,7 +85,7 @@ const CHECKS: Check[] = [
   {
     name: 'CLAUDE.md rule count matches AGENTS.md',
     reason: 'AGENTS.md advertises "N rules" — keep it in sync with menu/CLAUDE.md.',
-    find: /17 rules/,
+    find: /16 rules/,
     mode: 'require',
     paths: ['AGENTS.md'],
     fix: 'Bump the rule count in AGENTS.md (or trim CLAUDE.md back to match).',
@@ -124,6 +124,24 @@ const CHECKS: Check[] = [
     mode: 'require',
     paths: ['docs/architecture.md', 'products/menu/CLAUDE.md'],
     fix: 'Add `restaurant-slug/` to the slice inventory in both files.',
+  },
+  {
+    name: 'cross-product rules imported by AGENTS.md',
+    reason:
+      'AGENTS.md must @-import docs/agents/cross-product-rules.md so the data-test-id + i18n rules load into agent context everywhere (not just menu/).',
+    find: /@docs\/agents\/cross-product-rules\.md/,
+    mode: 'require',
+    paths: ['AGENTS.md'],
+    fix: 'Restore the `@docs/agents/cross-product-rules.md` import in AGENTS.md.',
+  },
+  {
+    name: 'slice-pattern imported by AGENTS.md',
+    reason:
+      'AGENTS.md must @-import docs/agents/slice-pattern.md so the slice contract loads everywhere.',
+    find: /@docs\/agents\/slice-pattern\.md/,
+    mode: 'require',
+    paths: ['AGENTS.md'],
+    fix: 'Restore the `@docs/agents/slice-pattern.md` import in AGENTS.md.',
   },
 ]
 
