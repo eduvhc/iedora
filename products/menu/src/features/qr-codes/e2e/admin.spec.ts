@@ -52,7 +52,17 @@ test.describe('@smoke qr-codes admin', () => {
     const row = page.getByTestId('qr-codes-row-sticker_sushi_10')
     await expect(row).toBeVisible()
     await expect(row).toContainText('Sushi Table 10')
-    await expect(row).toContainText('Sushi Express')
+    // The row's Combobox renders the selected label inside an
+    // `<input value>` — `toContainText()` doesn't read input values, so
+    // assert via `toHaveValue` on the combobox input directly. The alias
+    // link in the URL column encodes the restaurant slug; check both so
+    // a regression in either surface is caught.
+    await expect(
+      row.getByTestId('qr-codes-row-bind-sticker_sushi_10'),
+    ).toHaveValue('Sushi Express')
+    await expect(
+      row.getByTestId('qr-codes-row-alias-sticker_sushi_10'),
+    ).toContainText('sushi-express')
   })
 
   test('bulk-generates unbound codes', async ({ signedInPage }) => {
