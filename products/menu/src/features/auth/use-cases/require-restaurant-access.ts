@@ -1,6 +1,6 @@
 import 'server-only'
 import { redirect } from 'next/navigation'
-import { tenantContext, tracer } from '@iedora/observability'
+import { tenantContext, tracer, IEDORA_RESTAURANT_ID, IEDORA_ORGANIZATION_ID } from '@iedora/observability'
 import type { IdentityGateway } from '@/features/identity'
 import type { AuthGateway } from '../ports'
 import { requireActiveOrganization } from './require-active-organization'
@@ -28,7 +28,7 @@ export async function requireRestaurantAccess(
   restaurantId: string,
 ) {
   return tracer.startActiveSpan('auth.require-restaurant-access', async (span) => {
-    span.setAttribute('iedora.restaurant_id', restaurantId)
+    span.setAttribute(IEDORA_RESTAURANT_ID, restaurantId)
     try {
       const { session, organizationId } = await requireActiveOrganization(
         auth,
@@ -46,7 +46,7 @@ export async function requireRestaurantAccess(
       // Every downstream span (auto-instrumented or manual) picks up
       // tenant.restaurant_id / tenant.organization_id from here on.
       tenantContext.enterWith({ restaurantId, organizationId })
-      span.setAttribute('iedora.organization_id', organizationId)
+      span.setAttribute(IEDORA_ORGANIZATION_ID, organizationId)
       span.setAttribute('iedora.auth.outcome', 'allowed')
       return { session, organizationId, restaurantId }
     } finally {

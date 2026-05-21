@@ -2,7 +2,7 @@ import 'server-only'
 import { and, asc, eq, inArray, max, sql } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import { SpanStatusCode } from '@opentelemetry/api'
-import { meter, tracer } from '@iedora/observability'
+import { meter, tracer, IEDORA_RESTAURANT_ID, IEDORA_ORGANIZATION_ID } from '@iedora/observability'
 import { db } from '@/shared/db/client'
 import * as schema from '@/shared/db/schema'
 import { category, item, menu, restaurant } from '@/shared/db/schema'
@@ -75,7 +75,7 @@ export function makeDrizzleMenuWrite(db: AdapterDb): MenuWritePort {
   async findMenuInRestaurant(menuId, restaurantId) {
     return tracedAdapterOp(
       'db.find-menu-in-restaurant',
-      { 'iedora.restaurant_id': restaurantId, 'iedora.menu_id': menuId },
+      { [IEDORA_RESTAURANT_ID]: restaurantId, 'iedora.menu_id': menuId },
       async () => {
         const rows = await db
           .select({ id: menu.id })
@@ -91,7 +91,7 @@ export function makeDrizzleMenuWrite(db: AdapterDb): MenuWritePort {
     return tracedAdapterOp(
       'db.find-category-in-restaurant',
       {
-        'iedora.restaurant_id': restaurantId,
+        [IEDORA_RESTAURANT_ID]: restaurantId,
         'iedora.category_id': categoryId,
       },
       async () => {
@@ -113,7 +113,7 @@ export function makeDrizzleMenuWrite(db: AdapterDb): MenuWritePort {
   async findItemInRestaurant(itemId, restaurantId) {
     return tracedAdapterOp(
       'db.find-item-in-restaurant',
-      { 'iedora.restaurant_id': restaurantId, 'iedora.item_id': itemId },
+      { [IEDORA_RESTAURANT_ID]: restaurantId, 'iedora.item_id': itemId },
       async () => {
         const rows = await db
           .select({ id: item.id, categoryId: item.categoryId })
@@ -180,7 +180,7 @@ export function makeDrizzleMenuWrite(db: AdapterDb): MenuWritePort {
     // client id slipping across tenants). AGENTS.md hard rule #7.
     if (orderedIds.length === 0) return
     return tracer.startActiveSpan('db.reorder-categories', async (span) => {
-      span.setAttribute('iedora.restaurant_id', restaurantId)
+      span.setAttribute(IEDORA_RESTAURANT_ID, restaurantId)
       span.setAttribute('iedora.menu_id', menuId)
       span.setAttribute('iedora.reorder.batch_size', orderedIds.length)
       const startedAt = performance.now()
@@ -275,7 +275,7 @@ export function makeDrizzleMenuWrite(db: AdapterDb): MenuWritePort {
     // Same shape as reorderCategories — single UPDATE FROM VALUES with casts.
     if (orderedIds.length === 0) return
     return tracer.startActiveSpan('db.reorder-items', async (span) => {
-      span.setAttribute('iedora.restaurant_id', restaurantId)
+      span.setAttribute(IEDORA_RESTAURANT_ID, restaurantId)
       span.setAttribute('iedora.category_id', categoryId)
       span.setAttribute('iedora.reorder.batch_size', orderedIds.length)
       const startedAt = performance.now()

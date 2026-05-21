@@ -2,7 +2,7 @@ import 'server-only'
 import { and, eq, lt, sql } from 'drizzle-orm'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import { SpanStatusCode } from '@opentelemetry/api'
-import { meter, tracer } from '@iedora/observability'
+import { meter, tracer, IEDORA_RESTAURANT_ID, IEDORA_ORGANIZATION_ID } from '@iedora/observability'
 import type * as schema from '@/shared/db/schema'
 import { rateLimitEvent } from '@/shared/db/schema'
 import type { RateLimitDecision, RateLimiter } from '../ports'
@@ -91,7 +91,7 @@ export function postgresLimiter(db: LimiterDb): RateLimiter {
         const policy = policyFromKey(key)
         const restaurantId = restaurantIdFromKey(key)
         span.setAttribute('iedora.rate_limit.policy', policy)
-        if (restaurantId) span.setAttribute('iedora.restaurant_id', restaurantId)
+        if (restaurantId) span.setAttribute(IEDORA_RESTAURANT_ID, restaurantId)
         span.setAttribute('iedora.rate_limit.limit', limit)
         span.setAttribute('iedora.rate_limit.window_ms', windowMs)
 

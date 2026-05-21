@@ -6,7 +6,7 @@ import {
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { SpanStatusCode } from '@opentelemetry/api'
-import { meter, tracer } from '@iedora/observability'
+import { meter, tracer, IEDORA_RESTAURANT_ID, IEDORA_ORGANIZATION_ID } from '@iedora/observability'
 import {
   StorageError,
   type PresignedUpload,
@@ -58,7 +58,7 @@ async function tracedStorageOp<T>(
     // is called outside a tenantContext.run block (e.g. bootstrap).
     const restaurantSegment = key.match(/^r\/([^/]+)\//)?.[1]
     if (restaurantSegment) {
-      span.setAttribute('iedora.restaurant_id', restaurantSegment)
+      span.setAttribute(IEDORA_RESTAURANT_ID, restaurantSegment)
     }
     span.setAttribute('iedora.storage.key', key)
     const startedAt = performance.now()

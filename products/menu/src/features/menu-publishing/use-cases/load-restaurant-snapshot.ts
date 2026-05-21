@@ -2,7 +2,7 @@ import 'server-only'
 import { eq } from 'drizzle-orm'
 import { unstable_cache } from 'next/cache'
 import { SpanStatusCode } from '@opentelemetry/api'
-import { meter, tracer } from '@iedora/observability'
+import { meter, tenantContext, tracer, IEDORA_RESTAURANT_ID, IEDORA_ORGANIZATION_ID } from '@iedora/observability'
 import { db } from '@/shared/db/client'
 import { restaurant, type RestaurantTheme } from '@/shared/db/schema'
 import type { LanguageCode, LocalizedText } from '@/features/i18n'
@@ -126,7 +126,8 @@ export async function loadRestaurantSnapshot(
               })
 
               inner.setAttribute('iedora.outcome', 'found')
-              inner.setAttribute('iedora.restaurant_id', r.id)
+              inner.setAttribute(IEDORA_RESTAURANT_ID, r.id)
+              inner.setAttribute(IEDORA_ORGANIZATION_ID, r.organizationId)
               inner.setAttribute('iedora.tree_menu_count', tree.length)
               return {
                 id: r.id,
@@ -152,7 +153,29 @@ export async function loadRestaurantSnapshot(
       )(slug)
       outcome = result === null ? 'not-found' : 'found'
       span.setAttribute('iedora.outcome', outcome)
-      if (result) span.setAttribute('iedora.restaurant_id', result.id)
+      if (result) {
+        span.setAttribute(IEDORA_RESTAURANT_ID, result.id)
+        span.setAttribute(IEDORA_ORGANIZATION_ID, result.organizationId)
+        // Seed the tenant context for the remainder of this request's
+        // async chain. The public menu route (/r/[slug]) does NOT go
+        // through requireRestaurantAccess (no auth), so without this
+        // call the TenantContextSpanProcessor would never see the
+        // restaurant id and downstream spans (Drizzle queries from
+        // related slices, outbound fetches, render spans) would be
+        // missing tenant.restaurant_id / tenant.organization_id —
+        // breaking the per-tenant dashboards.
+        //
+        // The snapshot loader is the canonical chokepoint for both
+        // public and admin reads of a restaurant, so seeding here
+        // covers both paths uniformly. Auth-only routes still seed via
+        // requireRestaurantAccess earlier in the chain; enterWith is
+        // idempotent and the later call inside loadRestaurantSnapshot
+        // is harmless (same values).
+        tenantContext.enterWith({
+          restaurantId: result.id,
+          organizationId: result.organizationId,
+        })
+      }
       return result
     } catch (err) {
       span.recordException(err as Error)

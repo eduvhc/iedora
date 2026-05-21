@@ -1,6 +1,6 @@
 import 'server-only'
 import { redirect } from 'next/navigation'
-import { tenantContext, tracer } from '@iedora/observability'
+import { tenantContext, tracer, IEDORA_RESTAURANT_ID, IEDORA_ORGANIZATION_ID } from '@iedora/observability'
 import type { IdentityGateway } from '@/features/identity'
 import type { AuthGateway } from '../ports'
 import { requireActiveOrganization } from './require-active-organization'
@@ -40,8 +40,8 @@ export async function requireRestaurantBySlug(
           restaurantId: row.id,
           organizationId,
         })
-        span.setAttribute('iedora.organization_id', organizationId)
-        span.setAttribute('iedora.restaurant_id', row.id)
+        span.setAttribute(IEDORA_ORGANIZATION_ID, organizationId)
+        span.setAttribute(IEDORA_RESTAURANT_ID, row.id)
         span.setAttribute('iedora.auth.outcome', 'allowed')
         return { session, organizationId, restaurant: row }
       } finally {

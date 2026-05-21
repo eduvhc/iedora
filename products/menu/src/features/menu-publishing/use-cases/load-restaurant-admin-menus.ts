@@ -2,7 +2,7 @@ import 'server-only'
 import { eq } from 'drizzle-orm'
 import { unstable_cache } from 'next/cache'
 import { SpanStatusCode } from '@opentelemetry/api'
-import { meter, tracer } from '@iedora/observability'
+import { meter, tracer, IEDORA_RESTAURANT_ID, IEDORA_ORGANIZATION_ID } from '@iedora/observability'
 import { listMenusWithCounts, type MenuWithCounts } from '@/features/dashboard-home'
 import { db } from '@/shared/db/client'
 import { restaurant } from '@/shared/db/schema'
@@ -66,7 +66,7 @@ export async function loadRestaurantAdminMenus(
       }
       outcome = 'found'
       span.setAttribute('iedora.outcome', outcome)
-      span.setAttribute('iedora.restaurant_id', cached.restaurantId)
+      span.setAttribute(IEDORA_RESTAURANT_ID, cached.restaurantId)
       span.setAttribute('iedora.menu_count', cached.menus.length)
 
       // unstable_cache serializes through JSON, which collapses Date → ISO string.
