@@ -216,30 +216,24 @@ function CreateOneForm({ restaurants }: { restaurants: RestaurantOption[] }) {
 function BulkGenerateForm() {
   const [count, setCount] = useState(10)
   const [error, setError] = useState<string | null>(null)
-  const [generated, setGenerated] = useState<string[] | null>(null)
+  const [generatedCount, setGeneratedCount] = useState<number | null>(null)
   const [pending, startTransition] = useTransition()
-  const [copied, setCopied] = useState(false)
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
-    setGenerated(null)
-    setCopied(false)
+    setGeneratedCount(null)
     startTransition(async () => {
       const res = await bulkGenerateAction(count)
       if (!res.ok) {
         setError(res.error)
         return
       }
-      setGenerated(res.data.codes)
+      // Show a small mono-caps confirmation only. The codes themselves
+      // land in the Registry table below via the action's revalidate —
+      // no need for an inline list + copy block here.
+      setGeneratedCount(res.data.codes.length)
     })
-  }
-
-  function handleCopy() {
-    if (!generated) return
-    navigator.clipboard.writeText(generated.join('\n'))
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
@@ -283,29 +277,13 @@ function BulkGenerateForm() {
         </p>
       )}
 
-      {generated && (
-        <div
-          className="border border-[var(--ink-14)] p-3 bg-[var(--paper-2)]"
-          data-test-id="qr-codes-bulk-result"
+      {generatedCount !== null && (
+        <p
+          className="font-[family-name:var(--mono)] text-[10.5px] uppercase tracking-[0.18em] text-[var(--ink-55)]"
+          data-test-id="qr-codes-bulk-success"
         >
-          <div className="flex items-center justify-between border-b border-[var(--ink-14)] pb-2 mb-2">
-            <span className="font-mono text-[10.5px] text-[var(--ink-55)] uppercase tracking-wider">
-              {generated.length} code{generated.length === 1 ? '' : 's'}
-            </span>
-            <Button
-              variant="ghost"
-              type="button"
-              onClick={handleCopy}
-              className="text-[10px] py-1 px-2 h-7"
-              data-test-id="qr-codes-bulk-copy"
-            >
-              {copied ? 'Copied!' : 'Copy List'}
-            </Button>
-          </div>
-          <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-[var(--ink-70)]">
-            {generated.join('\n')}
-          </pre>
-        </div>
+          Generated {generatedCount} code{generatedCount === 1 ? '' : 's'} · see registry below
+        </p>
       )}
     </form>
   )

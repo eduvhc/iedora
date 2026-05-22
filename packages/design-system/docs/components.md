@@ -247,7 +247,18 @@ A blank-screen primitive — Fraunces title, italic body, single action.
 Mono uppercase tab labels with a cinnabar underline on the active one.
 
 ### `Breadcrumb` + `BreadcrumbLink` + `BreadcrumbHere`
-Mono caps trail. `BreadcrumbHere` is the non-link current step.
+Editorial trail: mono-caps ancestors flank a cinnabar `/`, the current item breaks into italic serif at body size. Defaults to `<h1>` so the current item doubles as the page heading.
+```tsx
+<Breadcrumb data-test-id="qr-codes-admin-breadcrumbs">
+  <BreadcrumbLink asChild>
+    <Link href="/dashboard">Back</Link>      {/* Next router-aware */}
+  </BreadcrumbLink>
+  <BreadcrumbHere>QR codes (admin)</BreadcrumbHere>     {/* renders as <h1> */}
+</Breadcrumb>
+```
+- Separator is rendered automatically between siblings (cinnabar `/`, `aria-hidden`).
+- `<BreadcrumbLink asChild>` composes with `next/link` / `react-router` via Radix `Slot` — same `asChild` recipe as `<NavLink>`.
+- `<BreadcrumbHere as="span">` opts out of the default `<h1>` when the page already has another heading.
 
 ### `Separator` (Radix-backed)
 Semantic horizontal/vertical hairline.

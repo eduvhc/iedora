@@ -1,6 +1,11 @@
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import { asc } from 'drizzle-orm'
+import {
+  Breadcrumb,
+  BreadcrumbHere,
+  BreadcrumbLink,
+} from '@iedora/design-system'
 import { requireScope, SCOPES } from '@/features/auth'
 import { listQrCodesForAdmin } from '@/features/qr-codes'
 import { computeQrStats } from '@/features/qr-codes/stats'
@@ -46,13 +51,17 @@ export default async function QrCodesAdminPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="flex flex-wrap items-baseline gap-2 text-sm font-normal text-muted-foreground">
-        <Link href="/dashboard" className="hover:underline">
-          Back
-        </Link>
-        <span aria-hidden="true">/</span>
-        <span className="font-semibold">QR codes (admin)</span>
-      </h1>
+      <Breadcrumb
+        aria-label="Breadcrumb"
+        data-test-id="qr-codes-admin-breadcrumbs"
+      >
+        <BreadcrumbLink asChild data-test-id="qr-codes-admin-breadcrumbs-back">
+          <Link href="/dashboard">Back</Link>
+        </BreadcrumbLink>
+        <BreadcrumbHere data-test-id="qr-codes-admin-breadcrumbs-current">
+          QR codes (admin)
+        </BreadcrumbHere>
+      </Breadcrumb>
 
       <QrCodesAdmin
         rows={rows}

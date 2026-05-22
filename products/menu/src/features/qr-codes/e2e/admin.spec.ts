@@ -70,12 +70,14 @@ test.describe('@smoke qr-codes admin', () => {
     await signedInPage.locator('#qr-bulk-count').fill('5')
     await signedInPage.getByTestId('qr-codes-bulk-submit').click()
 
-    const result = signedInPage.getByTestId('qr-codes-bulk-result')
-    await expect(result).toBeVisible()
-    const text = await result.locator('pre').innerText()
-    const codes = text.trim().split('\n')
-    expect(codes.length).toBe(5)
-    for (const code of codes) expect(code).toMatch(/^[a-z0-9_-]{8}$/)
+    // Bulk no longer renders the code list inline — confirmation is a
+    // mono-caps line; the codes flow into the registry table below
+    // when the action's revalidate completes.
+    await expect(signedInPage.getByTestId('qr-codes-bulk-success')).toContainText(
+      'Generated 5',
+    )
+    const registry = signedInPage.getByTestId('qr-codes-registry')
+    await expect(registry.locator('tbody > tr')).toHaveCount(5)
   })
 
   // Narrow viewport — the create panel collapses to a single column, the

@@ -501,9 +501,10 @@
 .ds-textarea--compact:focus,
 .ds-field input.ds-input--compact:focus,
 .ds-field textarea.ds-textarea--compact:focus {
+  /* Border darken only — no outline ring. The double-frame is loud in
+     the editorial vocabulary; the border swap is signal enough. */
   border-color: var(--ink);
-  outline: 1px solid var(--ink);
-  outline-offset: 1px;
+  outline: none;
 }
 .ds-input--compact::placeholder,
 .ds-textarea--compact::placeholder {
@@ -1063,25 +1064,54 @@
 .ds-tabs__tab--on { background: var(--ink); color: var(--paper); }
 .ds-tabs__tab:not(.ds-tabs__tab--on):hover { color: var(--ink); }
 
+/* Trail row — mono-caps ancestors flank a cinnabar `/`, current page
+   breaks into italic serif at body size. The separator carries the
+   iedora accent so the trail reads as a single editorial gesture. */
 .ds-breadcrumb {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
   font-family: var(--mono);
-  font-size: var(--t-xs);
-  letter-spacing: 0.12em;
+  font-size: var(--t-2xs);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-55);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  margin: 0;
+  font-weight: 400;
 }
-.ds-breadcrumb a {
+.ds-breadcrumb__link {
   color: var(--ink-55);
   text-decoration: none;
-  transition: color var(--d-2) var(--ease);
+  border-bottom: 1px solid transparent;
+  padding-bottom: 1px;
+  transition:
+    color var(--d-2) var(--ease),
+    border-color var(--d-2) var(--ease);
 }
-.ds-breadcrumb a:hover { color: var(--ink); }
-.ds-breadcrumb__sep { color: var(--ink-22); }
-.ds-breadcrumb__here { color: var(--ink); }
+.ds-breadcrumb__link:hover {
+  color: var(--ink);
+  border-bottom-color: var(--ink-40);
+}
+/* Cinnabar `/` between trail segments — the iedora accent applied as
+   a connector, same family as the wordmark dot and statement period. */
+.ds-breadcrumb__sep {
+  color: var(--cinnabar);
+  letter-spacing: 0;
+  font-weight: 400;
+}
+/* Current page — italic serif at body size, breaks from the mono trail.
+   Reads like a printed heading; doubles as `<h1>` by default. */
+.ds-breadcrumb__here {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: var(--t-md);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+  margin: 0;
+}
 
 /* ─────────────────────────────────────────────────────────────
  * Editorial form grid (Pane) — kept for cases that want
