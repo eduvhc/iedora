@@ -2132,7 +2132,13 @@
   position: fixed;
   top: max(12px, env(safe-area-inset-top));
   right: max(12px, env(safe-area-inset-right));
-  z-index: 35;
+  /* Must sit above the overlay (49) AND the drawer (50). The drawer
+     spans up to 86vw from the left; the trigger lives in the top-right
+     corner outside that footprint, so the stacking decision matters
+     only against the overlay scrim. Keeping the trigger above both
+     preserves the toggle UX (tap to open, tap again to close) — the
+     overlay's own onClick still handles "tap the scrim to close". */
+  z-index: 51;
   display: inline-flex;
   align-items: center;
   justify-content: center;

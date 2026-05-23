@@ -16,7 +16,7 @@ import { seedRestaurant } from '@/features/restaurant-identity/testing'
 test.describe('@smoke qr-codes admin', () => {
   test('renders both creation forms and the registry', async ({ signedInPage }) => {
     await signedInPage.goto(qrCodesRoutes.admin)
-    await expect(signedInPage.locator('h1')).toContainText('QR codes (admin)')
+    await expect(signedInPage.locator('h1')).toContainText('QR codes')
 
     await expect(signedInPage.getByTestId('qr-codes-create-panel')).toBeVisible()
     await expect(signedInPage.locator('#qr-code')).toBeVisible()
