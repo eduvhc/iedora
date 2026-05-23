@@ -255,16 +255,22 @@ export function SidebarTrigger({
   ...rest
 }: SidebarTriggerProps) {
   const { open, setOpen } = useSidebar();
+  // While the drawer is open, the trigger has no job — closing belongs
+  // to <SidebarClose> / scrim / ESC. Unmount it instead of relying on a
+  // CSS rule to hide it: keeps the DOM honest, removes it from the a11y
+  // tree + tab order, and follows the shadcn Sheet convention where the
+  // trigger doesn't fight the open surface for the same affordance.
+  if (open) return null;
   return (
     <button
       type="button"
       {...rest}
       aria-label={ariaLabel}
-      aria-expanded={open}
+      aria-expanded={false}
       aria-haspopup="dialog"
       onClick={(event) => {
         onClick?.(event);
-        if (!event.defaultPrevented) setOpen(!open);
+        if (!event.defaultPrevented) setOpen(true);
       }}
       className={cn("ds-sidebar-trigger", className)}
     >

@@ -2156,17 +2156,6 @@
   outline: 2px solid var(--cinnabar);
   outline-offset: 2px;
 }
-/* Hide the trigger while the drawer is open. Closing is the drawer's
-   own affordance now — `<SidebarClose>` (X), the dim scrim's onClick,
-   or ESC. This is the shadcn Sheet / Material navigation-drawer
-   convention: trigger opens; the surface owns its own close. Keeps
-   stacking honest (no need to leapfrog the overlay's z-index) and
-   matches every modal pattern in the design system. The attribute
-   `aria-expanded` is set by `<SidebarTrigger>` itself — no extra
-   class needed. */
-.ds-sidebar-trigger[aria-expanded="true"] {
-  display: none;
-}
 
 @media (min-width: 1024px) {
   .ds-sidebar {

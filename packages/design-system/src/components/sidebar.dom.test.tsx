@@ -59,6 +59,9 @@ function aside() {
 function trigger() {
   return screen.getByRole("button", { name: "Open navigation" });
 }
+function queryTrigger() {
+  return screen.queryByRole("button", { name: "Open navigation" });
+}
 
 describe("Sidebar", () => {
   it("renders the rail closed by default and marks the active link", () => {
@@ -74,7 +77,7 @@ describe("Sidebar", () => {
     expect(y).not.toHaveAttribute("aria-current");
   });
 
-  it("toggles open state via the trigger and locks body scroll while open", async () => {
+  it("opens the drawer via the trigger, unmounts the trigger while open, locks body scroll", async () => {
     const user = userEvent.setup();
     render(<Fixture />);
     expect(aside()).toHaveAttribute("data-open", "false");
@@ -82,15 +85,11 @@ describe("Sidebar", () => {
 
     await user.click(trigger());
     expect(aside()).toHaveAttribute("data-open", "true");
-    expect(trigger()).toHaveAttribute("aria-expanded", "true");
+    expect(queryTrigger()).toBeNull();
     expect(document.body.style.overflow).toBe("hidden");
-
-    await user.click(trigger());
-    expect(aside()).toHaveAttribute("data-open", "false");
-    expect(document.body.style.overflow).toBe("");
   });
 
-  it("closes on Escape", async () => {
+  it("closes on Escape and restores body scroll + trigger", async () => {
     const user = userEvent.setup();
     render(<Fixture />);
     await user.click(trigger());
@@ -98,6 +97,8 @@ describe("Sidebar", () => {
 
     await user.keyboard("{Escape}");
     expect(aside()).toHaveAttribute("data-open", "false");
+    expect(document.body.style.overflow).toBe("");
+    expect(queryTrigger()).not.toBeNull();
   });
 
   it("closes when the overlay is clicked", async () => {
