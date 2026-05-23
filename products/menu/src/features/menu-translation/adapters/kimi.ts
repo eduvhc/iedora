@@ -18,10 +18,12 @@ import type { LanguageCode } from '@/features/i18n'
 import type { TranslationPort } from '../ports'
 
 const KIMI_BASE_URL = 'https://api.moonshot.ai/v1'
-// `kimi-k2.6` is the text-only flagship; vision isn't needed for
-// translation. Sticks closer to the OpenAI Chat surface and is cheaper
-// than the vision-preview model used by the menu-import adapter.
-const KIMI_TEXT_MODEL = 'kimi-k2.6'
+// `moonshot-v1-32k` is the conservative text-chat model. The newer
+// `kimi-k2.6` is faster on paper but its OpenAI-compatible JSON-mode
+// behaviour is uneven (returns wrapped objects, drops fields under
+// load). 32k context fits a full restaurant's menu strings in one
+// batch per language with plenty of headroom.
+const KIMI_TEXT_MODEL = 'moonshot-v1-32k'
 
 // Defensive cap. A typical 50-item menu sent in one batch produces ~5k
 // output tokens (50 strings × ~80 tokens avg, generously). 8k buys
@@ -87,6 +89,10 @@ Rules:
 - Do not paraphrase or expand abbreviations.`
 
     try {
+      // The AI SDK auto-selects between tool-calling and JSON mode based
+      // on the model's capabilities. `moonshot-v1-*` supports
+      // `response_format: { type: 'json_object' }` which the SDK picks
+      // up automatically — no explicit mode flag needed.
       const { object } = await generateObject({
         model,
         schema: Schema,
@@ -102,12 +108,17 @@ Rules:
       result.length = texts.length
       return result
     } catch (err) {
+      // Bubble the error up — the port layer wraps it into the result
+      // shape so the wizard can surface a real message instead of
+      // silently writing an empty translation map.
+      const message = err instanceof Error ? err.message : String(err)
       console.error(
         `[menu-translation/kimi] ${fromLanguage}→${toLanguage} call failed`,
         err,
       )
-      // Return empty strings so the use-case knows which ones missed.
-      return texts.map(() => '')
+      throw new Error(
+        `Translation to ${LANGUAGE_LABELS[toLanguage]} failed: ${message}`,
+      )
     }
   }
 
@@ -116,27 +127,65 @@ Rules:
       if (fields.length === 0 || toLanguages.length === 0) return []
 
       const sourceTexts = fields.map((f) => f.text)
-      // One request per target language, in parallel — the model itself
-      // is stateless so we don't gain anything from a sequential chain.
-      const perLanguage = await Promise.all(
+      // One request per target language, in parallel — the model is
+      // stateless so we don't gain from a sequential chain. Use
+      // `allSettled` so a single failing target doesn't sink the rest;
+      // the use-case + action surface the failed languages to the UI.
+      const settled = await Promise.allSettled(
         toLanguages.map(async (lang) => ({
           lang,
           texts: await translateOneLanguage(fromLanguage, lang, sourceTexts),
         })),
       )
 
-      return fields.map((field, idx) => {
+      const perLanguage: { lang: LanguageCode; texts: string[] }[] = []
+      const failed: { lang: LanguageCode; reason: string }[] = []
+      for (let i = 0; i < settled.length; i += 1) {
+        const outcome = settled[i]!
+        const lang = toLanguages[i]!
+        if (outcome.status === 'fulfilled') {
+          perLanguage.push(outcome.value)
+        } else {
+          failed.push({
+            lang,
+            reason:
+              outcome.reason instanceof Error
+                ? outcome.reason.message
+                : String(outcome.reason),
+          })
+        }
+      }
+
+      // Every successful language gets stamped on the field. Empty
+      // strings still drop out so `localizedNullable()` falls back to
+      // source.
+      const translated = fields.map((field, idx) => {
         const translations: Partial<Record<LanguageCode, string>> = {}
         for (const { lang, texts } of perLanguage) {
-          const translated = texts[idx]
-          // Drop empty translations so `localizedNullable()` falls back
-          // to the source.
-          if (translated && translated.trim().length > 0) {
-            translations[lang] = translated.trim()
+          const value = texts[idx]
+          if (value && value.trim().length > 0) {
+            translations[lang] = value.trim()
           }
         }
         return { ...field, translations }
       })
+
+      if (failed.length > 0) {
+        // Attach the failed-language list to the thrown error so the
+        // use-case can surface specific copy ("EN failed; ES synced").
+        const langs = failed.map((f) => f.lang.toUpperCase()).join(', ')
+        const reasons = failed.map((f) => f.reason).join('; ')
+        const err = new Error(
+          `Translation failed for: ${langs}. ${reasons}`,
+        ) as Error & { failedLanguages?: LanguageCode[] }
+        err.failedLanguages = failed.map((f) => f.lang)
+        // We still throw — the use-case skips the write so we don't
+        // bump `translations_synced_at` on a partial sync that would
+        // hide the failure from the next click.
+        throw err
+      }
+
+      return translated
     },
   }
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useId, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   DndContext,
@@ -95,9 +95,15 @@ export function MenuBuilder({
     })
   }
 
+  // dnd-kit generates `aria-describedby` IDs from a global counter,
+  // which can race between SSR and client hydration when more than one
+  // DndContext mounts in a route. Anchor the ID with `useId()` so server
+  // and client always emit the same value.
+  const dndId = useId()
+
   return (
     <div className="space-y-4">
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext
           items={categories.map((c) => c.id)}
           strategy={verticalListSortingStrategy}

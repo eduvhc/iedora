@@ -13,7 +13,11 @@ import { CreateMenuDialog } from '@/features/menu-builder/ui/create-menu-dialog'
 import { DeleteMenuButton } from '@/features/menu-builder/ui/delete-menu-button'
 import { SeedSampleButton } from '@/features/menu-builder/ui/seed-sample-button'
 import { ImportMenuDialog } from '@/features/menu-import/ui/import-menu-dialog'
-import { RefreshTranslationsButton } from '@/features/menu-translation/ui/refresh-translations-button'
+import { AiTranslationDialog } from '@/features/menu-translation/ui/ai-translation-dialog'
+import { eq } from 'drizzle-orm'
+import { db } from '@/shared/db/client'
+import { restaurant as restaurantTable } from '@/shared/db/schema'
+import type { LanguageCode } from '@/features/i18n'
 
 export default async function RestaurantPage({
   params,
@@ -35,6 +39,23 @@ export default async function RestaurantPage({
   // without a separate revalidate call here.
   const snap = await loadRestaurantAdminMenus(slug)
   const menus = snap?.menus ?? []
+
+  // Restaurant language config for the AI Translation dialog. One row,
+  // tiny projection — not worth a cached helper.
+  const [langConfig] = await db
+    .select({
+      defaultLanguage: restaurantTable.defaultLanguage,
+      supportedLanguages: restaurantTable.supportedLanguages,
+    })
+    .from(restaurantTable)
+    .where(eq(restaurantTable.id, r.id))
+    .limit(1)
+  const defaultLanguage =
+    (langConfig?.defaultLanguage as LanguageCode | undefined) ?? 'en'
+  const supportedLanguages =
+    (langConfig?.supportedLanguages as LanguageCode[] | null) ?? [
+      defaultLanguage,
+    ]
 
   const rows: EditorialRowData[] = menus.map((m, i) => ({
     id: m.id,
@@ -82,7 +103,11 @@ export default async function RestaurantPage({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-medium">{t('menus')}</h2>
             <div className="flex flex-wrap items-center gap-2">
-              <RefreshTranslationsButton slug={slug} />
+              <AiTranslationDialog
+                slug={slug}
+                defaultLanguage={defaultLanguage}
+                supportedLanguages={supportedLanguages}
+              />
               <SeedSampleButton slug={slug} />
               <ImportMenuDialog slug={slug} restaurantId={r.id} />
               <CreateMenuDialog slug={slug} />

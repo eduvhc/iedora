@@ -205,6 +205,111 @@ describe('refreshTranslations', () => {
     expect(captured[0]![0]?.nameI18n).toBeNull()
   })
 
+  it('surfaces a translator-failed result without bumping the sync timestamp', async () => {
+    const captured: WriteUpdate[][] = []
+    const data = makeData({
+      defaultLanguage: 'pt',
+      supportedLanguages: ['pt', 'en'],
+      stale: [
+        {
+          rowKind: 'item',
+          id: 'i-1',
+          name: 'Bacalhau',
+          nameI18n: null,
+          description: null,
+          descriptionI18n: null,
+        },
+      ],
+      onApply: (u) => captured.push([...u]),
+    })
+    const translator: TranslationPort = {
+      async translate() {
+        const err = new Error('Kimi 503') as Error & {
+          failedLanguages?: LanguageCode[]
+        }
+        err.failedLanguages = ['en']
+        throw err
+      },
+    }
+
+    const result = await refreshTranslations(data, translator, {
+      restaurantId: 'r-1',
+    })
+
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('unreachable')
+    if (result.reason !== 'translator-failed') {
+      throw new Error(`expected translator-failed, got ${result.reason}`)
+    }
+    expect(result.failedLanguages).toEqual(['en'])
+    expect(result.message).toContain('Kimi 503')
+    // Critical: we did NOT write — translations_synced_at stays old so
+    // the next click retries the same rows.
+    expect(captured).toEqual([])
+  })
+
+  it('honours operator-picked target languages over the supported set', async () => {
+    const seen: LanguageCode[][] = []
+    const data = makeData({
+      defaultLanguage: 'pt',
+      supportedLanguages: ['pt', 'en', 'es', 'fr'],
+      stale: [
+        {
+          rowKind: 'item',
+          id: 'i-1',
+          name: 'Polvo',
+          nameI18n: null,
+          description: null,
+          descriptionI18n: null,
+        },
+      ],
+    })
+    const translator: TranslationPort = {
+      async translate({ toLanguages, fields }) {
+        seen.push([...toLanguages])
+        return fields.map((f) => ({ ...f, translations: {} }))
+      },
+    }
+
+    await refreshTranslations(data, translator, {
+      restaurantId: 'r-1',
+      targetLanguages: ['en'],
+    })
+    expect(seen[0]).toEqual(['en'])
+  })
+
+  it('filters operator picks to the supported set + drops the default', async () => {
+    const seen: LanguageCode[][] = []
+    const data = makeData({
+      defaultLanguage: 'pt',
+      supportedLanguages: ['pt', 'en'],
+      stale: [
+        {
+          rowKind: 'item',
+          id: 'i-1',
+          name: 'Polvo',
+          nameI18n: null,
+          description: null,
+          descriptionI18n: null,
+        },
+      ],
+    })
+    const translator: TranslationPort = {
+      async translate({ toLanguages, fields }) {
+        seen.push([...toLanguages])
+        return fields.map((f) => ({ ...f, translations: {} }))
+      },
+    }
+
+    // Operator asked for `es` (not supported) + `pt` (the default) +
+    // `en`. Use-case should narrow to ['en'].
+    await refreshTranslations(data, translator, {
+      restaurantId: 'r-1',
+      targetLanguages: ['es', 'pt', 'en'],
+    })
+    expect(seen[0]).toEqual(['en'])
+  })
+
   it('drops translation targets that match the default language', async () => {
     // Defensive against a misconfigured supportedLanguages where the
     // default is listed once and we try to translate pt → pt.

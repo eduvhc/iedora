@@ -9,8 +9,20 @@ import type {
 } from '../ports'
 
 export type RefreshResult =
-  | { ok: true; staleRows: number; translatedFields: number; targetLanguages: LanguageCode[] }
+  | {
+      ok: true
+      staleRows: number
+      translatedFields: number
+      targetLanguages: LanguageCode[]
+    }
   | { ok: false; reason: 'no-targets' | 'nothing-stale'; staleRows: number }
+  | {
+      ok: false
+      reason: 'translator-failed'
+      staleRows: number
+      message: string
+      failedLanguages: LanguageCode[]
+    }
 
 /**
  * Smart sync — translate only the rows whose source text has changed
@@ -30,12 +42,28 @@ export type RefreshResult =
 export async function refreshTranslations(
   data: TranslationDataPort,
   translator: TranslationPort,
-  input: { restaurantId: string },
+  input: {
+    restaurantId: string
+    /**
+     * Optional subset of target languages. When omitted, defaults to
+     * every supported language except the restaurant's default. The AI
+     * Translation dialog passes the operator's picks here.
+     */
+    targetLanguages?: ReadonlyArray<LanguageCode>
+  },
 ): Promise<RefreshResult> {
   const { defaultLanguage, supportedLanguages } =
     await data.getRestaurantLanguageConfig(input.restaurantId)
 
-  const targets = supportedLanguages.filter((l) => l !== defaultLanguage)
+  const supportedSet = new Set(supportedLanguages)
+  const requested = input.targetLanguages
+    ? input.targetLanguages.filter(
+        (l) => supportedSet.has(l) && l !== defaultLanguage,
+      )
+    : supportedLanguages.filter((l) => l !== defaultLanguage)
+  // De-duplicate (operator could pass the same language twice).
+  const targets = Array.from(new Set(requested))
+
   if (targets.length === 0) {
     return { ok: false, reason: 'no-targets', staleRows: 0 }
   }
@@ -63,11 +91,27 @@ export async function refreshTranslations(
     }
   }
 
-  const translated = await translator.translate({
-    fromLanguage: defaultLanguage,
-    toLanguages: targets,
-    fields,
-  })
+  let translated
+  try {
+    translated = await translator.translate({
+      fromLanguage: defaultLanguage,
+      toLanguages: targets,
+      fields,
+    })
+  } catch (err) {
+    // Translator threw — propagate as a structured failure so the UI
+    // shows a real error instead of "0 rows translated". Don't bump
+    // `translations_synced_at`: the next click should retry the same
+    // stale rows.
+    const e = err as Error & { failedLanguages?: LanguageCode[] }
+    return {
+      ok: false,
+      reason: 'translator-failed',
+      staleRows: stale.length,
+      message: e.message,
+      failedLanguages: e.failedLanguages ?? targets,
+    }
+  }
 
   // Rebuild i18n maps row-by-row. Merge new translations into the
   // existing override map so that languages NOT in this sync (rare —

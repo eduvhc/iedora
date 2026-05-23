@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useId, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   DndContext,
@@ -87,6 +87,12 @@ export function SortableCategory({
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
+
+  // Stable ID for dnd-kit's accessibility wiring. Without it the global
+  // counter inside dnd-kit races between SSR and hydration when more
+  // than one DndContext lives on a route, surfacing as an
+  // aria-describedby mismatch in dev.
+  const dndId = useId()
 
   function handleItemDragEnd(event: DragEndEvent) {
     const { active, over } = event
@@ -228,6 +234,7 @@ export function SortableCategory({
       </div>
 
       <DndContext
+        id={dndId}
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleItemDragEnd}
