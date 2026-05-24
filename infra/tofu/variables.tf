@@ -138,23 +138,9 @@ variable "menu_public_hostname" {
   default     = "menu.iedora.com"
 }
 
-variable "menu_image_sha" {
-  description = <<-EOT
-    Image tag for ghcr.io/OWNER/menu — the tag (commit SHA or "latest") the
-    docker_image.menu resource pins to. Sources:
-      - CI:   .github/workflows/infra-deploy.yml sets TF_VAR_menu_image_sha
-              from `inputs.image_sha`. The menu CI dispatches infra-deploy
-              with the freshly-built commit SHA after each main push, so
-              steady state is per-commit pinned.
-      - Local: defaults to "latest"; override for deterministic deploys
-               with `TF_VAR_menu_image_sha=<sha> just infra::deploy`.
-    Rollback path: `gh workflow run infra-deploy.yml --field image_sha=<old-sha>`.
-    The image SHA is not a secret and is deliberately NOT in BWS — workflow
-    inputs keep config and secrets separate.
-  EOT
-  type        = string
-  default     = "latest"
-}
+# NOTE: var.menu_image_sha was removed. The menu image SHA is now an
+# input to Stage 4 (`iedora deploy menu`), passed via env (MENU_IMAGE_SHA)
+# or workflow_call input. Tofu no longer pins the image.
 
 # ── Hetzner Cloud ────────────────────────────────────────────────────────────
 
@@ -249,23 +235,24 @@ variable "allow_masterkey_rotation" {
 }
 
 # ── Menu app runtime env ─────────────────────────────────────────────────────
-# Every runtime env var the menu container needs is produced by TF
-# resources in this root — no BWS round-trip, no infra_menu_* vars:
-#   - Session-cookie key      → random_password.menu_session_secret  (zitadel.tf)
-#   - OIDC client id/secret   → zitadel_application_oidc.menu        (zitadel.tf)
-#   - SA management token     → zitadel_personal_access_token.menu_sa (zitadel.tf)
-#   - S3 / assets credentials → cloudflare_api_token.assets_r2       (main.tf)
-#   - OpenObserve ingest      → local mode (no R2 cold tier, no header needed)
-# The matching dev .env.local (infra/dev/tofu/main.tf) emits the same
-# keys with localhost values — one shape, two backends.
+# Every runtime env var the menu container needs is composed by Stage 4
+# (`iedora deploy menu`) from:
+#   - BWS values (zitadel app-state outputs from Stage 3, AUTOGEN_* secrets
+#     Tofu mints via secrets.tf), and
+#   - Tofu outputs (menu_*, see outputs.tf).
+# No more module.menu_env shared with Tofu — Stage 4 owns the recipe.
 
 variable "iedora_admin_emails" {
   description = <<-EOT
     Emails that should be granted the cross-product `iedora-admin` Zitadel
-    project role on every `just infra::deploy`. Each entry is resolved to a
-    Zitadel user ID at plan time (see `scripts/lookup-zitadel-users.sh`);
-    addresses that haven't signed in yet are silently skipped and land on
-    the next apply after they self-provision via OIDC.
+    project role on every `iedora app apply`. Each entry is resolved to a
+    Zitadel user ID by `bin/zitadel-apply` (subsumes the legacy
+    `zitadel-grant` binary); addresses that haven't signed in yet are
+    silently skipped and land on the next apply after they self-provision
+    via OIDC.
+
+    Read by Stage 3 (zitadel-apply, via env) AND by the menu app at runtime
+    (via menu_iedora_admin_emails output → MENU env IEDORA_ADMIN_EMAILS).
 
     Add a teammate: append their email here, commit, deploy.
   EOT
@@ -273,22 +260,8 @@ variable "iedora_admin_emails" {
   default = ["eduardoferdcarvalho@gmail.com"]
 }
 
-variable "infra_zitadel_sa_key_json" {
-  description = <<-EOT
-    JSON service-account key for Zitadel's `zitadel-admin-sa` machine user
-    (IAM_OWNER, minted by FirstInstance and written to /zitadel-bootstrap/
-    zitadel-admin-sa.json on the Hetzner box). The `zitadel/zitadel` Tofu
-    provider authenticates with it via `jwt_profile_json`.
-    TF_VAR_infra_zitadel_sa_key_json (from BWS INFRA_ZITADEL_SA_KEY_JSON;
-    populated once by `just infra::zitadel-fetch-sa-key` after first boot).
-
-    Default empty string is the bootstrap window — `infra/tofu/zitadel.tf`
-    gates every zitadel_* resource on this being non-empty, so the first
-    apply is a no-op for Zitadel TF management. The provider auth code is
-    never reached until the second apply lands the resources.
-  EOT
-  type        = string
-  sensitive   = true
-  default     = ""
-}
+# NOTE: var.infra_zitadel_sa_key_json was removed. The Zitadel TF provider
+# is gone (Stage 3 talks to Zitadel directly via REST). The SA key still
+# lives in BWS under INFRA_ZITADEL_SA_KEY_JSON — `bin/zitadel-apply` reads
+# it from env, not from Tofu.
 

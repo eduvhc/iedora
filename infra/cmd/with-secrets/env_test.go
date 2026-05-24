@@ -8,15 +8,12 @@ import (
 	"github.com/eduvhc/iedora/infra/internal/bws"
 )
 
-func TestBuildEnvironment(t *testing.T) {
-	// Stub the CF resolver — tests must not hit the live API.
-	prev := cfAccountResolver
-	defer func() { cfAccountResolver = prev }()
-	cfAccountResolver = func(context.Context, string) (string, error) {
-		return "cf-account-discovered", nil
-	}
-
-	mockSecrets := []bws.Secret{
+// allBWSSecrets is the fixture that mirrors what a real BWS list would
+// return for the iedora project — every classified key in env.go. Tests
+// pass this in and assert which subset survives the stage filter.
+func allBWSSecrets() []bws.Secret {
+	return []bws.Secret{
+		// iac
 		{Key: "INFRA_CLOUDFLARE_API_TOKEN", Value: "cf-token-123"},
 		{Key: "INFRA_STATE_PASSPHRASE", Value: "passphrase-abc"},
 		{Key: "INFRA_GITHUB_API_TOKEN", Value: "github-token-456"},
@@ -25,111 +22,235 @@ func TestBuildEnvironment(t *testing.T) {
 		{Key: "INFRA_HCLOUD_TOKEN", Value: "hcloud-token-uvw"},
 		{Key: "INFRA_GHCR_TOKEN", Value: "ghcr-token-qrs"},
 		{Key: "INFRA_OPENOBSERVE_ROOT_USER_EMAIL", Value: "test@example.com"},
-	}
+		{Key: "AUTOGEN_INFRA_POSTGRES_PASSWORD", Value: "pg-pwd"},
+		{Key: "AUTOGEN_INFRA_BACKUP_PASSPHRASE", Value: "backup-pwd"},
+		{Key: "AUTOGEN_INFRA_ZITADEL_MASTERKEY", Value: "zit-mk"},
+		{Key: "AUTOGEN_INFRA_ZITADEL_FIRST_ADMIN_PASSWORD", Value: "zit-admin-pwd"},
+		{Key: "AUTOGEN_INFRA_OPENOBSERVE_ROOT_USER_PASSWORD", Value: "oo-pwd"},
 
-	// CLOUDFLARE_ACCOUNT_ID pinned → resolver should NOT be called.
-	mockEnv := []string{
-		"PATH=/usr/bin:/bin",
-		"CLOUDFLARE_ACCOUNT_ID=cf-account-abc",
-		"INFRA_ZITADEL_SA_KEY_JSON=sa-key-json-string",
-	}
+		// app
+		{Key: "INFRA_ZITADEL_SA_KEY_JSON", Value: "sa-key-json"},
 
-	bwsAccessToken := "token-bws-123"
-	projectID := "project-id-456"
+		// deploy (per-product, menu)
+		{Key: "INFRA_ZITADEL_MENU_OIDC_CLIENT_ID", Value: "client-id-123"},
+		{Key: "INFRA_ZITADEL_MENU_OIDC_CLIENT_SECRET", Value: "client-secret-xyz"},
+		{Key: "INFRA_ZITADEL_MENU_SA_TOKEN", Value: "sa-pat-token"},
+		{Key: "INFRA_ZITADEL_PERMISSIONS_SIGNING_KEY", Value: "perm-sk"},
+		{Key: "INFRA_ZITADEL_GRANTS_SIGNING_KEY", Value: "grants-sk"},
+		{Key: "INFRA_ZITADEL_IEDORA_PROJECT_ID", Value: "project-456"},
+		{Key: "AUTOGEN_INFRA_MENU_SESSION_SECRET", Value: "menu-session-key"},
 
-	envSlice, err := buildEnvironment(t.Context(), mockSecrets, bwsAccessToken, projectID, mockEnv)
-	if err != nil {
-		t.Fatalf("buildEnvironment failed unexpectedly: %v", err)
-	}
+		// universal
+		{Key: "INFRA_HOST_IP", Value: "1.2.3.4"},
 
-	getVal := func(key string) string {
-		prefix := key + "="
-		for _, env := range envSlice {
-			if strings.HasPrefix(env, prefix) {
-				return strings.TrimPrefix(env, prefix)
-			}
-		}
-		return ""
-	}
-
-	if getVal("BWS_ACCESS_TOKEN") != bwsAccessToken {
-		t.Errorf("Expected BWS_ACCESS_TOKEN=%s, got %s", bwsAccessToken, getVal("BWS_ACCESS_TOKEN"))
-	}
-	if getVal("BWS_PROJECT_ID") != projectID {
-		t.Errorf("Expected BWS_PROJECT_ID=%s, got %s", projectID, getVal("BWS_PROJECT_ID"))
-	}
-
-	expectedTFVars := map[string]string{
-		"TF_VAR_account_id":                        "cf-account-abc",
-		"TF_VAR_cloudflare_api_token":              "cf-token-123",
-		"TF_VAR_state_passphrase":                  "passphrase-abc",
-		"TF_VAR_github_token":                      "github-token-456",
-		"TF_VAR_infra_ssh_private_key":             "ssh-key-789",
-		"TF_VAR_claude_code_oauth_token":           "claude-token-xyz",
-		"TF_VAR_infra_hcloud_token":                "hcloud-token-uvw",
-		"TF_VAR_infra_ghcr_token":                  "ghcr-token-qrs",
-		"TF_VAR_infra_openobserve_root_user_email": "test@example.com",
-		"TF_VAR_infra_zitadel_sa_key_json":         "sa-key-json-string",
-	}
-	for key, expectedVal := range expectedTFVars {
-		if gotVal := getVal(key); gotVal != expectedVal {
-			t.Errorf("Expected variable %s to have value %q, got %q", key, expectedVal, gotVal)
-		}
+		// NOT classified — should be dropped from every stage.
+		{Key: "UNCLASSIFIED_LEFTOVER", Value: "must-not-leak"},
 	}
 }
 
-func TestBuildEnvironment_DiscoversCloudflareAccount(t *testing.T) {
+func envMap(envSlice []string) map[string]string {
+	out := make(map[string]string, len(envSlice))
+	for _, e := range envSlice {
+		k, v, ok := strings.Cut(e, "=")
+		if ok {
+			out[k] = v
+		}
+	}
+	return out
+}
+
+func stubCF(t *testing.T) {
+	t.Helper()
 	prev := cfAccountResolver
-	defer func() { cfAccountResolver = prev }()
-	called := false
+	t.Cleanup(func() { cfAccountResolver = prev })
 	cfAccountResolver = func(context.Context, string) (string, error) {
-		called = true
 		return "cf-account-discovered", nil
 	}
-
-	secrets := []bws.Secret{
-		{Key: "INFRA_CLOUDFLARE_API_TOKEN", Value: "cf-token-123"},
-		{Key: "INFRA_STATE_PASSPHRASE", Value: "p"},
-		{Key: "INFRA_GITHUB_API_TOKEN", Value: "g"},
-		{Key: "INFRA_SSH_PRIVATE_KEY", Value: "s"},
-		{Key: "INFRA_CLAUDE_CODE_OAUTH_TOKEN", Value: "c"},
-		{Key: "INFRA_HCLOUD_TOKEN", Value: "h"},
-		{Key: "INFRA_GHCR_TOKEN", Value: "gh"},
-		{Key: "INFRA_OPENOBSERVE_ROOT_USER_EMAIL", Value: "e"},
-	}
-	envSlice, err := buildEnvironment(t.Context(), secrets, "tok", "proj", nil)
-	if err != nil {
-		t.Fatalf("buildEnvironment: %v", err)
-	}
-	if !called {
-		t.Fatal("expected cfAccountResolver to be called (no pinned CLOUDFLARE_ACCOUNT_ID)")
-	}
-	for _, e := range envSlice {
-		if e == "TF_VAR_account_id=cf-account-discovered" {
-			return
-		}
-	}
-	t.Errorf("TF_VAR_account_id did not pick up discovered account id")
 }
 
-func TestBuildEnvironment_MissingSecret(t *testing.T) {
-	mockSecrets := []bws.Secret{
-		{Key: "INFRA_CLOUDFLARE_API_TOKEN", Value: "cf-token-123"},
-		{Key: "INFRA_GITHUB_API_TOKEN", Value: "github-token-456"},
-		{Key: "INFRA_SSH_PRIVATE_KEY", Value: "ssh-key-789"},
-		{Key: "INFRA_CLAUDE_CODE_OAUTH_TOKEN", Value: "claude-token-xyz"},
-		{Key: "INFRA_HCLOUD_TOKEN", Value: "hcloud-token-uvw"},
-		{Key: "INFRA_GHCR_TOKEN", Value: "ghcr-token-qrs"},
-		{Key: "INFRA_OPENOBSERVE_ROOT_USER_EMAIL", Value: "test@example.com"},
-	}
+func TestBuildEnvironment_IaCStage(t *testing.T) {
+	stubCF(t)
 
-	mockEnv := []string{"CLOUDFLARE_ACCOUNT_ID=cf-account-abc"}
-
-	_, err := buildEnvironment(t.Context(), mockSecrets, "token-123", "proj-123", mockEnv)
-	if err == nil {
-		t.Fatal("Expected buildEnvironment to fail due to missing INFRA_STATE_PASSPHRASE, but it succeeded")
+	envSlice, err := buildEnvironment(t.Context(), allBWSSecrets(), "tok", "proj",
+		[]string{"PATH=/usr/bin:/bin", "CLOUDFLARE_ACCOUNT_ID=cf-account-pinned"},
+		stageIaC, "")
+	if err != nil {
+		t.Fatalf("iac stage buildEnvironment: %v", err)
 	}
-	if !strings.Contains(err.Error(), "INFRA_STATE_PASSPHRASE missing") {
-		t.Errorf("Expected error to mention INFRA_STATE_PASSPHRASE missing, got: %v", err)
+	got := envMap(envSlice)
+
+	// IaC sees iac-allowed BWS keys.
+	for _, k := range []string{
+		"INFRA_HCLOUD_TOKEN", "INFRA_STATE_PASSPHRASE", "INFRA_GITHUB_API_TOKEN",
+		"AUTOGEN_INFRA_POSTGRES_PASSWORD", "AUTOGEN_INFRA_ZITADEL_MASTERKEY",
+	} {
+		if got[k] == "" {
+			t.Errorf("iac: expected %s to be present", k)
+		}
+	}
+	// IaC does NOT see app or deploy keys.
+	for _, k := range []string{
+		"INFRA_ZITADEL_SA_KEY_JSON",
+		"INFRA_ZITADEL_MENU_OIDC_CLIENT_SECRET",
+		"AUTOGEN_INFRA_MENU_SESSION_SECRET",
+		"UNCLASSIFIED_LEFTOVER",
+	} {
+		if got[k] != "" {
+			t.Errorf("iac: expected %s to be FILTERED OUT, got %q", k, got[k])
+		}
+	}
+	// TF_VAR_* should be present for IaC.
+	if got["TF_VAR_cloudflare_api_token"] != "cf-token-123" {
+		t.Errorf("iac: TF_VAR_cloudflare_api_token wrong, got %q", got["TF_VAR_cloudflare_api_token"])
+	}
+	if got["TF_VAR_account_id"] != "cf-account-pinned" {
+		t.Errorf("iac: TF_VAR_account_id should equal pinned, got %q", got["TF_VAR_account_id"])
+	}
+	if got["IEDORA_STAGE"] != "iac" {
+		t.Errorf("iac: IEDORA_STAGE should be 'iac', got %q", got["IEDORA_STAGE"])
+	}
+}
+
+func TestBuildEnvironment_AppStage(t *testing.T) {
+	stubCF(t)
+
+	envSlice, err := buildEnvironment(t.Context(), allBWSSecrets(), "tok", "proj",
+		[]string{"PATH=/usr/bin:/bin"},
+		stageApp, "")
+	if err != nil {
+		t.Fatalf("app stage buildEnvironment: %v", err)
+	}
+	got := envMap(envSlice)
+
+	// App sees only the SA key + universal keys.
+	if got["INFRA_ZITADEL_SA_KEY_JSON"] != "sa-key-json" {
+		t.Errorf("app: SA key missing")
+	}
+	if got["INFRA_HOST_IP"] != "1.2.3.4" {
+		t.Errorf("app: INFRA_HOST_IP universal key missing")
+	}
+	// App must NOT see iac provider creds or deploy-stage values.
+	for _, k := range []string{
+		"INFRA_HCLOUD_TOKEN", "INFRA_STATE_PASSPHRASE",
+		"AUTOGEN_INFRA_POSTGRES_PASSWORD",
+		"INFRA_ZITADEL_MENU_OIDC_CLIENT_SECRET",
+		"AUTOGEN_INFRA_MENU_SESSION_SECRET",
+		"UNCLASSIFIED_LEFTOVER",
+	} {
+		if got[k] != "" {
+			t.Errorf("app: expected %s to be FILTERED OUT, got %q", k, got[k])
+		}
+	}
+	// App stage does NOT use Tofu → no TF_VAR_*.
+	for k := range got {
+		if strings.HasPrefix(k, "TF_VAR_") {
+			t.Errorf("app: TF_VAR_* should NOT be emitted, got %s=%s", k, got[k])
+		}
+	}
+}
+
+func TestBuildEnvironment_DeployStage_Menu(t *testing.T) {
+	stubCF(t)
+
+	envSlice, err := buildEnvironment(t.Context(), allBWSSecrets(), "tok", "proj",
+		[]string{"PATH=/usr/bin:/bin", "CLOUDFLARE_ACCOUNT_ID=cf-acct"},
+		stageDeploy, "menu")
+	if err != nil {
+		t.Fatalf("deploy stage buildEnvironment: %v", err)
+	}
+	got := envMap(envSlice)
+
+	// Deploy/menu sees menu's per-product extras + universal + deploy creds.
+	for _, k := range []string{
+		"INFRA_ZITADEL_MENU_OIDC_CLIENT_ID",
+		"INFRA_ZITADEL_MENU_OIDC_CLIENT_SECRET",
+		"INFRA_ZITADEL_MENU_SA_TOKEN",
+		"AUTOGEN_INFRA_MENU_SESSION_SECRET",
+		"INFRA_HOST_IP",
+		"INFRA_SSH_PRIVATE_KEY",
+		"INFRA_CLOUDFLARE_API_TOKEN",
+		"INFRA_STATE_PASSPHRASE",
+	} {
+		if got[k] == "" {
+			t.Errorf("deploy menu: expected %s, missing", k)
+		}
+	}
+	// Deploy menu does NOT see IaC-only creds.
+	for _, k := range []string{
+		"INFRA_HCLOUD_TOKEN",
+		"INFRA_GITHUB_API_TOKEN",
+		"INFRA_ZITADEL_SA_KEY_JSON",
+		"AUTOGEN_INFRA_POSTGRES_PASSWORD",
+		"AUTOGEN_INFRA_ZITADEL_MASTERKEY",
+		"UNCLASSIFIED_LEFTOVER",
+	} {
+		if got[k] != "" {
+			t.Errorf("deploy menu: expected %s FILTERED OUT, got %q", k, got[k])
+		}
+	}
+}
+
+func TestBuildEnvironment_DeployStage_House(t *testing.T) {
+	stubCF(t)
+
+	envSlice, err := buildEnvironment(t.Context(), allBWSSecrets(), "tok", "proj",
+		[]string{"CLOUDFLARE_ACCOUNT_ID=cf-acct"},
+		stageDeploy, "house")
+	if err != nil {
+		t.Fatalf("deploy house buildEnvironment: %v", err)
+	}
+	got := envMap(envSlice)
+
+	// House deploy uses its per-product Tofu — needs CF token + state.
+	if got["INFRA_CLOUDFLARE_API_TOKEN"] == "" {
+		t.Error("deploy house: needs CF token for its Tofu root")
+	}
+	if got["INFRA_STATE_PASSPHRASE"] == "" {
+		t.Error("deploy house: needs state passphrase for its Tofu root")
+	}
+	// House does NOT get menu's per-product keys.
+	if got["INFRA_ZITADEL_MENU_OIDC_CLIENT_ID"] != "" {
+		t.Error("deploy house: must NOT see menu's Zitadel keys")
+	}
+	if got["AUTOGEN_INFRA_MENU_SESSION_SECRET"] != "" {
+		t.Error("deploy house: must NOT see menu's session secret")
+	}
+}
+
+func TestBuildEnvironment_UnknownProduct(t *testing.T) {
+	stubCF(t)
+
+	// Unknown product: only stage-level allow-list, no extras.
+	envSlice, err := buildEnvironment(t.Context(), allBWSSecrets(), "tok", "proj",
+		[]string{"CLOUDFLARE_ACCOUNT_ID=cf-acct"},
+		stageDeploy, "ghost-product")
+	if err != nil {
+		t.Fatalf("deploy unknown buildEnvironment: %v", err)
+	}
+	got := envMap(envSlice)
+	if got["INFRA_ZITADEL_MENU_OIDC_CLIENT_ID"] != "" {
+		t.Error("unknown product: must NOT inherit any product extras")
+	}
+}
+
+func TestParseStage(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want stage
+		err  bool
+	}{
+		{"", stageIaC, false},
+		{"iac", stageIaC, false},
+		{"app", stageApp, false},
+		{"deploy", stageDeploy, false},
+		{"bogus", "", true},
+	} {
+		got, err := parseStage(tc.in)
+		if (err != nil) != tc.err {
+			t.Errorf("parseStage(%q): err=%v, want err=%v", tc.in, err, tc.err)
+		}
+		if !tc.err && got != tc.want {
+			t.Errorf("parseStage(%q): got %q, want %q", tc.in, got, tc.want)
+		}
 	}
 }

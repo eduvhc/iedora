@@ -48,6 +48,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -57,9 +58,30 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "Usage: with-secrets <command> [args...]")
+	// Strip leading --stage / --product / -- flags before the target
+	// command. Flag pkg is the simplest way; we re-slice manually after
+	// parsing so the remaining argv is the inner command + args.
+	fs := flag.NewFlagSet("with-secrets", flag.ContinueOnError)
+	stageStr := fs.String("stage", "iac", "pipeline stage: iac | app | deploy")
+	productStr := fs.String("product", "", "per-product scope for stage=deploy (e.g. menu, house)")
+	fs.Usage = func() {
+		fmt.Fprintln(os.Stderr, "Usage: with-secrets [--stage STAGE] [--product NAME] -- <command> [args...]")
+		fmt.Fprintln(os.Stderr, "  Stages:")
+		fmt.Fprintln(os.Stderr, "    iac    (default) — central Tofu apply. Sees provider creds + state passphrase.")
+		fmt.Fprintln(os.Stderr, "    app             — Stage-3 configurators. Sees the Zitadel SA key only.")
+		fmt.Fprintln(os.Stderr, "    deploy          — per-product deploys. Combine with --product NAME.")
+	}
+	if err := fs.Parse(os.Args[1:]); err != nil {
+		os.Exit(2)
+	}
+	remaining := fs.Args()
+	if len(remaining) == 0 {
+		fs.Usage()
 		os.Exit(1)
+	}
+	stg, err := parseStage(*stageStr)
+	if err != nil {
+		fatal("%v", err)
 	}
 
 	// Restore the operator's original cwd if the wrapper passed it.
@@ -92,17 +114,17 @@ func main() {
 		fatal("%v", err)
 	}
 
-	envSlice, err := buildEnvironment(ctx, secrets, bwsAccessToken, projectID, os.Environ())
+	envSlice, err := buildEnvironment(ctx, secrets, bwsAccessToken, projectID, os.Environ(), stg, *productStr)
 	if err != nil {
 		fatal("%v", err)
 	}
 
-	binaryPath, err := exec.LookPath(os.Args[1])
+	binaryPath, err := exec.LookPath(remaining[0])
 	if err != nil {
-		fatal("command %q not found: %v", os.Args[1], err)
+		fatal("command %q not found: %v", remaining[0], err)
 	}
 
-	if err := syscall.Exec(binaryPath, os.Args[1:], envSlice); err != nil {
+	if err := syscall.Exec(binaryPath, remaining, envSlice); err != nil {
 		fatal("exec failed: %v", err)
 	}
 }

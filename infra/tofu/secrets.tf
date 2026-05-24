@@ -53,6 +53,14 @@ resource "random_password" "openobserve_password" {
   special = false # carries through to HTTP Basic-auth, keep ASCII safe
 }
 
+# NOTE: menu's session JWE key (AUTOGEN_INFRA_MENU_SESSION_SECRET) is NOT
+# minted here. It's an app secret — consumed only by the menu container,
+# never by an IaC-managed resource — so Stage 4 (`iedora deploy menu`)
+# mints + upserts it to BWS via the productRuntime's appSecrets mechanism
+# (`infra/cmd/iedora/runtime_docker.go`). Tofu's secrets.tf is reserved
+# for secrets that govern how IaC containers boot (postgres password,
+# backup passphrase, Zitadel masterkey, etc.).
+
 # Sync each generated value to BWS under its AUTOGEN_INFRA_* key.
 # Idempotent: if the secret exists, edit; else create. The bws CLI
 # inherits BWS_ACCESS_TOKEN from the wrapping `bin/with-secrets` call.

@@ -244,117 +244,16 @@ module "zitadel_login" {
 # DDoS protection still valuable). If we ever want to drop CF for those too,
 # add more route blocks to the Caddyfile + DNS records here.
 
-# ── Menu app (Next.js SaaS) ─────────────────────────────────────────────────
-# SHA-pinned image. CI writes `${{ github.sha }}` and dispatches infra-deploy
-# with it as a workflow input; bin/with-secrets exports it as
-# TF_VAR_menu_image_sha. When the SHA changes, the image resource's `name`
-# changes → force-replace → docker_container.menu_web also replaces because
-# it references `docker_image.menu.image_id`.
+# ── Menu app ────────────────────────────────────────────────────────────────
+# NOT declared here. `infra-menu-web` is owned by Stage 4 of the pipeline
+# (`iedora deploy menu` → SSH + docker pull + docker run on the box).
+# Caddy's reverse_proxy below resolves the upstream by docker network
+# alias (`infra-menu-web`); when menu_web isn't running, Caddy returns
+# 502 — correct behavior between deploys.
 #
-# Default "latest" for first-bootstrap (before CI has run); steady state is
-# always a SHA. Rollback: set TF_VAR_menu_image_sha to an older commit
-# (image is immutable per tag, deterministic).
-#
-# Migrations: `node scripts/migrate.mjs` holds a `pg_advisory_lock` so a
-# rolling restart (multiple replicas one day) doesn't double-migrate. It's
-# safe to re-run on a populated DB.
-#
-# Auth wiring (#20):
-#   - ZITADEL_OAUTH_CLIENT_* and MENU_SESSION_SECRET flow straight from
-#     other TF resources in this same root (zitadel_application_oidc.menu,
-#     random_password.menu_session_secret). No BWS, no chicken-egg.
-#   - Container gates on `local.zitadel_bootstrapped`: during the one-time
-#     bootstrap window (before the SA key reaches BWS) the OIDC app
-#     doesn't exist, so menu can't boot. Acceptable for the few-minute
-#     bootstrap; menu is back up on the second `just infra::deploy`.
-
-resource "docker_image" "menu" {
-  name = "ghcr.io/${var.github_owner}/menu:${var.menu_image_sha}"
-
-  # Keep the image cached on the host so a container restart doesn't re-pull.
-  # New SHA = new name = force-replace = single pull on next apply.
-  keep_locally = true
-
-  lifecycle {
-    enabled = local.zitadel_bootstrapped
-  }
-}
-
-module "menu_env" {
-  source = "../modules/menu_env"
-
-  lifecycle {
-    enabled = local.zitadel_bootstrapped
-  }
-
-  node_env        = "production"
-  database_url    = "postgres://postgres:${random_password.postgres.result}@infra-postgres:5432/menu"
-  menu_public_url = "https://${var.menu_public_hostname}"
-
-  menu_session_secret         = random_password.menu_session_secret.result
-  zitadel_issuer_url          = "https://${var.zitadel_hostname}"
-  zitadel_oauth_client_id     = zitadel_application_oidc.menu.client_id
-  zitadel_oauth_client_secret = zitadel_application_oidc.menu.client_secret
-  zitadel_management_token    = zitadel_personal_access_token.menu_sa.token
-  zitadel_action_signing_key  = zitadel_action_target.menu_permissions.signing_key
-  zitadel_grants_signing_key  = zitadel_action_target.menu_grants.signing_key
-  iedora_project_id           = zitadel_project.iedora.id
-  iedora_admin_emails         = join(",", var.iedora_admin_emails)
-
-  # Shared assets bucket (cloudflare_r2_bucket.assets in main.tf).
-  s3_endpoint   = "https://${var.account_id}.r2.cloudflarestorage.com"
-  s3_region     = "auto"
-  s3_access_key = cloudflare_api_token.assets_r2.id
-  s3_secret_key = sha256(cloudflare_api_token.assets_r2.value)
-  s3_bucket     = cloudflare_r2_bucket.assets.name
-  s3_public_url = "https://${var.assets_hostname}"
-
-  # OpenObserve runs in ZO_LOCAL_MODE — Basic auth header is the same
-  # shape as the dev compose, fed from BWS-backed credentials.
-  otel_exporter_otlp_endpoint = "http://infra-openobserve:5080/api/default"
-  otel_exporter_otlp_headers  = "Authorization=Basic%20${base64encode("${var.infra_openobserve_root_user_email}:${random_password.openobserve_password.result}")}"
-
-  host_name = hcloud_server.iedora.name
-  git_sha   = var.menu_image_sha
-}
-
-resource "docker_container" "menu_web" {
-  name    = "infra-menu-web"
-  image   = docker_image.menu.image_id
-  restart = "unless-stopped"
-
-  # Migrate then serve. The Next.js standalone build's server is at /app/server.js
-  # (Dockerfile's WORKDIR). `migrate.mjs` is copied alongside; both relative
-  # to /app, the image's WORKDIR.
-  command = [
-    "sh",
-    "-c",
-    "node scripts/migrate.mjs && node server.js",
-  ]
-
-  # Runtime env is the SAME shape as dev's `.env.local` because both
-  # call into `infra/modules/menu_env`. Adding a new key happens in
-  # one place (the module's locals.env_map); both backends pick it up
-  # mechanically on next apply.
-  env = module.menu_env.env_list
-
-  networks_advanced {
-    name    = docker_network.iedora.name
-    aliases = ["infra-menu-web"]
-  }
-
-  lifecycle {
-    enabled = local.zitadel_bootstrapped
-  }
-
-  log_opts = {
-    max-size = "10m"
-  }
-
-  depends_on = [
-    module.postgres,
-  ]
-}
+# See `infra/cmd/iedora/products.go` for the menu's deploy spec
+# (image repo, env mapping, migrate command). The split is intentional:
+# IaC owns shared infra; per-product Deploy owns the app container.
 
 resource "docker_container" "caddy" {
   name    = "infra-caddy"

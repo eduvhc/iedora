@@ -1,28 +1,23 @@
-// iedora — top-level infra orchestrator. Subcommands:
+// iedora — top-level infra orchestrator. Four pipeline stages, each
+// runnable on its own:
 //
-//	iedora deploy              — provision + apply the full estate.
-//	iedora deploy --destroy    — tear down every Tofu-managed resource.
-//	iedora deploy -d           — short form of --destroy.
-//	iedora doctor              — preflight on the operator's machine.
+//	iedora iac apply       — Stage 2: bring up shared infra via Tofu.
+//	iedora iac destroy     — Stage 2: tear it down.
+//	iedora app apply       — Stage 3: run every app-state configurator.
+//	iedora deploy [prods…] — Stage 4: ship one or more product artifacts.
+//	iedora destroy [prods…] — Stage 4: undo Stage 4 (per product).
 //
-// One subcommand for the deploy/destroy axis: the flag chooses direction.
-// Reason: the justfile is now `just deploy *FLAGS` (a thin shim into this
-// binary), so destroy as a separate Go subcommand would force the justfile
-// to branch in bash — exactly what Go was supposed to subsume. Single
-// entry point, single dispatch, all in type-checked Go.
+// Plus convenience:
 //
-// Design goals (see docs/deploy-failure-modes.md for what tripped us up):
-//   - One Go binary, easy to type-check + unit-test, easy to extend.
-//   - Idempotent: `iedora deploy -d && iedora deploy` from any prior state
-//     lands a green stack with zero manual steps, on operator macOS + CI.
-//   - Sidesteps the macOS NXDOMAIN cache trap for the Zitadel TF provider
-//     via a localhost HTTP CONNECT proxy that pins auth.iedora.com to the
-//     fresh Hetzner IPv4 (see internal/proxy).
-//   - Verifies the served TLS cert is real Let's Encrypt (not Caddy's
-//     internal CA) before declaring Zitadel ready (see internal/tlsprobe).
+//	iedora pipeline        — local-dev chain: iac → app → deploy --all.
+//	iedora pipeline -d     — reverse: destroy products → iac destroy.
+//	iedora doctor          — preflight on the operator's machine.
 //
-// `bin/iedora` is the BWS-wrapped entrypoint used by the root justfile
-// and by CI.
+// Stage 1 (Build & Test) is owned per-product (bun, go, docker build) and
+// triggered by CI / the Taskfile — not a subcommand here.
+//
+// `bin/iedora` is the BWS-wrapped entrypoint used by the root justfile +
+// the Taskfile + CI.
 package main
 
 import (
@@ -34,18 +29,26 @@ import (
 )
 
 func main() {
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
 	if len(os.Args) < 2 {
 		usage()
 		os.Exit(2)
 	}
 
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer cancel()
-
 	var err error
 	switch os.Args[1] {
+	case "iac":
+		err = dispatchIac(ctx, os.Args[2:])
+	case "app":
+		err = dispatchApp(ctx, os.Args[2:])
 	case "deploy":
-		err = runDeploy(ctx, os.Args[2:])
+		err = runDeployProduct(ctx, os.Args[2:])
+	case "destroy":
+		err = runDestroyProduct(ctx, os.Args[2:])
+	case "pipeline":
+		err = runPipeline(ctx, os.Args[2:])
 	case "doctor":
 		err = runDoctor(ctx, os.Args[2:])
 	case "-h", "--help", "help":
@@ -63,18 +66,51 @@ func main() {
 	}
 }
 
+func dispatchIac(ctx context.Context, argv []string) error {
+	if len(argv) == 0 {
+		return fmt.Errorf("iac requires a subcommand: apply | destroy")
+	}
+	switch argv[0] {
+	case "apply":
+		return runIacApply(ctx, argv[1:])
+	case "destroy":
+		return runIacDestroy(ctx, argv[1:])
+	default:
+		return fmt.Errorf("iac: unknown subcommand %q (want apply | destroy)", argv[0])
+	}
+}
+
+func dispatchApp(ctx context.Context, argv []string) error {
+	if len(argv) == 0 {
+		return fmt.Errorf("app requires a subcommand: apply")
+	}
+	switch argv[0] {
+	case "apply":
+		return runAppApply(ctx, argv[1:])
+	default:
+		return fmt.Errorf("app: unknown subcommand %q (want apply)", argv[0])
+	}
+}
+
 func usage() {
 	fmt.Fprintln(os.Stderr, `Usage: iedora <subcommand> [flags]
 
-Subcommands:
-  deploy   Apply (or, with --destroy, tear down) the full estate.
-  doctor   Diagnose deploy-readiness on the operator's machine.
+Stage subcommands:
+  iac apply             Bring up shared infra via Tofu.
+  iac destroy           Tear down shared infra.
+  app apply             Run every app-state configurator (Stage 3).
+  deploy [products…]    Ship product artifacts (Stage 4). Empty list = all.
+  destroy [products…]   Tear down product artifacts. Empty list = all.
 
-Flags for deploy:
-  -d, --destroy        Tear down instead of applying.
-      --skip-init      Skip the leading tofu init (CI flag).
-      --ready-budget   Max wait for Zitadel /debug/ready + LE cert (default 6m).
+Convenience:
+  pipeline              Run iac apply → app apply → deploy --all.
+  pipeline -d           Run destroy --all → iac destroy.
+  doctor                Diagnose deploy-readiness on the operator's machine.
 
-The wrapping bin/iedora script injects BWS secrets as TF_VAR_* env vars
-before exec'ing this binary, exactly like bin/with-secrets does for tofu.`)
+Flags for app apply:
+  --ready-budget DUR    Max wait for Zitadel /debug/ready + LE cert (default 6m).
+  --only NAME           Run only one configurator by name.
+
+The wrapping bin/iedora script injects BWS secrets as env vars before
+exec'ing this binary, exactly like bin/with-secrets does for tofu.`)
 }

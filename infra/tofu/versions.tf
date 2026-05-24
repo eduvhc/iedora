@@ -39,17 +39,9 @@ terraform {
       source  = "kreuzwerker/docker"
       version = "~> 3.7"
     }
-    # Declarative management of Zitadel resources (orgs, projects, OIDC apps,
-    # actions, claims). Works on Hetzner because auth.iedora.com bypasses CF
-    # (grey cloud DNS only, Caddy on Hetzner terminates TLS, gRPC unblocked).
-    # Pin to OpenTofu registry's 2.12.x — terraform.io's registry lags at 2.8.
-    zitadel = {
-      source  = "zitadel/zitadel"
-      version = "~> 2.12"
-    }
-    # Mints the menu session cookie's encryption key directly in TF state,
-    # avoiding a BWS round-trip for secrets that have no external consumer.
+    # Mints the menu session cookie's encryption key directly in TF state.
     # Rotate via `tofu apply -replace=random_password.menu_session_secret`.
+    # Zitadel app-state is no longer managed here — see infra/cmd/zitadel-apply.
     random = {
       source  = "hashicorp/random"
       version = "~> 3.6"

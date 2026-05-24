@@ -1,210 +1,110 @@
 package main
 
 import (
-	"bytes"
-	"context"
-	"fmt"
-	"io"
-	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
-// product describes one deployable Tofu root + (optional) build step
-// alongside the central infra. Each entry in `products` becomes one
-// fan-out goroutine in runDeploy / runDestroy. Deliberately explicit
-// (not filesystem-discovered) so deploy order + ownership is legible.
+// product describes one deployable artifact alongside the central infra.
+// Each entry in `products` becomes one fan-out goroutine in
+// runDeployProduct / runDestroyProduct.
+//
+// Polymorphism lives on `runtime` — see runtime.go for the interface,
+// runtime_docker.go / runtime_cf.go for the two implementations.
 //
 // Adding a product:
-//  1. mkdir products/<name>/infra/tofu/ + drop in your Tofu root.
-//  2. Append one entry to `products` below.
-//  3. (If it'll be deployed independently via its own CI workflow,
-//     also add the workflow under .github/workflows/.)
 //
-// The orchestrator does the rest.
+//  1. Decide on a runtime (or implement a new one — runtime_*.go).
+//  2. Append one entry to `products` below.
+//  3. Add a .github/workflows/<name>.yml workflow that build-pushes the
+//     artifact and triggers deploy.yml with product=<name>.
+//
+// The orchestrator picks up the rest mechanically.
 type product struct {
-	// name is the human-readable label, surfaced in stderr lines like
-	// "  - house deploy complete". Lowercase, no spaces.
+	// name — human label, surfaced in stderr lines. Lowercase, no spaces.
+	// Used as the workflow_call input to .github/workflows/deploy.yml.
 	name string
 
-	// infraRel is the path to the product's Tofu root, relative to
-	// the repo root (e.g. "products/house/infra"). The directory
-	// must contain a `tofu/` subdir that `tofu -chdir=tofu …` enters.
-	infraRel string
-
-	// siteRel is the directory the build step runs in, relative to
-	// the repo root. Empty when there's no build step (Tofu-only
-	// product). For house, this is "products/house" so Astro reads
-	// its config from there.
-	siteRel string
-
-	// build is the command vector to exec in siteRel before `tofu
-	// apply`. nil to skip the build phase entirely. Example:
-	// []string{"bun", "run", "build"}. The command inherits the
-	// orchestrator's env (which carries BWS-hydrated TF_VAR_*).
-	build []string
-
-	// dependsOnCentral gates when the product is deployed/destroyed:
-	//   false → run in parallel with central (no resource deps).
-	//   true  → on deploy, wait until central succeeds; on destroy,
-	//           run BEFORE central so the product's destroy can still
-	//           reference central-side outputs (Postgres URL, etc).
-	dependsOnCentral bool
+	// runtime — how this product is shipped. Two implementations today
+	// (dockerOnHetzner, cloudflareWorker). Adding a third (Vercel,
+	// Cloudflare Pages, etc.) = new struct in runtime_<kind>.go.
+	runtime productRuntime
 }
 
-// products is the explicit registry. Order is irrelevant — fan-out
-// happens in goroutines and dependsOnCentral controls phase.
+// products — the explicit registry. Order is irrelevant; deploy/destroy
+// fan out in parallel.
 var products = []product{
 	{
-		name:             "house",
-		infraRel:         "products/house/infra",
-		siteRel:          "products/house",
-		build:            []string{"bun", "run", "build"},
-		dependsOnCentral: false, // pure Cloudflare; no Hetzner/Zitadel deps
+		name:    "house",
+		runtime: &cloudflareWorker{
+			productName: "house",
+			infraRel:    "products/house/infra",
+			siteRel:     "products/house",
+			build:       []string{"bun", "run", "build"},
+		},
 	},
-}
-
-// productResult is what each fan-out goroutine pushes onto its channel
-// — name+err pair so the collector can keep error messages attached
-// to the product they're from.
-type productResult struct {
-	name string
-	err  error
+	{
+		name: "menu",
+		runtime: &dockerOnHetzner{
+			containerName:  "infra-menu-web",
+			imageRepo:      "ghcr.io/eduvhc/menu",
+			imageSHAEnv:    "MENU_IMAGE_SHA",
+			networkName:    "iedora",
+			networkAliases: []string{"infra-menu-web"},
+			restart:        "unless-stopped",
+			cmd:            []string{"node", "server.js"},
+			// Migrations run as a one-shot container BEFORE the main
+			// container starts — extracts the drizzle pre-step out of
+			// the prior CMD ("node scripts/migrate.mjs && node server.js")
+			// so a migration failure is visible in deploy logs and the
+			// live menu isn't crash-looped on a bad migration.
+			migrate: []string{"node", "scripts/migrate.mjs"},
+			logOpts: map[string]string{
+				"max-size": "10m",
+			},
+			envStatic: map[string]string{
+				"NODE_ENV":                "production",
+				"NEXT_TELEMETRY_DISABLED": "1",
+				"S3_REGION":               "auto",
+			},
+			// Zitadel app-state outputs (Stage 3 writes these) + the
+			// shared AUTOGEN_* secrets (Tofu mints + writes via
+			// terraform_data.bws_sync_autogen). Stage 4 reads BWS at
+			// deploy time and injects via `docker run -e`.
+			// App secrets the runtime mints on first deploy. Tofu does
+			// not manage these — they have no IaC consumer.
+			appSecrets: []appSecret{
+				{bwsKey: "AUTOGEN_INFRA_MENU_SESSION_SECRET", length: 32}, // 256-bit JWE key
+			},
+			envFromBWS: map[string]string{
+				"INFRA_ZITADEL_MENU_OIDC_CLIENT_ID":     "ZITADEL_OAUTH_CLIENT_ID",
+				"INFRA_ZITADEL_MENU_OIDC_CLIENT_SECRET": "ZITADEL_OAUTH_CLIENT_SECRET",
+				"INFRA_ZITADEL_MENU_SA_TOKEN":           "ZITADEL_MANAGEMENT_TOKEN",
+				"INFRA_ZITADEL_PERMISSIONS_SIGNING_KEY": "ZITADEL_ACTION_SIGNING_KEY",
+				"INFRA_ZITADEL_GRANTS_SIGNING_KEY":      "ZITADEL_GRANTS_SIGNING_KEY",
+				"INFRA_ZITADEL_IEDORA_PROJECT_ID":       "IEDORA_PROJECT_ID",
+				"AUTOGEN_INFRA_MENU_SESSION_SECRET":     "MENU_SESSION_SECRET",
+			},
+			// Central-root Tofu outputs that aren't in BWS — composed
+			// values from random_password + variables. Added to
+			// outputs.tf when this lands.
+			envFromTofu: map[string]string{
+				"menu_database_url":          "DATABASE_URL",
+				"menu_public_url":            "MENU_PUBLIC_URL",
+				"zitadel_issuer_url":         "ZITADEL_ISSUER_URL",
+				"menu_iedora_admin_emails":   "IEDORA_ADMIN_EMAILS",
+				"menu_s3_endpoint":           "S3_ENDPOINT",
+				"menu_s3_public_url":         "S3_PUBLIC_URL",
+				"menu_s3_bucket":             "S3_BUCKET",
+				"menu_s3_access_key":         "S3_ACCESS_KEY",
+				"menu_s3_secret_key":         "S3_SECRET_KEY",
+				"menu_otel_endpoint":         "OTEL_EXPORTER_OTLP_ENDPOINT",
+				"menu_otel_headers":          "OTEL_EXPORTER_OTLP_HEADERS",
+				"menu_host_name":             "HOST_NAME",
+			},
+		},
+	},
 }
 
 // repoRoot is `<infraDir>/..` — same resolution every product path
 // here is built on.
 func repoRoot() string { return filepath.Dir(infraDir()) }
-
-func (p product) absInfraDir() string { return filepath.Join(repoRoot(), p.infraRel) }
-func (p product) absSiteDir() string {
-	if p.siteRel == "" {
-		return ""
-	}
-	return filepath.Join(repoRoot(), p.siteRel)
-}
-
-// deployProduct: optional build → tofu init → tofu apply. Inherits the
-// caller's env (parent already hydrated TF_VAR_* via bin/with-secrets).
-//
-// Recognizes the known Cloudflare assets-upload-session transient
-// (workers-sdk#11153) and substitutes a friendly retry message; any
-// other apply failure propagates as-is.
-func deployProduct(ctx context.Context, p product) error {
-	infra := p.absInfraDir()
-	if _, err := os.Stat(infra); err != nil {
-		return fmt.Errorf("%s infra dir %s not found: %w", p.name, infra, err)
-	}
-
-	// 1. Build (optional). Astro / Bun / equivalent — runs in siteRel,
-	//    emits dist/ (or whatever) that tofu apply picks up via a
-	//    relative-path asset directory in the .tf.
-	if site := p.absSiteDir(); site != "" && len(p.build) > 0 {
-		buildCmd := exec.CommandContext(ctx, p.build[0], p.build[1:]...)
-		buildCmd.Dir = site
-		buildCmd.Env = os.Environ()
-		buildCmd.Stdout = stderr
-		buildCmd.Stderr = stderr
-		if err := buildCmd.Run(); err != nil {
-			return fmt.Errorf("%s build (%s): %w", p.name, strings.Join(p.build, " "), err)
-		}
-	}
-
-	// 2. Provider download/upgrade. -upgrade so a freshly-bumped CF
-	//    provider in versions.tf is picked up without a manual init.
-	initCmd := exec.CommandContext(ctx, "tofu", "-chdir=tofu", "init", "-upgrade", "-input=false")
-	initCmd.Dir = infra
-	initCmd.Env = os.Environ()
-	initCmd.Stdout = io.Discard // chatty, suppress
-	initCmd.Stderr = stderr
-	if err := initCmd.Run(); err != nil {
-		return fmt.Errorf("%s tofu init: %w", p.name, err)
-	}
-
-	// 3. Apply. Capture stderr so we can recognize the CF
-	//    assets-upload-session 500 ("entitlements.not_available" — a
-	//    misleading server-side label, see cloudflare/workers-sdk#11153)
-	//    and surface an actionable hint instead of the raw 500 body.
-	var stderrBuf bytes.Buffer
-	applyCmd := exec.CommandContext(ctx, "tofu", "-chdir=tofu", "apply", "-auto-approve")
-	applyCmd.Dir = infra
-	applyCmd.Env = os.Environ()
-	applyCmd.Stdout = stderr
-	applyCmd.Stderr = io.MultiWriter(stderr, &stderrBuf)
-	if err := applyCmd.Run(); err != nil {
-		out := stderrBuf.String()
-		if strings.Contains(out, "assets-upload-session") && strings.Contains(out, "entitlements.not_available") {
-			return fmt.Errorf("%s tofu apply: known Cloudflare transient (10007 on assets-upload-session — see cloudflare/workers-sdk#11153). Retry in 15–30 min; nothing to fix on your end", p.name)
-		}
-		return fmt.Errorf("%s tofu apply: %w", p.name, err)
-	}
-	return nil
-}
-
-// destroyProduct: tofu init (in case provider cache is cold) → tofu
-// destroy. Always returns its own error; the caller decides whether
-// to fail-fast or collect-and-continue.
-func destroyProduct(ctx context.Context, p product) error {
-	infra := p.absInfraDir()
-	if _, err := os.Stat(infra); err != nil {
-		return fmt.Errorf("%s infra dir %s not found: %w", p.name, infra, err)
-	}
-
-	initCmd := exec.CommandContext(ctx, "tofu", "-chdir=tofu", "init", "-input=false")
-	initCmd.Dir = infra
-	initCmd.Env = os.Environ()
-	initCmd.Stdout = io.Discard
-	initCmd.Stderr = stderr
-	if err := initCmd.Run(); err != nil {
-		return fmt.Errorf("%s tofu init: %w", p.name, err)
-	}
-
-	destroyCmd := exec.CommandContext(ctx, "tofu", "-chdir=tofu", "destroy", "-auto-approve")
-	destroyCmd.Dir = infra
-	destroyCmd.Env = os.Environ()
-	destroyCmd.Stdout = stderr
-	destroyCmd.Stderr = stderr
-	if err := destroyCmd.Run(); err != nil {
-		return fmt.Errorf("%s tofu destroy: %w", p.name, err)
-	}
-	return nil
-}
-
-// fanOutDeploy launches a deployProduct goroutine for every product
-// whose dependsOnCentral matches the given filter. Returns a channel
-// the caller drains (one result per launched product) plus the count
-// so the drain loop knows how many to expect.
-func fanOutDeploy(ctx context.Context, dependsOnCentral bool) (<-chan productResult, int) {
-	ch := make(chan productResult, len(products))
-	count := 0
-	for _, p := range products {
-		if p.dependsOnCentral != dependsOnCentral {
-			continue
-		}
-		count++
-		go func(p product) {
-			fmt.Fprintf(stderr, "→ %s: build + tofu apply (parallel)\n", p.name)
-			ch <- productResult{name: p.name, err: deployProduct(ctx, p)}
-		}(p)
-	}
-	return ch, count
-}
-
-// fanOutDestroy is the destroy-side counterpart. Same filter
-// semantics, same return shape.
-func fanOutDestroy(ctx context.Context, dependsOnCentral bool) (<-chan productResult, int) {
-	ch := make(chan productResult, len(products))
-	count := 0
-	for _, p := range products {
-		if p.dependsOnCentral != dependsOnCentral {
-			continue
-		}
-		count++
-		go func(p product) {
-			fmt.Fprintf(stderr, "→ %s: tofu destroy (parallel)\n", p.name)
-			ch <- productResult{name: p.name, err: destroyProduct(ctx, p)}
-		}(p)
-	}
-	return ch, count
-}
