@@ -131,8 +131,3 @@ tasks:
     desc: "Re-run iedora-admin grants only (idempotent escape hatch)"
     cmds:
       - "{{.INFRA}}/bin/with-secrets --stage app -- {{.INFRA}}/bin/zitadel-apply --grants-only"
-
-  migrate:state:
-    desc: "ONE-SHOT: extract zitadel_* from tofu state → BWS, then state-rm. Run once per repo at refactor cutover."
-    cmds:
-      - "{{.INFRA}}/bin/with-secrets --stage iac -- go run -C {{.INFRA}} ./cmd/zitadel-apply-migrate"
