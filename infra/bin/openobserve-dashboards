@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Transparent wrapper for the Go openobserve-dashboards command at
+# infra/cmd/openobserve-dashboards. Same shape as the other bin/ shims —
+# `go run` compiles once into GOCACHE; subsequent invocations reuse the
+# cached binary.
+#
+# Stage 3 configurator. Invoked by `task app:apply` via the
+# `appConfigurators` registry in `infra/cmd/iedora/configurators.go`.
+# Opens an SSH local-forward tunnel to the Hetzner box and pushes the
+# embedded dashboard JSONs (compiled in via `go:embed`) to the OO API.
+#
+# Ad-hoc use:
+#   infra/bin/with-secrets --stage app -- infra/bin/openobserve-dashboards
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INFRA_DIR="$(dirname "$DIR")"
+
+exec go run -C "$INFRA_DIR" ./cmd/openobserve-dashboards "$@"

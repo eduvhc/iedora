@@ -54,8 +54,14 @@ variable "s3" {
 }
 
 variable "expose_host_port" {
-  description = "Publish 5080 on the host. Null in prod (private; ssh -L to reach). 5080 in dev."
+  description = "Publish 5080 on the host. Null skips the ports block entirely. In prod set this to 5080 — Hetzner's edge firewall already blocks public access (only 22/80/443/icmp open), and `expose_host_ip = 127.0.0.1` adds defence-in-depth. Stage 3's `openobserve-dashboards` configurator opens an SSH `-L` tunnel through the box to this port."
   type        = number
+  default     = null
+}
+
+variable "expose_host_ip" {
+  description = "Host IP to bind `expose_host_port` to. Null = all interfaces (Hetzner firewall is the perimeter). `127.0.0.1` = box-localhost only (reachable from SSH `-L` tunnels, not from anyone else on the box's L2)."
+  type        = string
   default     = null
 }
 
@@ -100,6 +106,7 @@ resource "docker_container" "this" {
     content {
       internal = 5080
       external = ports.value
+      ip       = var.expose_host_ip
     }
   }
 

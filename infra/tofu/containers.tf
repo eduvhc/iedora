@@ -115,8 +115,13 @@ module "openobserve" {
     access_key    = cloudflare_api_token.data_r2.id
     secret_key    = sha256(cloudflare_api_token.data_r2.value)
   }
-  # No host port — UI access is via ssh -L tunnel; products talk to
-  # infra-openobserve:5080 on the iedora network.
+  # Bind to box-localhost. Stage 3's `openobserve-dashboards` configurator
+  # opens an SSH `-L` tunnel through the box to push dashboards via the
+  # OO HTTP API (which only listens on the iedora docker network +
+  # whatever we publish here). 127.0.0.1 means other VPS-level processes
+  # can't reach it; defence-in-depth on top of the Hetzner edge firewall.
+  expose_host_port = 5080
+  expose_host_ip   = "127.0.0.1"
 }
 
 # ── Backups (self-built image) ───────────────────────────────────────────────

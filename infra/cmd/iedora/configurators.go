@@ -62,20 +62,16 @@ var appConfigurators = []appConfigurator{
 		name:   "menu-db-migrations",
 		binary: "bin/menu-db-migrations",
 	},
-	// TODO(e2e-find): openobserve-dashboards needs a small wrapper —
-	// OpenObserve has no public DNS (`obs.iedora.com` doesn't resolve;
-	// the container is internal-only on the iedora network). The bash
-	// `apply-dashboards` script curls `https://obs.iedora.com` by
-	// default and fails with curl exit 6 (DNS). Fix:
-	//   - Wrap as a Go configurator that SSHes to the box and runs
-	//     the script with OO_BASE_URL=http://localhost:5080, OR
-	//   - Run via `docker exec` against a container on the iedora
-	//     network (infra-caddy has curl + jq).
-	// Disabled temporarily so the rest of Stage 3 + Stage 4 can run.
-	// {
-	//     name:   "openobserve-dashboards",
-	//     binary: "openobserve/bin/apply-dashboards",
-	// },
+	{
+		// 3 OpenObserve dashboards (business / technical / correlation)
+		// pushed to box-localhost:5080 via an SSH `-L` tunnel. OO is
+		// firewall-internal in prod; the container's `expose_host_ip
+		// = 127.0.0.1` binding + Hetzner's edge firewall both block
+		// public access. JSONs are embedded in the binary at compile
+		// time. See `infra/cmd/openobserve-dashboards/`.
+		name:   "openobserve-dashboards",
+		binary: "bin/openobserve-dashboards",
+	},
 }
 
 // runConfigurator exec's one configurator with the orchestrator's env.
