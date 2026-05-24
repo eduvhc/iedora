@@ -61,7 +61,7 @@ Tests are DB-less — pure crypto + parsing.
 
 ### `@iedora/observability` — `packages/iedora-observability/`
 
-One-line OTel wiring per product. Wraps `@vercel/otel` — resource attrs + sampler + noise filter + 60s metrics reader. Exports `registerIedoraOtel`, `tracer`, `meter`, `withTenantSpan`, `tenantAttributes`. See `docs/observability.md` for the integration walkthrough.
+One-line OTel wiring per product. Wraps `@vercel/otel` — resource attrs + sampler + noise filter + 60s metrics reader. Exports `registerIedoraOtel`, `tracer`, `meter`, `withTenantSpan`, `tenantAttributes`. See `docs/deploy.md` for the integration walkthrough.
 
 ## When to put code where
 

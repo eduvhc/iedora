@@ -33,7 +33,7 @@ resource "docker_volume" "zitadel_bootstrap" {
   # Holds the login-client PAT (login-client.pat) written by infra-zitadel
   # during FirstInstance and read by infra-zitadel-login on every login
   # flow. Lifecycle == as long as zitadel exists; destroying this volume
-  # is the recovery path for "PAT lost" scenarios (see docs/infra/auth.md).
+  # is the recovery path for "PAT lost" scenarios (see docs/deploy.md).
 
   depends_on = [null_resource.docker_ready]
 }

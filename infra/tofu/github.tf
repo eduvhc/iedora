@@ -12,7 +12,7 @@
 # so legacy entries (e.g. the leftover BETTER_AUTH_SECRET from earlier
 # flows) persist outside Tofu's view until you `gh secret delete` them.
 #
-# Branch protection: deliberately absent. See docs/scaling.md /
+# Branch protection: deliberately absent. See docs/deploy.md /
 # memory `project_branch_protection.md` — solo, AI-driven, CI is the
 # signal. Revisit when adding collaborators.
 

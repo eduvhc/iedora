@@ -22,13 +22,13 @@ resource "random_password" "backup_passphrase" {
   special = false # GPG passphrase, keep ASCII alphanumeric
   # Replacing this orphans every previously-encrypted dump in R2.
   # Pre-launch: fine. Post-launch: handle via the dual-passphrase
-  # window documented in docs/secrets.md, not via plain replace.
+  # window documented in docs/deploy.md, not via plain replace.
 }
 
 resource "random_password" "zitadel_masterkey" {
   length  = 32 # Zitadel rejects anything other than exactly 32 chars
   special = false
-  # See docs/secrets.md "Do NOT rotate casually" — rotating this
+  # See docs/deploy.md "Do NOT rotate casually" — rotating this
   # makes the encrypted projection table unreadable. The gate inverts
   # the explicit `allow_masterkey_rotation` knob: false (default) →
   # prevent_destroy = true, blocking any -replace. To actually rotate,

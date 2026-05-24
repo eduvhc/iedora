@@ -61,7 +61,7 @@ logs when asked to debug CI).
 
 The action authenticates with a Pro/Max **OAuth token**, not an
 Anthropic API key. It is BWS-managed and Tofu-written-through, the same
-shape as every other GitHub Actions secret in this repo (`docs/secrets.md`
+shape as every other GitHub Actions secret in this repo (`docs/deploy.md`
 § Tofu-managed write-throughs). Only *minting* the token is interactive
 (`claude setup-token`); *storing* it is a static string, so it fits the
 write-through pattern with no exception.
@@ -108,7 +108,7 @@ it's Tofu-managed — the next `task up` silently clobbers it
   `task up`. The workflow then fails closed (auth error) —
   it does not run unauthenticated.
 - Treat its lifecycle as "rotate on suspicion, revoke when the Action
-  is removed" — see `docs/secrets.md` § Expiration discipline.
+  is removed" — see `docs/deploy.md` § Expiration discipline.
 
 ## MCP servers (local Claude Code)
 
@@ -133,6 +133,6 @@ the repo and is unrelated to the Action's `CLAUDE_CODE_OAUTH_TOKEN`.
 
 ## See also
 
-- `docs/secrets.md` — every other credential (BWS / Tofu-managed). This
+- `docs/deploy.md` — every other credential (BWS / Tofu-managed). This
   doc owns only the two AI-specific, non-BWS credentials above.
 - `AGENTS.md` — repo conventions Claude follows when invoked here.

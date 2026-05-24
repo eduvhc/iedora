@@ -228,7 +228,7 @@ variable "allow_masterkey_rotation" {
     To actually rotate, pass `TF_VAR_allow_masterkey_rotation=true` for that
     single apply, run `tofu apply -replace=random_password.zitadel_masterkey`,
     then unset the var. The full re-key flow (recovering session state, etc.)
-    is documented in docs/secrets.md.
+    is documented in docs/deploy.md.
   EOT
   type        = bool
   default     = false

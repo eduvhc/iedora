@@ -172,10 +172,8 @@ One workflow per workspace. Each is self-contained: own `paths:` trigger, own en
 10. `docs/security-audit.md` — threat register + supply-chain perimeter.
 11. `docs/tenancy.md` — how tenancy works + the queued migrations.
 12. `docs/vendors.md` — every dependency with rationale.
-13. `docs/deploy.md`, `docs/secrets.md`, `docs/dev-credentials.md`, `docs/backups.md`, `docs/scaling.md` — ops + local-stack playbooks.
-14. `docs/observability.md` — OTel wiring + OpenObserve recipes.
-15. `docs/infra/auth.md` — Zitadel deploy, bootstrap, day-2 ops.
-16. `docs/terraform-style.md` — LLM-safe HCL conventions.
-17. `docs/ai.md` — Claude Code Action + MCP servers.
+13. `docs/deploy.md` — **the** infra + app-state + deploy doc. Stages, commands, CI, failure modes, secret rotation, bootstrap, day-2 ops, Zitadel rebootstrap, backups, dev stack. One doc for everything pipeline-shaped.
+14. `docs/terraform-style.md` — LLM-safe HCL conventions.
+15. `docs/ai.md` — Claude Code Action + MCP servers.
 
 The bundled docs match installed versions — trust them over recall.

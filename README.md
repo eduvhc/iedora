@@ -11,33 +11,34 @@ Identity is Zitadel (`auth.iedora.com`, self-hosted). Menu is a thin OIDC client
 
 ```bash
 bun install                            # at the repo root
-just dev                               # OpenTofu boots the full stack
-                                       # (postgres, localstack, zitadel,
-                                       # openobserve, house, menu container)
+task dev                               # boots postgres, localstack,
+                                       # zitadel, openobserve, house
+                                       # (menu runs via bun run dev)
+cd products/menu && bun run dev        # menu HMR (reads .env + .env.local)
 ```
 
-For Next HMR on the menu app, opt out the container:
+`task --list-all` lists every recipe.
+
+## Ship it
 
 ```bash
-just dev --except menu
-cd products/menu && bun run dev        # reads .env + .env.local (TF-managed)
+task up        # full pipeline: infra → app state → deploy products
 ```
 
-`bun run` lists every script; `just` lists every deploy target.
+See [`docs/deploy.md`](docs/deploy.md) for the architecture, the 4-stage
+pipeline, and every operational runbook.
 
 ## Docs
 
 - **[`AGENTS.md`](AGENTS.md)** — tech stack, hard rules, file layout, conventions (loaded by AI assistants too).
+- **[`docs/deploy.md`](docs/deploy.md)** — **the** infra + app-state + deploy doc. Architecture, stages, commands, CI, failure modes, secret rotation, bootstrap, day-2 ops.
 - **[`docs/architecture.md`](docs/architecture.md)** — vertical-slice + hexagonal playbook, how to add a feature.
 - **[`docs/testing.md`](docs/testing.md)** — Vitest + PGLite unit tests, Playwright e2e.
-- **[`docs/deploy.md`](docs/deploy.md)** — single-box self-host on Hetzner: Tofu-managed Docker + Caddy, brand-new-machine walkthrough.
-- **[`docs/scaling.md`](docs/scaling.md)** — when one box isn't enough: vertical resize, sharding paths.
-- **[`docs/backups.md`](docs/backups.md)** — daily Postgres dumps to Cloudflare R2 via a Tofu-managed backup container + recovery procedures.
-- **[`docs/secrets.md`](docs/secrets.md)** — where every credential lives (BWS + Tofu state), rotation procedures, leak-response playbook.
-- **[`docs/observability.md`](docs/observability.md)** — OTel wiring + OpenObserve recipes.
 - **[`docs/tenancy.md`](docs/tenancy.md)** — multi-tenant model + Zitadel org mapping.
-- **[`docs/infra/auth.md`](docs/infra/auth.md)** — Zitadel deploy, bootstrap, day-2 ops.
 - **[`docs/terraform-style.md`](docs/terraform-style.md)** — LLM-safe HCL conventions.
+- **[`docs/security-audit.md`](docs/security-audit.md)** — threat register + supply-chain perimeter.
+- **[`docs/vendors.md`](docs/vendors.md)** — every dependency with rationale.
+- **[`docs/ai.md`](docs/ai.md)** — Claude Code Action + MCP servers.
 
 ## License
 

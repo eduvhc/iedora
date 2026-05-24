@@ -42,7 +42,7 @@ type service struct {
 // `var.enable_zitadel` stays around for CI scenarios that don't need
 // it (e.g. testing postgres in isolation) but the CLI doesn't expose
 // it. The architectural decision is documented in
-// docs/infra/auth.md + the menu auth slice's docs.
+// docs/deploy.md + the menu auth slice's docs.
 var allServices = []service{
 	{name: "postgres", tfVar: "enable_postgres", cat: catInfra,
 		envKeys: []string{"DATABASE_URL"}},
@@ -59,7 +59,10 @@ var allServices = []service{
 	// menu's deps don't list zitadel because zitadel is always-on
 	// (not in allServices). The TF code still gates the menu container
 	// on local.seed_active which requires zitadel to be up.
-	{name: "menu", tfVar: "enable_menu", deps: []string{"postgres", "localstack", "openobserve"}, cat: catProducts},
+	// `tfVar` is empty — menu runs via `bun run dev` from the host
+	// in dev. The selection flag affects WHICH containers come up
+	// (postgres/localstack/openobserve), not menu itself.
+	{name: "menu", deps: []string{"postgres", "localstack", "openobserve"}, cat: catProducts},
 }
 
 func serviceByName(n string) (service, bool) {

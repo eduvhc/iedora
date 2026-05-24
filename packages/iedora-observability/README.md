@@ -194,4 +194,4 @@ package's own `traceparent` header propagation lives in `sender.ts` and
    [otel.vercel.sh/api/interfaces/Configuration.html](https://otel.vercel.sh/api/interfaces/Configuration.html)
 3. Next.js OTel guide:
    [nextjs.org/docs/app/guides/open-telemetry](https://nextjs.org/docs/app/guides/open-telemetry)
-4. iedora's [`docs/observability.md`](../../docs/observability.md) — quickstart, dashboards, query recipes.
+4. iedora's [`docs/deploy.md`](../../docs/deploy.md) — quickstart, dashboards, query recipes.

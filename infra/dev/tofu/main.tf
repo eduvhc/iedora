@@ -65,12 +65,12 @@ variable "enable_house" {
   type    = bool
   default = true
 }
-variable "enable_menu" {
-  type    = bool
-  default = true
-}
-
 # Dev knobs that the user might twist between runs.
+# Note: `enable_menu` is no longer a Tofu input — in dev, menu always
+# runs via `cd products/menu && bun run dev` (host-side, not as a
+# container). The dev orchestrator's selection flags affect WHICH
+# shared containers `tofu apply -target=...` spins up; menu has no
+# container resource in this root anymore.
 
 variable "menu_admin_password" {
   description = "FirstInstance bootstrap password for the human admin. Single-machine literal; no rotation concerns."
