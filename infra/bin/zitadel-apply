@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Transparent wrapper for the Go zitadel-apply command at
+# infra/cmd/zitadel-apply. Same shape as bin/iedora / bin/with-secrets /
+# bin/zitadel-grant — `go run` compiles once into GOCACHE; subsequent
+# invocations reuse the cached binary.
+#
+# Stage 3 of the iedora pipeline. Called by:
+#   - `iedora app apply`            (orchestrator subcommand)
+#   - `task app`                    (Taskfile shim)
+#   - `bin/with-secrets bin/zitadel-apply --grants-only`
+#                                   (ad-hoc admin-grant refresh)
+#
+# Replaces the legacy bin/zitadel-grant — `--grants-only` reproduces its
+# behavior exactly.
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INFRA_DIR="$(dirname "$DIR")"
+
+exec go run -C "$INFRA_DIR" ./cmd/zitadel-apply "$@"
