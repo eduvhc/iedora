@@ -1,7 +1,7 @@
 import { getLocale, getTranslations } from 'next-intl/server'
 import { requireActiveOrganization } from '@/features/auth'
 import { canGenerateAiMenu, getOrganizationPlan } from '@/features/plans'
-import { DashboardPage } from '@/shared/ui/dashboard-page'
+import { DashboardPage } from '@iedora/design-system'
 
 function formatReset(date: Date, locale: string) {
   return new Intl.DateTimeFormat(locale, {

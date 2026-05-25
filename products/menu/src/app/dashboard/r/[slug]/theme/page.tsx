@@ -8,7 +8,7 @@ import type { LanguageCode, LocalizedText } from '@/features/i18n'
 import { loadMenuTree, localizeTree } from '@/features/menu-publishing'
 import type { PublicMenu, PublicMenuData } from '@/features/menu-publishing/rsc/types'
 import { ThemeEditor } from '@/features/restaurant-identity/ui/theme-editor'
-import { DashboardPage } from '@/shared/ui/dashboard-page'
+import { DashboardPage } from '@iedora/design-system'
 
 type EditorData = PublicMenuData & {
   rawTheme: RestaurantTheme | null

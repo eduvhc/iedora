@@ -116,6 +116,28 @@ export {
 } from "./components/breadcrumb";
 export { SectionHeader } from "./components/section-header";
 
+// Dashboard shell — standard page wrapper with breadcrumb, h1, and
+// consistent vertical rhythm. Framework-agnostic (uses <a> for crumbs).
+export {
+  DashboardPage,
+  type DashboardPageProps,
+  type DashboardCrumb,
+} from './components/dashboard-page'
+
+// Editorial list — row-based data presentation with dotted leaders,
+// status pills, action chips, and trailing metrics.
+export { EditorialList } from './components/editorial-list'
+export { EditorialRow } from './components/editorial-row'
+export { StatusPill } from './components/status-pill'
+export { ActionChip } from './components/action-chip'
+export { formatEditedAt, formatDelta, formatIndex } from './components/editorial-list-format'
+export type {
+  EditorialRow as EditorialRowData,
+  EditorialAction,
+  EditorialStatus,
+  EditorialTrailing,
+} from './components/editorial-list-types'
+
 // Admin stats — snapshot panels (Stat, Histogram, StatsPanel) shared
 // across cross-tenant admin surfaces (QR codes, sessions, …).
 export {

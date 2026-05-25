@@ -5,13 +5,13 @@ import { listRestaurantsWithCounts } from '@/features/dashboard-home'
 import { getOrganizationMonthlyViews } from '@/features/metrics'
 import { canAddRestaurant, getOrganizationPlan } from '@/features/plans'
 import { Card, CardDesc, CardTitle } from '@iedora/design-system'
-import { DashboardPage as PageShell } from '@/shared/ui/dashboard-page'
 import {
+  DashboardPage as PageShell,
   EditorialList,
   formatEditedAt,
   formatIndex,
   type EditorialRowData,
-} from '@/shared/ui/editorial-list'
+} from '@iedora/design-system'
 
 const VIEW_NUDGE_RATIO = 0.8
 

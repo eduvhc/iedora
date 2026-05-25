@@ -9,7 +9,7 @@ import {
 } from '@/features/metrics'
 import { getOrganizationPlan, planHas } from '@/features/plans'
 import { KpiCard, ScansCard, ScansChart } from '@/features/dashboard-home/ui/analytics-cards'
-import { DashboardPage } from '@/shared/ui/dashboard-page'
+import { DashboardPage } from '@iedora/design-system'
 
 const DEFAULT_RANGE: AnalyticsRange = '30d'
 

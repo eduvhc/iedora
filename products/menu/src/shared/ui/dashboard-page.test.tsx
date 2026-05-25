@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { DashboardPage } from './dashboard-page'
+import { DashboardPage } from '@iedora/design-system'
 
 describe('DashboardPage', () => {
   it('renders title as a plain <h1> when no intermediate crumbs are passed', () => {

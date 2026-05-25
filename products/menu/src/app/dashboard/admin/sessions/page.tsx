@@ -2,7 +2,7 @@ import { BUNDLES, getSession, requireIedoraAdmin } from '@/features/auth'
 import { loadAdminPayload } from '@/features/sessions'
 import { SessionsAdmin } from '@/features/sessions/ui/sessions-admin'
 import { toSessionAdminRow } from '@/features/sessions/ui/to-row'
-import { DashboardPage } from '@/shared/ui/dashboard-page'
+import { DashboardPage } from '@iedora/design-system'
 
 /**
  * Cross-tenant session triage. iedora-admin only — the gate hides the

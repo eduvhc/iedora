@@ -1,0 +1,149 @@
+{
+  "title": null,
+  "priceRaw": null,
+  "breadcrumb": [],
+  "address": null,
+  "features": [],
+  "description": null,
+  "detailItems": {},
+  "infoData": {},
+  "statsBar": [],
+  "keyDetails": [],
+  "pillDetails": [],
+  "images": [],
+  "energy": null,
+  "jsonLd": {
+    "@context": "https://schema.org",
+    "@type": "RealEstateListing",
+    "name": "Quinta de Excelência em Galizes — T4 com Piscina, 6 Hectares e Vistas Serra da Estrela",
+    "description": "Quinta de Excelência em Galizes — 60.000 m² | Vistas Serra da Estrela | Classe Energética A+\n\nLocalização privilegiada em Galizes, Oliveira do Hospital, com vistas panorâmicas deslumbrantes sobre a Serra da Estrela, Serra do Açor e Serra do Colcurinho. Envolvente de natureza única, privacidade total e silêncio absoluto.\n\nMORADIA — 3 PISOS | 310 m² ÁREA COBERTA\n• Rés do chão: 233 m² | 1.º Andar: 146 m² | Garagem: 110 m²\n• 1 Suite com closet e WC privativo\n• 3 Quartos adicionais\n• 1 Escritório (co",
+    "url": "https://franetic.pt/pt/imoveis/quinta-galizes-t4-piscina-vista-serra-estrela",
+    "datePosted": "2025-05-19",
+    "image": [
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/1.JPG-9mkVPBHoogPKllTFo77flOUtIZMzBj.jpeg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/1.2-IzLEizgvbeQE6M2VauJWkVPP1gaILe.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/2.JPG-jeLdfD2GejhPGfYYarQYvyMv7iq42M.jpeg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/2.1-NCdFjoBFeAgwbB7ecesDqZPfHMZ1xF.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/2.2.JPG-gHPFfU4nKvGtWugdEVEBtMmZ2abMrA.jpeg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/2.3.PNG-XI7LjCacipEWF8GftOueeTCX4q8DFn.png",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/2.4.JPG-EmxRXy6fgQguw0Hq8dfD4Lw4lODXhQ.jpeg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/2.5.JPG-OIFlhVo4WVVfeIn12HA8Nvl0rRGCjS.jpeg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/2.6-T37uBWdaTkm5l1YeNIPAaHZGjFLLto.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/6-OVSpsn3f57yosXlW1VGKvsHLgt6aIL.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/7-74UXs1snOM3ZDeb8y7Bm8anZnyLotC.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/13.JPG-C0U8PlHiy2RRy3cv55rEHPlnS6nR7c.jpeg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/14.JPG-VMVKFoHuLJOy3AfY9OKd6arIxuyraO.jpeg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/15.JPG-WeyacYyCHj29ExYi1dXA4aZ4H5GxJF.jpeg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/16.JPG-Atncr2cIgbojQNv6KkKGy9QfgOtIwF.jpeg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/17.JPG-RxBDmir4b4hLsp8FqL7SHv85pSQBwj.jpeg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/18-L3Tea9DCwdr783Ka1lo1P0kZMOMtcs.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/19-RmpnUyBnqsDZTXYaxR0sOoWF0IMxJo.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/20-z8qnIB7hdQKG9fDdcxTGXj7Y2WzySN.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/21-2C4cJzn46LIZvcxQw25Swk4sGAwJg0.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/22-suIzvIGxWDIdYfmtWIQ7PlE8sznYpq.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/23-SAgG9iibTZEnOOwBgV32AbGGHL1WAR.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/24-bfduFMqnIJy4PGsSX5wHxDjre6DynG.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/25-e6VTYFQlgkDhvspLSseRY39ks37FMU.jpeg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/26-3WGC4RMsEwlvJ945elmaKsG04DHWqH.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/27-WlJbIcXzgfd4yNQciDws8BvmfEDW21.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/28-nUwOmMzwbF1w1dssdOuIhYd2mjY3o5.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/29.JPG-tId9hbYaRSeAfBQfEjBKkowksg5a1L.jpeg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/30-x9ymUmNaPQ4om0Y4dHrWfCKEggKZBb.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/31-9BI4U1G6YzA4EwYkMr3TfmAYTt5pW8.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/32-5R1sI5ZUwvVwonh3etp3DxDNTrUSah.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/33-Ir3GGeU4xcR1MQIgL4cVGEwQvpUaly.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/34-K3F9GEuj446JleHVkUTp0BeYoGx2OR.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/34.1-aSeTCaCI9QgWHuyBNW4iqiQNNLZAhl.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/34.2-8KObE9ZajiIzINto72TgS3hgBmktZJ.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/35-zyrhmPo3OlUKxqUO39HCFNRq1d7WQd.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/36.1.JPG-RZXqZ8T6GD3FQCstCOzBAbOlh5Q6XB.jpeg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/37-WD30W5UMS1lUUEswatHtCLTwx8h510.png",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/38-Kx1oovVY7ktlfjCDCSG8YJulx9DMzi.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/40-HbVzUXmts6AZyDJzwk4hG6l642LdIu.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/41-bJkSWnrWeFQStq1cTMJAs9KIWDtfip.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/46-UffdIFK6YZZWbaM4N80UTWxIMaMUgn.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/47-0rVtFOIbNen5cuVe9dPPzAioYN7fG6.jpg",
+      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/48-oJ3HKAAPnkjJJqqhHNFSRxpa4BBcGo.jpg"
+    ],
+    "offers": {
+      "@type": "Offer",
+      "price": 745000,
+      "priceCurrency": "EUR",
+      "availability": "https://schema.org/InStock",
+      "url": "https://franetic.pt/pt/imoveis/quinta-galizes-t4-piscina-vista-serra-estrela",
+      "seller": {
+        "@type": "RealEstateAgent",
+        "name": "Franetic Real Estate Agency",
+        "url": "https://franetic.pt"
+      }
+    },
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Galizes",
+      "addressRegion": "Oliveira do Hospital",
+      "addressCountry": "Portugal",
+      "streetAddress": "Rua Vale de Salgueiro, Galizes, Oliveira do Hospital, Coimbra"
+    },
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": 40.3567,
+      "longitude": -7.8612
+    },
+    "numberOfRooms": 4,
+    "numberOfBathroomsTotal": 3,
+    "floorSize": {
+      "@type": "QuantitativeValue",
+      "value": 310,
+      "unitCode": "MTK"
+    },
+    "lotSize": {
+      "@type": "QuantitativeValue",
+      "value": 60000,
+      "unitCode": "MTK"
+    },
+    "amenityFeature": [
+      {
+        "@type": "LocationFeatureSpecification",
+        "name": "pool",
+        "value": true
+      },
+      {
+        "@type": "LocationFeatureSpecification",
+        "name": "garage",
+        "value": true
+      },
+      {
+        "@type": "LocationFeatureSpecification",
+        "name": "garden",
+        "value": true
+      },
+      {
+        "@type": "LocationFeatureSpecification",
+        "name": "terrace",
+        "value": true
+      },
+      {
+        "@type": "LocationFeatureSpecification",
+        "name": "airConditioning",
+        "value": true
+      },
+      {
+        "@type": "LocationFeatureSpecification",
+        "name": "heating",
+        "value": true
+      },
+      {
+        "@type": "LocationFeatureSpecification",
+        "name": "fireplace",
+        "value": true
+      },
+      {
+        "@type": "LocationFeatureSpecification",
+        "name": "storage",
+        "value": true
+      }
+    ]
+  },
+  "url": "https://www.franetic.com/pt/imoveis/quinta-galizes-t4-piscina-vista-serra-estrela",
+  "fullText": "Início\nImóveis\nVender Imóvel\nServiços\nSobre\nBlog\nContacto\nPT\nContacto\nInício\nImóveis\nQuinta de Excelência em Galizes — T4 com Piscina, 6 Hectares e Vistas Serra da Estrela\n1 / 44\nMoradia\nNovo\nA+\nRef. galizes-quinta-t4-piscina\nQuinta de Excelência em Galizes — T4 com Piscina, 6 Hectares e Vistas Serra da Estrela\nRua Vale de Salgueiro, Galizes, Oliveira do Hospital, Coimbra, Portugal\n\n745 000 €\n\n2,403 €/m²\n\n4\nQUARTOS\n3\nCASAS DE BANHO\n310\nM²\n6.0\nHECTARES\nDiferenciais de Valor\n6 hectares de terreno produtivo\n~500 oliveiras com rega gota a gota\nClasse Energética A+\n14 painéis solares com conversor\nFuro artesiano + 2 poços de água\nPiscina com vistas panorâmicas\nGaragem 110 m² com bar integrado\nPortões automatizados + fibra ótica\nDescrição\n\nQuinta de Excelência em Galizes — 60.000 m² | Vistas Serra da Estrela | Classe Energética A+\n\nLocalização privilegiada em Galizes, Oliveira do Hospital, com vistas panorâmicas deslumbrantes sobre a Serra da Estrela, Serra do Açor e Serra do Colcurinho. Envolvente de natureza única, privacidade total e silêncio absoluto.\n\nMORADIA — 3 PISOS | 310 m² ÁREA COBERTA\n\n• Rés do chão: 233 m² | 1.º Andar: 146 m² | Garagem: 110 m²\n\n• 1 Suite com closet e WC privativo\n\n• 3 Quartos adicionais\n\n• 1 Escritório (convertível em quarto)\n\n• Cozinha espaçosa totalmente equipada\n\n• 3 WCs | Lavandaria | Sótão amplo\n\n• Construção de extrema qualidade com madeiras nobres de carvalho\n\nEXTERIOR E TERRENO — 6 HECTARES PRODUTIVOS\n\n• ~500 oliveiras com rega gota a gota\n\n• Pomares variados: cerejeiras, pereiras, pessegueiros, laranjeiras, tangerineiras, ameixoeiras, morangueiros, kiwis\n\n• Eucaliptos, carvalhos e castanheiros\n\n• Potencial construtivo adicional no terreno\n\nRECURSOS HÍDRICOS\n\n• Furo artesiano + 2 poços de água\n\n• Elevada autonomia hídrica — ativo extremamente valorizado\n\nLAZER E BEM-ESTAR\n\n• Piscina ~9 m × 3,5 m com área de lazer panorâmica\n\n• Alpendre exterior com zona de refeições e churrasqueira\n\n• 2 telheiros exteriores para trator/arrumação\n\nEFICIÊNCIA E CONFORTO\n\n• Classe Energética A+\n\n• 14 painéis solares com conversor\n\n• Sistema de aquecimento a pellets + fogão a lenha\n\n• 6 unidades de ar condicionado\n\n• Termoacumulador 200 L\n\n• Caixilharia PVC oscilobatente com vidro duplo\n\n• Portões automatizados | Fibra ótica\n\nGARAGEM — 110 m²\n\n• Armários maciços | Balcão com bar integrado\n\nPOTENCIAL DE UTILIZAÇÃO\n\nHabitação própria de luxo, turismo rural / alojamento local, quinta para eventos, expansão agrícola (azeite, culturas, animais) ou construção adicional.\n\nCaracterísticas\n🏊\nPiscina\n🚗\nGaragem\n🌳\nJardim\n🏡\nTerraço\n❄️\nAr Condicionado\n🔥\nAquecimento\n🪵\nLareira\n📦\nArrecadação\nLocalização\n\nGalizes, Oliveira do Hospital\n\nPortugal — Rua Vale de Salgueiro, Galizes, Oliveira do Hospital, Coimbra\n\nContactar Agente\n\nTiago Jorge — Franetic Real Estate\n\nEnviar Email\nLigar Agora\nAgendar Visita\nPartilhar\nRESUMO DO IMÓVEL\nTipo\nMoradia\nTipologia\nT4\nÁrea\n310 m²\nÁrea Útil\n280 m²\nTerreno\n6 ha (60,000 m²)\nGaragem\n110 m²\nAno Construção\n2002\nClasse Energética\nA+\nPreço/m²\n2,403 €\nRef.\ngalizes-quinta-t4-piscina\n\nAutonomia Hídrica Total\n\nFuro artesiano + 2 poços de água com rega gota a gota para todas as culturas.\n\nAgência imobiliária licenciada, dedicada a encontrar o imóvel ideal para cada cliente. Cobertura em todo o território nacional.\n\nLINKS RÁPIDOS\nInício\nImóveis\nVender Imóvel\nServiços\nSobre\nBlog\nContacto\nCONTACTO\nRua Luís de Camões 55, C, r/c\n2460-014, Quinta da Conceição\nAlcobaça, Portugal\n+351 910 200 981\ngeral@franetic.pt\nINFORMAÇÕES\n\nFranetic Real Estate Agency\n\nResponsável: Tiago Jorge\n\nLicença IMPIC: 26878\n\nSede em Alcobaça | Operamos em todo Portugal\n\nRESOLUÇÃO DE LITÍGIOS\nLivro de Reclamações Eletrónico\nCIAB - Centro de Arbitragem\nPlataforma Europeia RLL\n\n© 2026 Franetic Real Estate Agency. Todos os direitos reservados.\n\nPolítica de Privacidade\nTermos e Condições\nWhatsApp\nLigar Agora\nPrecisa de ajuda?"
+}

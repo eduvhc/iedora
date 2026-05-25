@@ -3,7 +3,7 @@ import { getLocale, getTranslations } from 'next-intl/server'
 import { requireActiveOrganization } from '@/features/auth'
 import { getInvoiceYears, getInvoicesForYear } from '@/features/billing'
 import { PLANS, getOrganizationPlan } from '@/features/plans'
-import { DashboardPage } from '@/shared/ui/dashboard-page'
+import { DashboardPage } from '@iedora/design-system'
 import { Badge } from '@iedora/design-system'
 import { UpgradeButton } from './upgrade-button'
 

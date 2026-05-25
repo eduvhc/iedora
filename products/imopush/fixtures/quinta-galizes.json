@@ -1,0 +1,114 @@
+{
+  "reference": "galizes-quinta-t4-piscina",
+  "type": "country_house",
+  "operation": "sale",
+
+  "address": {
+    "locality": "Galizes",
+    "municipality": "Oliveira do Hospital",
+    "district": "Coimbra",
+    "street": "Rua Vale de Salgueiro",
+    "postalCode": "3400-758",
+    "coordinates": {
+      "lat": 40.3567,
+      "lng": -7.8612
+    }
+  },
+
+  "contact": {
+    "name": "Eduardo",
+    "email": "eduardoferdcarvalho+agency@gmail.com",
+    "phone": "917140356",
+    "phonePrefix": "351",
+    "preferredMethod": "phone_and_chat"
+  },
+
+  "priceCents": 74500000,
+
+  "sizeSqm": 310,
+  "rooms": 4,
+  "bathrooms": 3,
+  "occupancy": "vacant",
+
+  "description": "Quinta de Excelência em Galizes — 60.000 m² | Vistas Serra da Estrela | Classe Energética A+\n\nLocalização privilegiada em Galizes, Oliveira do Hospital, com vistas panorâmicas deslumbrantes sobre a Serra da Estrela, Serra do Açor e Serra do Colcurinho. Envolvente de natureza única, privacidade total e silêncio absoluto.\n\nMORADIA — 3 PISOS | 310 m² ÁREA COBERTA\n• Rés do chão: 233 m² | 1.º Andar: 146 m² | Garagem: 110 m²\n• 1 Suite com closet e WC privativo\n• 3 Quartos adicionais\n• 1 Escritório\n• 3 Casas de banho\n• Sala de estar ampla com lareira\n• Cozinha totalmente equipada\n\nTERRENO — 6 HECTARES\n• 60.000 m² de propriedade\n• Piscina de lazer\n• Jardim paisagístico\n• Várias estruturas de apoio agrícola\n• Furo de água próprio\n• Acesso direto por estrada alcatroada\n\nEQUIPAMENTOS\n• Ar condicionado em todos os compartimentos\n• Aquecimento central\n• Lareira\n• Painéis solares\n• Alarme\n• Garagem para 3 viaturas (110 m²)\n• Arrecadação\n• Armários embutidos\n\nIDEAL PARA\n• Habitação permanente com espaço e privacidade\n• Turismo rural / alojamento local\n• Investimento agrícola ou agropecuário\n• Retiro / meditação\n\nConstruído em 2002. Excelente estado de conservação.",
+
+  "features": {
+    "condition": "good",
+    "yearBuilt": 2002,
+    "energyCertificate": "A+",
+
+    "heatingType": "individual",
+    "individualHeatFuel": "heat_pump",
+
+    "floors": 3,
+    "constructedAreaSqm": 310,
+    "usableAreaSqm": 280,
+    "lotSizeSqm": 60000,
+    "garageAreaSqm": 110,
+
+    "hasLift": false,
+    "hasTerrace": true,
+    "hasBalcony": true,
+    "hasGarden": true,
+    "hasPool": true,
+    "hasParking": true,
+    "parkingIncludedInPrice": true,
+    "hasStorage": true,
+    "hasWardrobe": true,
+    "hasAirConditioning": true,
+    "hasFireplace": true,
+    "hasHandicapAccess": false,
+
+    "facesSouth": true,
+    "facesWest": true
+  },
+
+  "photoUrls": [
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/1.JPG-9mkVPBHoogPKllTFo77flOUtIZMzBj.jpeg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/1.2-IzLEizgvbeQE6M2VauJWkVPP1gaILe.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/2.JPG-jeLdfD2GejhPGfYYarQYvyMv7iq42M.jpeg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/2.1-NCdFjoBFeAgwbB7ecesDqZPfHMZ1xF.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/2.2.JPG-gHPFfU4nKvGtWugdEVEBtMmZ2abMrA.jpeg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/2.3.PNG-XI7LjCacipEWF8GftOueeTCX4q8DFn.png",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/2.4.JPG-EmxRXy6fgQguw0Hq8dfD4Lw4lODXhQ.jpeg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/2.5.JPG-OIFlhVo4WVVfeIn12HA8Nvl0rRGCjS.jpeg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/2.6-T37uBWdaTkm5l1YeNIPAaHZGjFLLto.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/6-OVSpsn3f57yosXlW1VGKvsHLgt6aIL.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/7-74UXs1snOM3ZDeb8y7Bm8anZnyLotC.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/13.JPG-C0U8PlHiy2RRy3cv55rEHPlnS6nR7c.jpeg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/14.JPG-VMVKFoHuLJOy3AfY9OKd6arIxuyraO.jpeg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/15.JPG-WeyacYyCHj29ExYi1dXA4aZ4H5GxJF.jpeg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/16.JPG-Atncr2cIgbojQNv6KkKGy9QfgOtIwF.jpeg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/17.JPG-RxBDmir4b4hLsp8FqL7SHv85pSQBwj.jpeg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/18-L3Tea9DCwdr783Ka1lo1P0kZMOMtcs.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/19-RmpnUyBnqsDZTXYaxR0sOoWF0IMxJo.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/20-z8qnIB7hdQKG9fDdcxTGXj7Y2WzySN.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/21-2C4cJzn46LIZvcxQw25Swk4sGAwJg0.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/22-suIzvIGxWDIdYfmtWIQ7PlE8sznYpq.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/23-SAgG9iibTZEnOOwBgV32AbGGHL1WAR.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/24-bfduFMqnIJy4PGsSX5wHxDjre6DynG.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/25-e6VTYFQlgkDhvspLSseRY39ks37FMU.jpeg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/26-3WGC4RMsEwlvJ945elmaKsG04DHWqH.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/27-WlJbIcXzgfd4yNQciDws8BvmfEDW21.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/28-nUwOmMzwbF1w1dssdOuIhYd2mjY3o5.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/29.JPG-tId9hbYaRSeAfBQfEjBKkowksg5a1L.jpeg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/30-x9ymUmNaPQ4om0Y4dHrWfCKEggKZBb.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/31-9BI4U1G6YzA4EwYkMr3TfmAYTt5pW8.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/32-5R1sI5ZUwvVwonh3etp3DxDNTrUSah.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/33-Ir3GGeU4xcR1MQIgL4cVGEwQvpUaly.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/34-K3F9GEuj446JleHVkUTp0BeYoGx2OR.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/34.1-aSeTCaCI9QgWHuyBNW4iqiQNNLZAhl.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/34.2-8KObE9ZajiIzINto72TgS3hgBmktZJ.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/35-zyrhmPo3OlUKxqUO39HCFNRq1d7WQd.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/36.1.JPG-RZXqZ8T6GD3FQCstCOzBAbOlh5Q6XB.jpeg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/37-WD30W5UMS1lUUEswatHtCLTwx8h510.png",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/38-Kx1oovVY7ktlfjCDCSG8YJulx9DMzi.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/40-HbVzUXmts6AZyDJzwk4hG6l642LdIu.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/41-bJkSWnrWeFQStq1cTMJAs9KIWDtfip.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/46-UffdIFK6YZZWbaM4N80UTWxIMaMUgn.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/47-0rVtFOIbNen5cuVe9dPPzAioYN7fG6.jpg",
+    "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/48-oJ3HKAAPnkjJJqqhHNFSRxpa4BBcGo.jpg"
+  ],
+
+  "sourceUrl": "https://www.franetic.com/pt/imoveis/quinta-galizes-t4-piscina-vista-serra-estrela"
+}

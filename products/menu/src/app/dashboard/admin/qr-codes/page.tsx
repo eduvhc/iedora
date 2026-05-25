@@ -6,7 +6,7 @@ import { computeQrStats } from '@/features/qr-codes/stats'
 import { QrCodesAdmin } from '@/features/qr-codes/ui/qr-codes-admin'
 import { db } from '@/shared/db/client'
 import { restaurant } from '@/shared/db/schema'
-import { DashboardPage } from '@/shared/ui/dashboard-page'
+import { DashboardPage } from '@iedora/design-system'
 
 /**
  * Cross-tenant admin surface for binding QR codes to restaurants.

@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { requireRestaurantBySlug } from '@/features/auth'
 import { loadBuilderData } from '@/features/menu-builder'
 import { MenuBuilder } from '@/features/menu-builder/ui/builder'
-import { DashboardPage } from '@/shared/ui/dashboard-page'
+import { DashboardPage } from '@iedora/design-system'
 
 export default async function MenuBuilderPage({
   params,

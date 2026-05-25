@@ -5,7 +5,8 @@
   "workspaces": [
     "packages/*",
     "products/house",
-    "products/menu"
+    "products/menu",
+    "products/imopush"
   ],
   "scripts": {
     "docs:audit": "bun scripts/docs-audit.ts"
