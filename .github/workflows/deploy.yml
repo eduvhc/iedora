@@ -64,7 +64,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Setup Node (for cloudflareWorker products that build with Astro)
         # Astro 5 requires Node ≥ 22.12. Cheap when unused — no-op a few
@@ -73,7 +73,7 @@ jobs:
         if: inputs.product == 'house'
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: '24'
+          node-version: '24.0.2'
 
       - name: Setup workspace (Bun + install)
         # Composite at .github/actions/setup — installs Bun and resolves

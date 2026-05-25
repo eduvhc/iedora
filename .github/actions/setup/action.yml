@@ -33,7 +33,7 @@ runs:
     # cache@v5 (Apr 2026) — Node 24 runtime, native against the Cache v2
     # backend that replaced v1 in Apr 2025.
     - name: Cache Bun install dir
-      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
         path: ~/.bun/install/cache
         key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
