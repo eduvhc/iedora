@@ -25,7 +25,7 @@ infra/
   cmd/iedora/            Stage 2/3/4 orchestrator (live).
                          Subcommands: iac, app, deploy, destroy,
                          pipeline, doctor.
-  cmd/dev/               Local dev orchestrator (`task dev`).
+  cmd/dev/               Local dev orchestrator (`task local`).
                          Mirrors the prod pipeline shape against
                          a local Docker daemon.
   cmd/zitadel-apply/     Stage 3 — reconciles Zitadel app state
@@ -60,7 +60,7 @@ task deploy:menu      # Stage 4: docker pull + run on the box
 task deploy:house     # Stage 4: bun build + per-product tofu apply
 task up               # Full pipeline: 2 → 3 → 4
 task down             # Full teardown: products → infra:down
-task dev              # Local dev stack
+task local              # Local dev stack
 ```
 
 For day-2 raw-SSH ops (logs, psql, backup, restore, rotation, Zitadel
