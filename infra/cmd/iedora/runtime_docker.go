@@ -320,11 +320,17 @@ func (d *dockerOnHetzner) deployHotSwap(ctx context.Context, ssh sshExecutor, ho
 	return nil
 }
 
-// probe loops over `docker exec <name> wget -qO- -T 5 http://localhost:<port><path>`
-// every Interval until either: the response body contains `"ok":true` (→
-// healthy, return nil), or Timeout elapses (→ return error). Any wget
-// failure (connection refused, DNS, non-200) is a transient miss — we
+// probe loops over `docker exec <name> node -e "..."` every Interval
+// until either: the response body contains `"ok":true` (→ healthy,
+// return nil), or Timeout elapses (→ return error). Any HTTP failure
+// (connection refused, non-200, exec error) is a transient miss — we
 // just retry until the budget runs out.
+//
+// We probe via `node -e` rather than `wget` because the menu image is
+// node-alpine slim — no `wget`/`curl` binary. `node` itself is the
+// container's entrypoint, so it's always present. The inline script
+// uses node:http (stdlib, no deps) and exits 0 only on 2xx — letting
+// the body match still gate the success path.
 func (d *dockerOnHetzner) probe(ctx context.Context, ssh sshExecutor, host, name string) error {
 	hc := d.Healthcheck
 	timeout := hc.Timeout
@@ -336,10 +342,13 @@ func (d *dockerOnHetzner) probe(ctx context.Context, ssh sshExecutor, host, name
 		interval = 500 * time.Millisecond
 	}
 
-	probeCmd := fmt.Sprintf(
-		"docker exec %s wget -qO- -T 5 http://localhost:%d%s",
-		name, hc.Port, hc.Path,
+	// One-line node script: GET /up, echo body to stdout, exit non-zero
+	// on connection error or non-2xx. Body match is checked Go-side.
+	probeScript := fmt.Sprintf(
+		`const h=require("node:http");h.get("http://localhost:%d%s",r=>{let d="";r.on("data",c=>d+=c);r.on("end",()=>{process.stdout.write(d);process.exit(r.statusCode>=200&&r.statusCode<300?0:1)})}).on("error",e=>{process.stderr.write(e.message);process.exit(1)}).setTimeout(5000,()=>process.exit(1))`,
+		hc.Port, hc.Path,
 	)
+	probeCmd := fmt.Sprintf("docker exec %s node -e %s", name, shellSingleQuote(probeScript))
 
 	deadline := time.Now().Add(timeout)
 	var lastBody, lastErr string

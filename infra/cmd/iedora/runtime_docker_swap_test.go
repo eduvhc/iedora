@@ -35,11 +35,11 @@ func TestDeployHotSwap(t *testing.T) {
 			name: "happy path — start, probe, swap, drain, reap, rename",
 			// Empty script → probe Capture returns `{"ok":true}` body via default.
 			script: []scriptedResp{
-				{match: "wget", stdout: `{"ok":true,"db":"ok"}`},
+				{match: "node -e", stdout: `{"ok":true,"db":"ok"}`},
 			},
 			wantSeq: []string{
 				"'docker' 'run' '-d' '--name' 'infra-menu-web-next'",
-				"docker exec infra-menu-web-next wget",
+				"docker exec infra-menu-web-next node -e",
 				"docker network disconnect iedora infra-menu-web && docker network disconnect iedora infra-menu-web-next && docker network connect --alias infra-menu-web --alias infra-menu-web-next iedora infra-menu-web-next",
 				"docker stop infra-menu-web 2>/dev/null",
 				"docker rename infra-menu-web-next infra-menu-web",
@@ -54,11 +54,11 @@ func TestDeployHotSwap(t *testing.T) {
 			name: "probe times out — body never matches",
 			script: []scriptedResp{
 				// Probe responds with 503-shaped body; never matches `"ok":true`.
-				{match: "wget", stdout: `{"ok":false,"db":"err"}`},
+				{match: "node -e", stdout: `{"ok":false,"db":"err"}`},
 			},
 			wantSeq: []string{
 				"'docker' 'run' '-d' '--name' 'infra-menu-web-next'",
-				"docker exec infra-menu-web-next wget",
+				"docker exec infra-menu-web-next node -e",
 				// Rollback runs the stop+rm+disconnect combo.
 				"docker stop infra-menu-web-next 2>/dev/null; docker rm infra-menu-web-next 2>/dev/null; docker network disconnect iedora infra-menu-web-next 2>/dev/null",
 			},
@@ -69,13 +69,13 @@ func TestDeployHotSwap(t *testing.T) {
 			wantErrSub: "probe",
 		},
 		{
-			name: "probe errors — wget exec fails",
+			name: "probe errors — node exec fails",
 			script: []scriptedResp{
-				{match: "wget", err: errors.New("exit 1")},
+				{match: "node -e", err: errors.New("exit 1")},
 			},
 			wantSeq: []string{
 				"'docker' 'run' '-d' '--name' 'infra-menu-web-next'",
-				"docker exec infra-menu-web-next wget",
+				"docker exec infra-menu-web-next node -e",
 				"docker stop infra-menu-web-next 2>/dev/null; docker rm infra-menu-web-next 2>/dev/null",
 			},
 			wantAbsent: []string{
@@ -86,12 +86,12 @@ func TestDeployHotSwap(t *testing.T) {
 		{
 			name: "alias swap fails — rollback, no rename",
 			script: []scriptedResp{
-				{match: "wget", stdout: `{"ok":true}`},
+				{match: "node -e", stdout: `{"ok":true}`},
 				{match: "network disconnect iedora infra-menu-web ", err: errors.New("no such network")},
 			},
 			wantSeq: []string{
 				"'docker' 'run' '-d' '--name' 'infra-menu-web-next'",
-				"docker exec infra-menu-web-next wget",
+				"docker exec infra-menu-web-next node -e",
 				"docker network disconnect iedora infra-menu-web &&",
 				// Rollback runs after the swap fails.
 				"docker stop infra-menu-web-next 2>/dev/null; docker rm infra-menu-web-next 2>/dev/null",
