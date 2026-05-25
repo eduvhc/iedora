@@ -78,6 +78,17 @@ func run(ctx context.Context) error {
 	owner := envOr("GHCR_OWNER", "eduvhc")
 	network := envOr("IEDORA_DOCKER_NETWORK", "iedora")
 
+	// Rule 3 — scan the pending drizzle migrations for destructive SQL
+	// without a `phase=contract references=...` marker BEFORE any SSH
+	// or docker call. A bad migration here would land in postgres and
+	// the live menu container would still be serving the old schema
+	// for the remaining seconds of Stage 3. See docs/deploy.md
+	// § Environment guardrails (Rule 3).
+	migrationsDir := filepath.Join(filepath.Dir(infraDir()), "products", "menu", "drizzle")
+	if err := gateMigrations(migrationsDir, runsIn); err != nil {
+		return err
+	}
+
 	host, err := tofuOutput(ctx, "hetzner_ipv4")
 	if err != nil {
 		return fmt.Errorf("read hetzner_ipv4: %w", err)
