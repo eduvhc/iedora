@@ -123,7 +123,7 @@ src/
 Three guides, each focused on one workflow:
 
 - **[`docs/adding-components.md`](docs/adding-components.md)** — checklist for adding a new primitive, with the Dialog port as a worked example.
-- **[`docs/testing.md`](docs/testing.md)** — the dual-environment vitest setup (node for static, jsdom for Radix), browser-API shims, common pitfalls.
+- **[`products/menu/tests/README.md`](products/menu/tests/README.md)** — the dual-environment vitest setup (node for static, jsdom for Radix), browser-API shims, common pitfalls.
 - **[`docs/components.md`](docs/components.md)** — every component, with its public props, a minimal usage example, and notes.
 
 ## Maintaining

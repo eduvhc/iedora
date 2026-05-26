@@ -6,7 +6,7 @@ How we test slices (Vitest + PGLite) and full user journeys (Playwright).
 
 - **Unit (Vitest + PGLite, co-located).** Per use-case; runs in Node; hits a real Postgres-compatible database. ~100 ms per test once WASM is warm. Lives next to the code: `src/features/<slice>/<slice>.test.ts`.
 - **Slice E2E (Playwright, co-located).** Browser-driven specs scoped to one capability of one slice. Lives at `src/features/<slice>/e2e/<capability>.spec.ts`.
-- **Cross-slice journeys (Playwright).** User flows that span multiple slices. Lives at `apps/web/tests/e2e/journeys/<flow>.spec.ts`.
+- **Cross-slice journeys (Playwright).** User flows that span multiple slices. Lives at `tests/e2e/journeys/<flow>.spec.ts`.
 
 No "mock all the things and assert call shapes" tier in between. PGLite tests already exercise real Drizzle queries against real Postgres semantics — the layer that would live there would just duplicate them with worse ergonomics.
 
@@ -14,15 +14,15 @@ No "mock all the things and assert call shapes" tier in between. PGLite tests al
 
 | Location | Runner | Tier | Notes |
 |---|---|---|---|
-| `apps/web/src/**/*.test.ts` | Vitest | unit | PGLite via `src/shared/testing/pglite.ts`; rate-limit also runs against PGLite (advisory locks + `READ COMMITTED`) |
-| `apps/web/src/features/*/e2e/` | Playwright | slice e2e | Postgres 18 + adobe/s3mock as service containers in CI (LocalStack locally); one slice per folder |
-| `apps/web/tests/e2e/journeys/` | Playwright | cross-slice journeys | Same runtime — only files that span ≥2 slices live here |
+| `src/**/*.test.ts` | Vitest | unit | PGLite via `src/shared/testing/pglite.ts`; rate-limit also runs against PGLite (advisory locks + `READ COMMITTED`) |
+| `src/features/*/e2e/` | Playwright | slice e2e | Postgres 18 + adobe/s3mock as service containers in CI (LocalStack locally); one slice per folder |
+| `tests/e2e/journeys/` | Playwright | cross-slice journeys | Same runtime — only files that span ≥2 slices live here |
 | `packages/iedora-observability/src/__tests__/*.test.ts` | Vitest | unit | No-op-in-tests contract, tenant attribute pins |
 | `packages/design-system/src/test/` | Vitest + jsdom | unit | Component primitives via Testing Library |
 
 ## The PGLite fixture
 
-`apps/web/src/shared/testing/pglite.ts`:
+`src/shared/testing/pglite.ts`:
 
 ```ts
 export async function makeTestDb(): Promise<TestDb> {
@@ -39,7 +39,7 @@ Vitest is configured with `pool: 'forks'` so each worker owns its PGLite instanc
 
 ## How to write a slice unit test
 
-Template: `apps/web/src/features/auth/auth.test.ts`.
+Template: `src/features/auth/auth.test.ts`.
 
 **1. Mock the Next request-scoped APIs.** `redirect()` and `notFound()` only work inside a Next request scope; `server-only` throws at import outside one.
 

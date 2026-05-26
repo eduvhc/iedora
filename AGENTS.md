@@ -190,7 +190,7 @@ One workflow per workspace. Each is self-contained: own `paths:` trigger, own en
 6. `docs/agents/slice-pattern.md` — slice contract + how to add a feature. (Auto-imported.)
 7. `docs/agents/cross-product-rules.md` — the 2 rules every frontend product enforces. (Auto-imported.)
 8. `docs/architecture.md` — monorepo overview + menu's slice inventory + anti-patterns.
-9. `docs/testing.md` — test pyramid (Vitest+PGLite unit, Playwright e2e).
+9. `products/menu/tests/README.md` — test pyramid (Vitest+PGLite unit, Playwright e2e).
 10. `docs/vendors.md` — every dependency with rationale.
 11. `docs/deploy/README.md` — **the** infra + app-state + deploy doc. Day 0 / Day 1 / Day 2 lifecycle, stages, commands, CI, failure modes, secret rotation, backups, dev stack. One doc for everything pipeline-shaped.
 12. `infra/CLAUDE.md` § HCL style — LLM-safe HCL conventions for `infra/iac/tofu/`.

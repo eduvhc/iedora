@@ -1,6 +1,6 @@
 # auth/testing — slice E2E surface
 
-Exports — see [docs/testing.md](/docs/testing.md) for the contract:
+Exports — see [products/menu/tests/README.md](/products/menu/tests/README.md) for the contract:
 
 - `signInAs(context, { email, name, profile, organizationId? })` —
   inserts a `menu.session` row + injects the JWE pointer cookie. Mirrors
