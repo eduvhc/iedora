@@ -41,11 +41,22 @@ resource "random_password" "zitadel_masterkey" {
 }
 
 resource "random_password" "zitadel_first_admin" {
-  length  = 24
-  special = true
-  # Only used on FirstInstance. Real admin password is changed via
-  # the Zitadel UI on first login. Operator looks this up in BWS
-  # under IAC_ZITADEL_FIRST_ADMIN_PASSWORD.
+  length      = 24
+  special     = true
+  min_lower   = 4
+  min_upper   = 4
+  min_numeric = 4
+  min_special = 2
+  # Pinned minimums guarantee Zitadel's default PasswordComplexityPolicy
+  # (HasLower + HasUpper + HasNumber + HasSymbol). Without them
+  # random_password can return a 24-char string missing a digit
+  # entirely — observed in a cax11 cold-deploy where Zitadel's setup
+  # migration 03_default_instance looped indefinitely with
+  # `Errors.User.PasswordComplexityPolicy.HasNumber`.
+  #
+  # Only used on FirstInstance. Real admin password is changed via the
+  # Zitadel UI on first login. Operator looks this up in BWS under
+  # IAC_ZITADEL_FIRST_ADMIN_PASSWORD.
 }
 
 resource "random_password" "openobserve_password" {
