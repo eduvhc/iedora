@@ -52,7 +52,13 @@ import (
 	"syscall"
 
 	"github.com/eduvhc/iedora/infra/internal/mode"
+	"github.com/eduvhc/iedora/infra/internal/ssh"
 )
+
+// remoteSSH is the configurator's SSH executor. Stdout AND stderr both
+// route to os.Stderr because this binary is non-interactive — all
+// output is a log line, not a value the operator parses.
+var remoteSSH = &ssh.Client{Stdout: os.Stderr, Stderr: os.Stderr}
 
 // runsIn pins this binary's deployment topology: Stage 3 against the
 // live Hetzner box. Never invoked by `cmd/dev`. If `cmd/dev` ever
@@ -121,13 +127,13 @@ func run(ctx context.Context) error {
 			"echo %s | docker login ghcr.io -u %s --password-stdin",
 			shellQuote(ghcrToken), shellQuote(owner),
 		)
-		if err := sshExec(ctx, host, loginCmd); err != nil {
+		if err := remoteSSH.Exec(ctx, host, loginCmd); err != nil {
 			fmt.Fprintf(os.Stderr, "  ! docker login failed (continuing — image may be cached): %v\n", err)
 		}
 	}
 
 	fmt.Fprintf(os.Stderr, "→ menu-db-migrations: pull %s (skipped if already cached)\n", image)
-	if err := sshExec(ctx, host, "docker pull "+image); err != nil {
+	if err := remoteSSH.Exec(ctx, host, "docker pull "+image); err != nil {
 		// Pull failure is non-fatal IF the image is already on the box
 		// (offline rerun, registry blip). The subsequent `docker run`
 		// will fail loud and clear if the image truly isn't there.
@@ -147,7 +153,7 @@ func run(ctx context.Context) error {
 		shellQuote("DATABASE_URL="+dbURL),
 		shellQuote(image),
 	)
-	if err := sshExec(ctx, host, dockerCmd); err != nil {
+	if err := remoteSSH.Exec(ctx, host, dockerCmd); err != nil {
 		return fmt.Errorf("migrate run: %w", err)
 	}
 
@@ -213,16 +219,6 @@ func iacDir() string {
 		}
 	}
 	return "."
-}
-
-func sshExec(ctx context.Context, host, remoteCmd string) error {
-	cmd := exec.CommandContext(ctx, "ssh",
-		"-o", "StrictHostKeyChecking=accept-new",
-		"-o", "ConnectTimeout=10",
-		"root@"+host, remoteCmd)
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
 }
 
 // shellQuote wraps an arg in single quotes for safe SSH transport

@@ -4,14 +4,22 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/eduvhc/iedora/infra/internal/bws"
 	"github.com/eduvhc/iedora/infra/internal/mode"
+	"github.com/eduvhc/iedora/infra/internal/ssh"
 	"github.com/eduvhc/iedora/infra/internal/tlsprobe"
 )
+
+// remoteSSH is the package-level SSH executor. Stdout AND stderr route
+// to the package's `stderr` writer (os.Stderr) — zitadel-apply is a
+// reconciler, not interactive, so every byte of output is a log line.
+// Per-call captures (e.g. `fetchSAKeyFromBox`) build their own Client
+// with Stdout pointed at a buffer to avoid leaking the SA key JSON into
+// the operator's log.
+var remoteSSH = &ssh.Client{Stdout: stderr, Stderr: stderr}
 
 // ensureSAKey is the binary's self-bootstrap. It runs BEFORE reconcile
 // and is responsible for everything `zitadel-apply` needs to authenticate
@@ -103,7 +111,7 @@ func ensureSAKey(ctx context.Context, cfg Config, m mode.Mode) (string, error) {
 func fetchSAKeyFromBox(ctx context.Context, host string) (string, error) {
 	deadline := time.Now().Add(60 * time.Second)
 	for time.Now().Before(deadline) {
-		if err := sshExec(ctx, host, "docker run --rm -v zitadel-bootstrap:/x busybox test -s /x/zitadel-admin-sa.json"); err == nil {
+		if err := remoteSSH.Exec(ctx, host, "docker run --rm -v zitadel-bootstrap:/x busybox test -s /x/zitadel-admin-sa.json"); err == nil {
 			break
 		}
 		select {
@@ -112,7 +120,7 @@ func fetchSAKeyFromBox(ctx context.Context, host string) (string, error) {
 			return "", ctx.Err()
 		}
 	}
-	out, err := sshCaptureStdout(ctx, host, "docker run --rm -v zitadel-bootstrap:/x busybox cat /x/zitadel-admin-sa.json")
+	out, err := remoteSSH.Capture(ctx, host, "docker run --rm -v zitadel-bootstrap:/x busybox cat /x/zitadel-admin-sa.json")
 	if err != nil {
 		return "", err
 	}
@@ -120,32 +128,4 @@ func fetchSAKeyFromBox(ctx context.Context, host string) (string, error) {
 		return "", fmt.Errorf("SA key file present but empty")
 	}
 	return out, nil
-}
-
-// sshExec runs an SSH command, streaming to stderr. Same shape as the
-// helper in `wait_dns.go` — kept separate so this file is self-contained.
-func sshExec(ctx context.Context, host, remoteCmd string) error {
-	cmd := exec.CommandContext(ctx, "ssh",
-		"-o", "StrictHostKeyChecking=accept-new",
-		"-o", "ConnectTimeout=10",
-		"root@"+host, remoteCmd)
-	cmd.Stdout = stderr
-	cmd.Stderr = stderr
-	return cmd.Run()
-}
-
-// sshCaptureStdout runs an SSH command and returns stdout. Used to read
-// the SA key file content — must NOT stream to stderr (that's where logs
-// go, and the file content can be huge JSON).
-func sshCaptureStdout(ctx context.Context, host, remoteCmd string) (string, error) {
-	cmd := exec.CommandContext(ctx, "ssh",
-		"-o", "StrictHostKeyChecking=accept-new",
-		"-o", "ConnectTimeout=10",
-		"root@"+host, remoteCmd)
-	cmd.Stderr = stderr
-	out, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("ssh root@%s %q: %w", host, remoteCmd, err)
-	}
-	return string(out), nil
 }

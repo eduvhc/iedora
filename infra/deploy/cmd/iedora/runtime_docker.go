@@ -124,13 +124,14 @@ type Healthcheck struct {
 	Interval time.Duration
 }
 
-// sshClient returns the configured sshExecutor, defaulting to realSSH{}.
-// Pulled to a method so callers don't have to nil-check inline.
+// sshClient returns the configured sshExecutor, defaulting to a fresh
+// production client. Pulled to a method so callers don't have to
+// nil-check inline.
 func (d *dockerOnHetzner) sshClient() sshExecutor {
 	if d.ssh != nil {
 		return d.ssh
 	}
-	return realSSH{}
+	return newSSHClient()
 }
 
 // appSecret declares one per-product secret the runtime mints on first

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -47,7 +46,7 @@ func waitForMenuDNS(ctx context.Context, m mode.Mode, host string, budget time.D
 
 	var lastErr error
 	for time.Now().Before(deadline) {
-		out, err := sshCapture(ctx, host,
+		out, err := remoteSSH.Capture(ctx, host,
 			"docker exec infra-caddy nslookup "+hostname+" 2>&1 || true")
 		// Alpine's busybox nslookup exits 0 even on SERVFAIL; we need a
 		// Name: header AND an Address line beyond the resolver's own
@@ -72,17 +71,3 @@ func waitForMenuDNS(ctx context.Context, m mode.Mode, host string, budget time.D
 	return fmt.Errorf("%s not resolvable from inside iedora network after %s: %w", hostname, budget, lastErr)
 }
 
-// sshCapture runs an SSH command on root@host and returns stdout. Same
-// shape as infra/deploy/cmd/iedora/ssh.go::sshCapture; ported here because
-// zitadel-apply doesn't share that package.
-func sshCapture(ctx context.Context, host, remoteCmd string) (string, error) {
-	cmd := exec.CommandContext(ctx, "ssh",
-		"-o", "StrictHostKeyChecking=accept-new",
-		"-o", "ConnectTimeout=10",
-		"root@"+host, remoteCmd)
-	out, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("ssh root@%s %q: %w", host, remoteCmd, err)
-	}
-	return string(out), nil
-}
