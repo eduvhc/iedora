@@ -13,7 +13,7 @@ src/features/<slice>/
 ├── ports.ts                      narrow interfaces describing every external effect
 ├── adapters/
 │   ├── drizzle.ts                production adapter against Drizzle + Postgres
-│   └── …                         alternative adapters (zitadel-oidc, s3, …)
+│   └── …                         alternative adapters (better-auth, s3, …)
 ├── use-cases/<verb>.ts           pure-ish (port, input) -> result
 ├── actions.ts                    'use server' shells: auth guard → use-case → revalidate
 ├── ui/                           slice-owned React components (optional)
@@ -26,7 +26,7 @@ Reference: `products/menu/src/features/auth/` — ports, two adapters, several u
 
 ## The contract
 
-- **`ports.ts`** — narrow interfaces describing the slice's effects on the outside world. One method per atomic operation. No Drizzle / Next / OIDC-library types leak through; the slice's `Session` shape is defined in `auth/ports.ts` and is plain TS, not an upstream re-export.
+- **`ports.ts`** — narrow interfaces describing the slice's effects on the outside world. One method per atomic operation. No Drizzle / Next / better-auth types leak through; the slice's `Session` shape is defined in `auth/ports.ts` and is plain TS, not an upstream re-export.
 - **`adapters/`** — implementations. Production adapters marked `'server-only'`. Tests build their own adapter against PGLite.
 - **`use-cases/<verb>.ts`** — `async function verb(port: Port, input): Promise<Result>`. Pure-ish. The only Next API allowed inline is `redirect()` / `notFound()` — tests mock those.
 - **`index.ts`** — binds the production adapter, wraps page-level loaders in `React.cache()`, re-exports the types callers need. Does NOT export the adapter.

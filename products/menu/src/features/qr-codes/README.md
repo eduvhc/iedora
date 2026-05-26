@@ -7,7 +7,9 @@ restaurant.
 
 ## Who can touch it
 
-CRUD is gated by `requireIedoraAdmin` (iedora-staff project role on Zitadel).
+CRUD is gated by `requireIedoraAdmin` — the cross-tenant `iedora-admin`
+role on the better-auth `user.role` field (granted out-of-band only,
+not via public signup).
 The slice intentionally has **no tenant scoping** — that's the point. The
 admin can bind any code to any restaurant across orgs.
 

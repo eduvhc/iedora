@@ -1,6 +1,6 @@
 # `infra/` — every pipeline concern
 
-The platform that runs `menu.iedora.com`, `iedora.com`, and `auth.iedora.com`. Four pipeline stages plus a local-stack mirror, all under one roof.
+The platform that runs `menu.iedora.com` and `iedora.com`. Four pipeline stages plus a local-stack mirror, all under one roof.
 
 Products and workspace packages live elsewhere (`/products/`, `/packages/`); everything pipeline-shaped lives here.
 
@@ -11,9 +11,9 @@ infra/
   iac/                     Stage 2 — IaC for the shared estate
     tofu/                    Single encrypted Tofu root: Hetzner + Cloudflare +
                              GitHub config + the rendered docker-compose stack
-                             (postgres, zitadel, zitadel-login, cloudflared,
-                             openobserve, backups). Per-product containers
-                             (menu) are NOT here — they're owned by Stage 4.
+                             (postgres, cloudflared, openobserve, backups).
+                             Per-product containers (menu) are NOT here —
+                             they're owned by Stage 4.
 
                              Key files:
                                compose.tf         compose document (yamlencode)
@@ -23,7 +23,7 @@ infra/
                                hetzner.tf         VPS + cloud-init (first boot)
                                templates/         cloud-init + systemd templates
 
-    postgres/init.sql        CREATE DATABASE menu / zitadel on first boot.
+    postgres/init.sql        CREATE DATABASE menu / core on first boot.
     cmd/
       bws-sync/              Batched BWS write/delete (Tofu local-exec entry
                              point). One sequential pass — sidesteps BWS's
@@ -37,11 +37,13 @@ infra/
                              token the Tofu s3 backend needs (chicken/egg).
 
    app-state/               Stage 3 — configurators (reconcile running services)
-    cmd/
-      zitadel-apply/         Zitadel REST reconciler (org / project / OIDC /
-                             machine user + PAT / action targets / grants).
     menu-db-migrations/      drizzle-kit migrate against menu's postgres DB.
     openobserve-dashboards/  Push embedded JSON dashboards via SSH `-L` tunnel.
+                             TODO(phase-1-sweep): a `core-db-migrations`
+                             configurator for the better-auth schema in the
+                             `core` DB is still pending — today migrations
+                             apply via `bun run --cwd packages/auth db:migrate`
+                             in dev.
 
   deploy/                  Stage 4 + Stage-3 router
     cmd/
@@ -58,10 +60,10 @@ Repo-root siblings of `infra/`:
 
 ```
 dev/                       Local stack — mirror of all 4 stages, against local Docker
-  docker-compose.yml         Postgres + Zitadel + OpenObserve + LocalStack
+  docker-compose.yml         Postgres + OpenObserve + LocalStack
   localstack-init.sh         Seeds LocalStack's R2 buckets on first boot
-  cmd/local-stack/           Driver: compose up → zitadel-apply --mode local
-                             → compose menu .env → start menu container.
+  cmd/local-stack/           Driver: compose up → compose menu .env
+                             → start menu container.
 
 internal/                  Shared Go libs (Go's `internal/` visibility scopes
                            them to the whole module — every stage's cmd imports
@@ -71,7 +73,7 @@ internal/                  Shared Go libs (Go's `internal/` visibility scopes
   mode/                      binary-mode enum (local vs live; Guardrail #1)
   r2/                        pure-Go SigV4 S3 client (used by infra-pg-backup)
   ssh/                       Client (shared by iedora + Stage 3 configurators)
-  tlsprobe/                  /debug/ready + CF-edge cert probe for Zitadel readiness
+  tlsprobe/                  /debug/ready + CF-edge cert probe for service readiness
   testfakes/                 HTTP server fakes for unit tests
 ```
 
@@ -90,7 +92,7 @@ Operators always invoke via shims at the repo root (`bin/<name>`); those shims `
 ## Adding things
 
 - **New shared container** → new service entry in `infra/iac/tofu/compose.tf` (under `local.compose.services`). cloud-init drops the new compose on first boot; `terraform_data.iedora_sync` ships it on day-2.
-- **New Stage 3 configurator** → new library package `infra/app-state/<name>/` exporting `Run(ctx) error` + entry in `infra/deploy/cmd/iedora/configurators.go`. Add a `cmd/` shim + `bin/<name>` wrapper only if standalone invocation is needed (as zitadel-apply does).
+- **New Stage 3 configurator** → new library package `infra/app-state/<name>/` exporting `Run(ctx) error` + entry in `infra/deploy/cmd/iedora/configurators.go`. Add a `cmd/` shim + `bin/<name>` wrapper only if standalone invocation is needed.
 - **New product** → new `product` struct literal in `infra/deploy/cmd/iedora/products.go` (implementing the `productRuntime` interface) + new GitHub Actions caller workflow that invokes `deploy.yml` with `inputs.product=<name>`.
 - **New Tofu helper called from `local-exec`** → new `infra/iac/cmd/<name>/` + shim at `bin/<name>` + `path.module/../../../bin/<name>` from the Tofu file.
 
@@ -113,4 +115,4 @@ go run ./dev/cmd/local-stack                                  # Local dev stack
 
 **Required in your shell**: `BWS_ACCESS_TOKEN` (one-time setup, keep in keychain / direnv).
 
-For day-2 raw-SSH ops (logs, psql, backup, restore, rotation, Zitadel rebootstrap), see [`docs/deploy.md` § Day-2 operations](../docs/deploy.md#day-2-operations).
+For day-2 raw-SSH ops (logs, psql, backup, restore, rotation), see [`docs/deploy.md` § Day-2 operations](../docs/deploy.md#day-2-operations).

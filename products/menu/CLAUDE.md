@@ -4,7 +4,7 @@ Menu-specific hard rules, file layout, and commands. Root `AGENTS.md` covers cro
 
 Menu is a SaaS multi-tenant restaurant menu builder (menu.iedora.com). Each tenant is an organization that owns one or more `restaurant` rows. Admins build menus via drag-and-drop; the public menu renders from the same data.
 
-> **Identity.** Zitadel (`auth.iedora.com`) is the iedora IdP. Menu is a thin OIDC client — `openid-client` v6 drives the auth-code/PKCE dance, `jose` seals an opaque pointer into the `menu_session_v2` cookie. The cookie carries only `{sid, sub, exp}`; the authoritative state is a server-side `menu.session` row owned by `src/features/sessions/` — roles, permissions, `permissionsVersion`, revocation. `src/features/auth/` owns the cookie + the DAL guards; `src/features/identity/` calls Zitadel's management API (memberships, org provisioning) via a TF-minted IAM_OWNER PAT. Zitadel Actions v2 webhooks rewrite the session row's permissions live on grant change — see `src/features/auth/README.md` for the revocation model.
+> **Identity.** `@iedora/auth` is the shared auth surface — better-auth (email+password, organization, admin plugins) running IN-PROCESS inside menu. Sessions and orgs live in the dedicated `core` Postgres database (better-auth tables in the `core` schema). The `better-auth.session_token` cookie scopes on `.iedora.com` so a login here will work on the future `core` product too. `src/features/auth/` owns the DAL guards + the role/scope taxonomy (`scopes.ts` maps `qr-codes:read|write|…` strings to better-auth's `{qrCodes:['read']}` permission shape; `requireScope()` short-circuits when `session.user.role === 'iedora-admin'`). Cross-tenant data (memberships, org provisioning) is reached via `auth.api.*` — never via direct SQL against `core.*`. See `packages/auth/README.md` for the consumer contract.
 
 ## Hard rules
 
@@ -40,7 +40,7 @@ Paths starting with `src/...` are menu-relative.
 
 15. **Tests co-locate with the slice they exercise.** Each slice owns `testing/` (`'server-only'`: `profile.ts` derived from `./scopes`, `seeds.ts`, `routes.ts`, barrel `index.ts`) and `e2e/<capability>.spec.ts` (Playwright specs). Cross-slice flows live ONLY at `tests/e2e/journeys/`. `tests/e2e/helpers/` is zero-domain — anything with domain knowledge moves into the owning slice's `testing/`. Production code (adapters / use-cases / ui / actions / rsc) MUST NOT import `testing/*` (enforced by `no-restricted-imports`). Tag specs with `@smoke` / `@critical` for selective execution. See [`../../docs/testing.md`](../../docs/testing.md) for the spec template + multi-tenant pattern.
 
-16. **Redirects build URLs via `publicUrl()`.** Every absolute URL the server hands to the browser (NextResponse.redirect Location, OIDC `redirect_uri`, post-logout URL) MUST be built via `publicUrl()` from `@/shared/url`. Never derive from `req.url`, `req.nextUrl.origin`, `req.nextUrl.clone()`, or `req.headers.get('host')` — Cloudflare Tunnel terminates TLS at the edge and forwards plain HTTP to the upstream bind `HOSTNAME=0.0.0.0 PORT=3000`; any URL built from those carries the internal bind and the browser can't follow `http://0.0.0.0:3000/...`. User-supplied path inputs (`?next=`, `return_url=`) MUST be validated with `isSameOriginPath()` from `@/shared/url-validate` (env-free, safe to import from unit tests) BEFORE being passed to `publicUrl()`. `req.nextUrl` is fine as a *path source* — pass `req.nextUrl.pathname` AS A PATH into `publicUrl()`. ESLint doesn't catch this; `bun run docs:audit` does.
+16. **Redirects build URLs via `publicUrl()`.** Every absolute URL the server hands to the browser (NextResponse.redirect Location, post-login redirect, post-logout URL) MUST be built via `publicUrl()` from `@/shared/url`. Never derive from `req.url`, `req.nextUrl.origin`, `req.nextUrl.clone()`, or `req.headers.get('host')` — Cloudflare Tunnel terminates TLS at the edge and forwards plain HTTP to the upstream bind `HOSTNAME=0.0.0.0 PORT=3000`; any URL built from those carries the internal bind and the browser can't follow `http://0.0.0.0:3000/...`. User-supplied path inputs (`?next=`, `return_url=`) MUST be validated with `isSameOriginPath()` from `@/shared/url-validate` (env-free, safe to import from unit tests) BEFORE being passed to `publicUrl()`. `req.nextUrl` is fine as a *path source* — pass `req.nextUrl.pathname` AS A PATH into `publicUrl()`. ESLint doesn't catch this; `bun run docs:audit` does.
 
 17. **Every dashboard page renders through `<DashboardPage>`.** The shell at `src/shared/ui/dashboard-page.tsx` owns the standard chrome — `space-y-10` vertical rhythm, breadcrumb (always prefixed with **Home** → `/dashboard`, never "Back"), the title-as-`<BreadcrumbHere>`-h1, plus optional `eyebrow` / `description` / `actions` slots. Pages just supply `title`, `crumbs` for intermediate sections, and their content. Root `/dashboard` opts out of the breadcrumb with `root`. Auto-generates namespaced `data-test-id`s (`{ns}-breadcrumb-home`, `{ns}-breadcrumb-current`, `{ns}-header`, `{ns}-actions`) so specs target the shell without per-page boilerplate. Don't hand-roll `<h1>Back / Title</h1>` or `<div className="space-y-{6|8|10}">` chrome in a page anymore — the rhythm has drifted twice already.
 
@@ -52,7 +52,7 @@ Paths starting with `src/...` are menu-relative.
 products/menu/
   src/
     app/                             Next.js App Router
-      (auth)/                          public auth pages (signup, login)
+      (auth)/                          public auth pages (signup, login) — better-auth client
       _components/landing/             landing-page.tsx + landing.css
       dashboard/                       admin pages — protected
         analytics/                     Casa-only KPIs; free → billing redirect
@@ -65,20 +65,17 @@ products/menu/
       r/[slug]/                        public menu page — cached snapshot
       onboarding/                      first-org-creation + add-another-restaurant
       api/
-        auth/login/                    OIDC start (PKCE+state cookie → Zitadel)
-        auth/callback/                 OIDC callback (code → session cookie)
-        auth/logout/                   clears cookie → Zitadel end_session
+        auth/[...all]/                 better-auth catch-all (login/logout/session/org/admin)
         track/[slug]/                  pixel-beacon view tracking
       up/                              health-check route
       showcase/                        public marketing surface
       page.tsx, layout.tsx, globals.css
     features/                        every slice: {adapters,use-cases,ui,actions.ts,ports.ts,index.ts,
                                                     <slice>.test.ts, testing/, e2e/, README.md}
-      auth/                          OIDC client + session cookie + DAL guards (Zitadel native)
+      auth/                          DAL guards + scopes.ts (role/scope taxonomy over @iedora/auth)
       billing/                       invoice ledger
       dashboard-home/                restaurants-with-counts aggregate
       i18n/                          per-language registry (en, pt, es, fr)
-      identity/                      Zitadel management API — memberships + org provisioning
       menu-builder/                  dnd-kit admin builder
       menu-publishing/               public menu cache + renderer + template registry
       metrics/                       daily-view + analytics range helpers
@@ -87,7 +84,6 @@ products/menu/
       rate-limit/                    Postgres-backed sliding-window limiter
       restaurant-identity/           restaurant CRUD + theme/identity
       restaurant-slug/               public-URL identifier — slugify + nextAvailableSlug + rename
-      sessions/                      menu.session store (authoritative roles/permissions)
       upload/                        S3-compatible uploads + presign/commit/clear (LocalStack in dev, adobe/s3mock in CI)
     shared/
       db/{client.ts,schema.ts}       drizzle client + canonical schema
@@ -104,12 +100,11 @@ products/menu/
   drizzle.config.ts
   next.config.ts, tsconfig.json      paths: @/* → ./src/*
   Dockerfile                         app build (Bun-install + Node-build + standalone). Same Dockerfile dev (built locally by `go run ./dev/cmd/local-stack`) and prod (built + pushed to GHCR by .github/workflows/menu.yml) consume.
-  .env                               Committed. Statics + Zod-valid placeholders for the dynamic keys. The local-dev orchestrator (`dev/cmd/local-stack/`) overlays the real values into `.env.local` after Zitadel FirstInstance.
-  .env.local                         user-owned, gitignored. Real Zitadel + session values for the host bun-run-dev path; user can also override any key to point at remote services.
-  package.json                       workspace deps to @iedora/design-system, identity, observability
+  .env                               Committed. Statics + Zod-valid placeholders for the dynamic keys. The local-dev orchestrator (`dev/cmd/local-stack/`) overlays the real values into `.env.local`.
+  .env.local                         user-owned, gitignored. Real CORE_DATABASE_URL + IEDORA_AUTH_* values for the host bun-run-dev path; user can also override any key to point at remote services.
+  package.json                       workspace deps to @iedora/auth, @iedora/design-system, @iedora/observability
   scripts/check-migrations.ts        dev-time guardrail
   tests/e2e/
-    _bootstrap.ts                    Zitadel mock (OIDC discovery + mgmt API subset)
     fixtures.ts                      auto-fixture: fails fast on RSC errors / 5xx responses
     global-setup.ts                  builds menu_test_template DB (migrations applied)
     global-teardown.ts               drops per-worker DBs
@@ -134,7 +129,7 @@ Prod: Stage 4 (`bin/iedora-env bin/iedora deploy menu` → `dockerOnHetzner` run
 - `bun run db:migrate` — apply pending migrations.
 - `bun run db:push` — push schema directly (dev only).
 - `bun run db:studio` — Drizzle Studio.
-- `go run ./dev/cmd/local-stack` (from repo root) — boots Postgres + Zitadel + OpenObserve + LocalStack via `dev/docker-compose.yml`.
+- `go run ./dev/cmd/local-stack` (from repo root) — boots Postgres + OpenObserve + LocalStack via `dev/docker-compose.yml`.
 - `bunx shadcn@latest add <name>` — add a shadcn component.
 
 Deploy commands live at the repo root — see [`AGENTS.md`](../../AGENTS.md) § Commands.

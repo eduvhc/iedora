@@ -4,13 +4,14 @@ How code is organised across the products and shared packages, plus the menu-sid
 
 ## Shape
 
-**iedora** is a Bun-workspaces monorepo with one Next.js product (Menu) serving two hostnames — `menu.iedora.com` (menu app) and `iedora.com` (house landing, at `src/app/house/`) via a Host-based rewrite in `src/proxy.ts` — plus two shared packages (`@iedora/design-system`, `@iedora/observability`). Inside menu, code is organised as **vertical slices** on the outside and **light hexagonal** on the inside. Each business capability lives in `src/features/<slice>/` and owns everything it needs: a port (interface to the outside world), one or more adapters (production + tests), pure-ish use-cases that take the port as their first argument, an `actions.ts` shell for Next.js Server Actions, slice-owned UI, and a single `index.ts` barrel. `src/shared/` holds primitives with no domain knowledge. `src/app/` is the delivery layer. **Next.js is a delivery detail**, not the architecture.
+**iedora** is a Bun-workspaces monorepo with one Next.js product (Menu) serving two hostnames — `menu.iedora.com` (menu app) and `iedora.com` (house landing, at `src/app/house/`) via a Host-based rewrite in `src/proxy.ts` — plus shared workspace packages (`@iedora/auth`, `@iedora/design-system`, `@iedora/observability`). Inside menu, code is organised as **vertical slices** on the outside and **light hexagonal** on the inside. Each business capability lives in `src/features/<slice>/` and owns everything it needs: a port (interface to the outside world), one or more adapters (production + tests), pure-ish use-cases that take the port as their first argument, an `actions.ts` shell for Next.js Server Actions, slice-owned UI, and a single `index.ts` barrel. `src/shared/` holds primitives with no domain knowledge. `src/app/` is the delivery layer. **Next.js is a delivery detail**, not the architecture.
 
 ## Monorepo
 
 ```
 iedora/
   packages/
+    auth/                         @iedora/auth             (better-auth instance + Drizzle schema + AC taxonomy)
     design-system/                @iedora/design-system    (editorial CSS + React primitives)
     eslint-config/                @iedora/eslint-config    (flat-config factories)
     iedora-observability/         @iedora/observability    (OTel wiring — traces + metrics)
@@ -30,11 +31,10 @@ The full contract — file layout, ports/adapters/use-cases, cross-slice rules, 
 
 Path: `products/menu/src/features/`.
 
-- **`auth/`** — session + tenant-scoping guards (Zitadel OIDC via `openid-client` + JWE cookie via `jose`). `verifySession`, `requireRestaurantAccess`, `requireRestaurantBySlug`, `requireActiveOrganization`.
+- **`auth/`** — DAL guards + the role/scope taxonomy backed by `@iedora/auth` (better-auth). `verifySession`, `requireRestaurantAccess`, `requireRestaurantBySlug`, `requireActiveOrganization`, `requireScope`. `scopes.ts` maps `qr-codes:read|write|update|delete` strings to better-auth's `{qrCodes:['read']}` shape via `scopeToPermission()`; `requireScope` short-circuits when `session.user.role === 'iedora-admin'`. Memberships + org provisioning happen via `auth.api.*` (no direct SQL against the `core` schema).
 - **`billing/`** — invoice ledger (read-only today).
 - **`dashboard-home/`** — restaurants-with-counts aggregate query.
 - **`i18n/`** — per-language registry (en, pt, es, fr) + format helpers + `LocalizedFields` editor UI.
-- **`identity/`** — federated organization ownership through Zitadel (`auth.iedora.com`). Calls Zitadel's REST management API using the menu service-account PAT (IAM_OWNER) for memberships and org provisioning.
 - **`menu-builder/`** — dnd-kit admin builder. Menu / category / item CRUD + reorder (position recompute in a single transaction).
 - **`menu-import/`** — AI-assisted import of an existing menu (image / PDF → categories + items + variants), driven from the dashboard.
 - **`menu-onboarding/`** — first-org-creation + add-another-restaurant flows (the empty-state journey).
@@ -46,10 +46,15 @@ Path: `products/menu/src/features/`.
 - **`rate-limit/`** — sliding-window rate limiter backed by Postgres (advisory locks + `READ COMMITTED`; tests run against PGLite). Guards `/api/auth/*` and other unauth'd endpoints. (Previously Redis; see slice README for why we dropped it.)
 - **`restaurant-identity/`** — restaurant CRUD + theme/identity settings.
 - **`restaurant-slug/`** — owner of the `restaurant.slug` column. `slugify(name)` + `isValidSlugShape(s)` (pure), `nextAvailableSlug(base)` (onboarding auto-pick), `rename(restaurantId, newSlug)` (operator rename, race-safe via DB unique index). One shape rule, two surfaces.
-- **`sessions/`** — authoritative server-side `menu.session` store (roles, permissions, `permissionsVersion`, revocation). The cookie is just a pointer; this slice is the source of truth — Zitadel Actions v2 webhooks rewrite rows live on grant change.
 - **`upload/`** — S3-compatible uploads. Presign + commit + clear, with the `r/{restaurantId}/...` key-prefix invariant verified twice. LocalStack in dev, `adobe/s3mock` in CI (LocalStack `:latest` requires a paid licence as of 2026); real R2 in production.
 
+> Sessions themselves are NOT a menu slice — they're owned by better-auth's `core.session` table and read via `auth.api.getSession()`. The previous `features/sessions/` and `features/identity/` slices were removed when the Zitadel-era authoritative-server-session model was retired; admin "see all sessions" UI is deferred to the future `core` product.
+
 ## Shared packages
+
+### `@iedora/auth` — `packages/auth/`
+
+Shared auth surface for every iedora product. Wraps better-auth (email+password, organization plugin, admin plugin), owns the Drizzle schema for the `core` Postgres database (user, session, account, verification, organization, member, invitation, rate_limit), and exports the AC `statement` + role bindings (`member` / `admin` / `owner` per-org, `iedora-admin` cross-tenant). Consumers call `getAuth()` and mount the catch-all `/api/auth/[...all]` route. Cross-product cookies seal on `.iedora.com`. See `packages/auth/README.md` for the full consumer contract.
 
 ### `@iedora/design-system` — `packages/design-system/`
 

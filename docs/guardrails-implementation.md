@@ -8,13 +8,21 @@
 > Order of recommended landing: ~~Rule 5 → Rule 1 → Rule 2~~ → Rule 3 → Rule 4.
 > Rules 1, 2, and 5 landed (this doc tracks each). Rules 3 and 4 are
 > independent and can land in either order.
+>
+> **TODO(phase-1-sweep):** Rule 5 (the Zitadel anti-panic lock) was
+> retired along with the Zitadel IdP itself — auth now runs in-process
+> via `@iedora/auth` (better-auth) and there is no external resource
+> with one-shot reveals to guard. The Rule 5 section below is preserved
+> as historical implementation context; a replacement guardrail for
+> destructive `core` Postgres operations (DROP DATABASE during
+> `core-db-migrations` cold-runs, etc.) is pending.
 
 ## Status at a glance
 
 | Rule | Title                              | Status      | Effort | Blast radius |
 |------|------------------------------------|-------------|--------|--------------|
 | 1    | Binary environment (`local`/`live`)| ✅ landed   | —      | done in `ab72194` |
-| 5    | Zitadel anti-panic lock            | ✅ landed   | —      | done — see this doc § Rule 5 |
+| 5    | Zitadel anti-panic lock (retired)  | n/a         | —      | retired with Zitadel; see banner above |
 | 2    | Tofu state in R2                   | ✅ landed   | —      | done — see this doc § Rule 2 |
 | 3    | Expand-contract migrations         | Not started | M      | Medium — process + lint |
 | 4    | Zero-downtime hot-swap             | Not started | M      | Medium — `runtime_docker.go` rewrite |

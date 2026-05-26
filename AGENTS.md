@@ -8,8 +8,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 > Bun-workspaces monorepo. One Next.js product (`products/menu/`)
 > serving both `menu.iedora.com` (menu app) and `iedora.com` (house
-> landing) through a Host-based rewrite in `src/proxy.ts`, plus two
-> workspace packages (`packages/design-system/`,
+> landing) through a Host-based rewrite in `src/proxy.ts`, plus
+> workspace packages (`packages/auth/`, `packages/design-system/`,
 > `packages/iedora-observability/`). `bun install` runs ONCE at the repo
 > root and resolves every workspace.
 >
@@ -21,15 +21,14 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **Menu** (menu.iedora.com — `products/menu/`) — SaaS multi-tenant restaurant menu builder. Each tenant is an organization that owns one or more `restaurant` rows. Admins build menus via drag-and-drop; the public menu renders from the same data.
 - **House** (iedora.com — `products/menu/src/app/house/`) — brand landing page. Lives inside the menu Next.js app; `src/proxy.ts` inspects Host and rewrites apex requests under `/house/*` internally. One container, one image, two hostnames.
 
-**Identity is Zitadel.** Self-hosted at `auth.iedora.com` (single VPS, Tofu-managed). Menu is a thin OIDC client. The `menu_session_v2` cookie is a JWE carrying only `{sid, sub, exp}`; the authoritative state is a server-side `menu.session` row (roles, permissions, permissionsVersion) so Zitadel Actions v2 webhooks can rewrite scopes live without waiting for cookie TTL. See `products/menu/src/features/auth/README.md` for the revocation model. The identity slice calls Zitadel's management API for memberships + org provisioning via a PAT minted by `bin/zitadel-apply` (Stage 3) and written to BWS. See `products/menu/src/features/auth/` and `products/menu/src/features/identity/`.
+**Identity is `@iedora/auth`.** A shared workspace package (`packages/auth/`) wrapping [better-auth](https://better-auth.com) — email+password, organization plugin (for tenants), admin plugin (for the cross-tenant `iedora-admin` role). The auth instance runs IN-PROCESS inside every product; there is no separate IdP service. Sessions are owned by better-auth (`core.session` table) and the `better-auth.session_token` cookie is scoped on `.iedora.com` so a login on any iedora surface is readable on every other. Backed by a dedicated `core` Postgres database (better-auth tables live in the `core` schema, same instance as `menu`). See `packages/auth/README.md` for the consumer contract and `products/menu/src/features/auth/README.md` for the menu-side wiring + the role/scope taxonomy.
 
 ## Stack
 
 - **Next.js 16** (App Router, Turbopack default, Cache Components).
 - **TypeScript** strict, every workspace.
 - **Drizzle ORM** + `postgres-js`, **Postgres 18**.
-- **`openid-client` v6 + `jose` v6** — Zitadel OIDC client + cookie JWE.
-- **Zitadel** v4.15.0 — self-hosted IdP. The CONTAINER is part of the compose stack rendered by Tofu (`infra/iac/tofu/compose.tf::local.compose.services.zitadel`); the box runs it via the `iedora.service` systemd unit. The APP STATE (org, project, OIDC app, action targets, PAT) is reconciled by `bin/zitadel-apply` (Stage 3 of the pipeline), via Zitadel's REST API.
+- **`better-auth`** via the shared **`@iedora/auth`** package — in-process auth (email+password, organization, admin plugins). No separate IdP service; no OIDC client; the `better-auth.session_token` cookie scopes on `.iedora.com` so SSO works across products. Schema/migrations live in `packages/auth/`; product runtime imports `getAuth()` and mounts `/api/auth/[...all]`.
 - **shadcn/ui** + Tailwind v4 — menu only. Editorial primitives come from **`@iedora/design-system`**.
 - **@dnd-kit** — menu's drag-and-drop builder.
 - **Bun** — package manager, test runner, dev orchestrator. **Production runtime is Node** — `bun + next build` is unstable as of 2026 (oven-sh/bun#23944); `next start` runs under Node in the production container.
@@ -70,7 +69,6 @@ iedora/                                  repo root
     state-bucket-bootstrap                  Stage -1 — provisions R2 bucket + token for Tofu's s3 backend
     bws-sync                                Batched Tofu BWS write/delete (single sequential pass)
     bws-upsert                              Single-key BWS upsert/delete (ad-hoc, operator scripts)
-    zitadel-apply                           Stage 3 — Zitadel app config (org / project / OIDC / PAT)
                                             (menu-db-migrations + openobserve-dashboards run
                                              in-process via bin/iedora app apply)
 
@@ -82,17 +80,18 @@ iedora/                                  repo root
                                               Files: compose.tf, sync.tf, destroy-hooks.tf, tunnel.tf,
                                               hetzner.tf, templates/{cloud-init.yml,iedora.service}.
                                              Menu container = Stage 4, NOT here.
-      postgres/init.sql                      CREATE DATABASE menu / zitadel (compose volume init)
+      postgres/init.sql                      CREATE DATABASE menu / core (compose volume init)
       cmd/
         bws-sync/                            Go helper for terraform_data.bws_sync (batched)
         bws-upsert/                          Single-key variant (ad-hoc, BWS_DELETE=1 supported)
         infra-pg-backup/                     Backup container (Go + Dockerfile, arm64 only — CAX SKUs)
         state-bucket-bootstrap/              Stage -1 — R2 bucket + token bootstrap (chicken/egg)
     app-state/                             Stage 3 — configurators (one per concern)
-      cmd/
-        zitadel-apply/                       Zitadel REST reconciler
       menu-db-migrations/                  drizzle-kit migrate runner (SSH + docker run)
       openobserve-dashboards/              dashboard reconciler (SSH-L tunnel + go:embed JSONs)
+                                           TODO(phase-1-sweep): core (better-auth) DB migrations
+                                           are wired in dev via `bun run --cwd packages/auth
+                                           db:migrate`; prod Stage 3 configurator is pending.
     deploy/                                Stage 3 + Stage 4 router
       cmd/
         iedora/                              Configurator registry + productRuntime registry
@@ -100,10 +99,9 @@ iedora/                                  repo root
   dev/                                   Local stack (mirror of all 4 stages, local Docker).
                                          Top-level peer of infra/ because it's not a stage —
                                          it's the offline twin used for local dev.
-    docker-compose.yml                     Postgres + Zitadel + OpenObserve + LocalStack
+    docker-compose.yml                     Postgres + OpenObserve + LocalStack
     localstack-init.sh                     Seeds LocalStack's R2 buckets on first boot
-    cmd/local-stack/                       Driver: compose up → zitadel-apply --mode local → menu .env
-    .zitadel-bootstrap/                    (gitignored) local Zitadel FirstInstance outputs
+    cmd/local-stack/                       Driver: compose up → menu .env
 
   internal/                              Shared Go libs (bws, cloudflare, mode, r2, ssh,
                                          testfakes, tlsprobe). Top-level so Go's `internal/`
@@ -112,6 +110,7 @@ iedora/                                  repo root
 
   packages/
     eslint-config/                       flat-config factories shared by every workspace
+    auth/                                shared better-auth instance + Drizzle schema + AC taxonomy
     design-system/                       editorial CSS + React primitives (paper/ink/cinnabar)
     iedora-observability/                one-line OTel wiring (traces + metrics)
 
@@ -121,7 +120,7 @@ iedora/                                  repo root
       src/app/house/                       Brand landing for iedora.com
 ```
 
-Menu's container is NOT in the compose stack rendered by `infra/iac/tofu/compose.tf` — only the shared services (postgres, zitadel, cloudflared, openobserve, backups) live there. Menu's lifecycle (pull/run on every deploy) is owned by Stage 4 via [`infra/deploy/cmd/iedora/runtime_docker.go`](infra/deploy/cmd/iedora/runtime_docker.go); a Cloudflare Tunnel routes both `menu.iedora.com` and `iedora.com` (apex + www) to the same docker network alias so one container serves both sites.
+Menu's container is NOT in the compose stack rendered by `infra/iac/tofu/compose.tf` — only the shared services (postgres, cloudflared, openobserve, backups) live there. Menu's lifecycle (pull/run on every deploy) is owned by Stage 4 via [`infra/deploy/cmd/iedora/runtime_docker.go`](infra/deploy/cmd/iedora/runtime_docker.go); a Cloudflare Tunnel routes both `menu.iedora.com` and `iedora.com` (apex + www) to the same docker network alias so one container serves both sites.
 
 ## Commands
 
@@ -147,11 +146,11 @@ Stage 4: Deploy            bin/iedora-env bin/iedora deploy <product>
 ```
 
 - **Stage 2** — plain Tofu. `init` / `plan` / `apply` / `destroy` against `infra/iac/tofu/`. The Tofu graph renders a docker-compose document (`compose.tf`) + Cloudflare Tunnel config (`tunnel.tf`); cloud-init drops them on first boot, `terraform_data.iedora_sync` pushes day-2 changes via one SSH session. `rclone` is required on the operator's machine — destroy-time hooks (`destroy-hooks.tf`) purge R2 buckets before the API DELETE.
-- **Stage 3** — `bin/iedora app apply` runs every configurator in `configurators.go` sequentially: zitadel-apply, menu-db-migrations, openobserve-dashboards.
+- **Stage 3** — `bin/iedora app apply` runs every configurator in `configurators.go` sequentially: menu-db-migrations, openobserve-dashboards. (TODO(phase-1-sweep): `core` (better-auth) migrations need a prod configurator; today they run via `bun run --cwd packages/auth db:migrate` in dev.)
 - **Stage 4** — `bin/iedora deploy <product>` (or `destroy <product>`). Dispatches through the productRuntime registry (`products.go`).
 - **Local dev** — `go run ./dev/cmd/local-stack` boots the local-twin stack. `--destroy` wipes it; `--reset-db <service>` drops + recreates one database.
 - **Preflight** — `bin/iedora-env bin/iedora doctor` (PATH, BWS auth, bootstrap secrets).
-- Day-2 ops (logs / psql / backup / restore / rotate / wipe / zitadel-rebootstrap) are raw SSH against the Hetzner box.
+- Day-2 ops (logs / psql / backup / restore / rotate / wipe) are raw SSH against the Hetzner box.
 
 Menu image builds happen in CI (`.github/workflows/menu.yml`) on every push to main: buildx (multi-arch — `linux/amd64` for CI, `linux/arm64` for the CAX Hetzner box), pushed to `ghcr.io/$GHCR_USER/menu:<sha>`. The menu workflow then dispatches `deploy.yml` with `product: menu` + `image_sha: <sha>`; the `dockerOnHetzner` runtime SSHs to the box, pulls the image, runs migrations, and replaces the container with a zero-downtime hot-swap. Since the menu container serves BOTH `menu.iedora.com` and `iedora.com` (host-based rewrite in `proxy.ts`), the same deploy ships both. Rollback: `gh workflow run deploy.yml --field product=menu --field image_sha=<older-sha>`.
 
@@ -180,16 +179,16 @@ One workflow per workspace. Each is self-contained: own `paths:` trigger, own en
 1. **`paths:` filter per workflow** — a workflow only wakes when its workspace (or workspace deps, or root files like `bun.lock`) changes.
 2. **Composite action for setup** — `actions/setup` runs `oven-sh/setup-bun@v2` + `bun install --frozen-lockfile` at the root. Every job that needs deps is `uses: ./.github/actions/setup`.
 
-**Env:** Non-secret CI fixture literals (`DATABASE_URL`, `S3_*`, `MENU_SESSION_SECRET=test...`, `ZITADEL_*=test`) live at job-level. No CI-side secrets — auth/OIDC values are TF-minted at apply time.
+**Env:** Non-secret CI fixture literals (`DATABASE_URL`, `CORE_DATABASE_URL`, `S3_*`, `IEDORA_AUTH_SECRET=test...`) live at job-level. No CI-side secrets — production auth values are TF-minted at apply time and written to BWS.
 
 **Branch protection: deliberately off** — solo, AI-driven; CI itself is the signal.
 
-**Dependency updates: Renovate** at `renovate.json`. Auto-merges minor/patch + security advisories after green CI. Major bumps and the auth-stack pins (Next, React, `openid-client`, `jose`, Zitadel image, `oven/bun`) are held for manual review.
+**Dependency updates: Renovate** at `renovate.json`. Auto-merges minor/patch + security advisories after green CI. Major bumps and the auth-stack pins (Next, React, `better-auth`, `oven/bun`) are held for manual review.
 
 ## Where to look when unsure
 
 1. `node_modules/next/dist/docs/` — bundled, version-matched Next.js docs.
-2. `node_modules/openid-client/` and `node_modules/jose/` — OIDC + JWE APIs.
+2. `node_modules/better-auth/` — auth instance, plugins, server APIs.
 3. `node_modules/drizzle-orm/` — query builder, types.
 4. `products/menu/src/features/<slice>/README.md` — every slice has a short doc.
 5. `packages/<package>/README.md` — every shared package documents its surface.
@@ -200,7 +199,7 @@ One workflow per workspace. Each is self-contained: own `paths:` trigger, own en
 10. `docs/security-audit.md` — threat register + supply-chain perimeter.
 11. `docs/tenancy.md` — how tenancy works + the queued migrations.
 12. `docs/vendors.md` — every dependency with rationale.
-13. `docs/deploy.md` — **the** infra + app-state + deploy doc. Stages, commands, CI, failure modes, secret rotation, bootstrap, day-2 ops, Zitadel rebootstrap, backups, dev stack. One doc for everything pipeline-shaped.
+13. `docs/deploy.md` — **the** infra + app-state + deploy doc. Stages, commands, CI, failure modes, secret rotation, bootstrap, day-2 ops, backups, dev stack. One doc for everything pipeline-shaped.
 14. `docs/terraform-style.md` — LLM-safe HCL conventions.
 15. `docs/ai.md` — Claude Code Action + MCP servers.
 

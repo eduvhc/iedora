@@ -5,7 +5,7 @@ Vertical slices. One folder per business capability.
 Each slice is self-contained:
 - `use-cases/` — pure async functions with explicit port arguments
 - `ports.ts` — interfaces the slice depends on (DB, storage, auth, …)
-- `adapters/` — implementations of those ports (Drizzle, S3, Zitadel REST, …)
+- `adapters/` — implementations of those ports (Drizzle, S3, better-auth, …)
 - `actions.ts` — `'use server'` shim that wires Next's request to a use-case
 - `ui/` — client components for the slice
 - `<slice>.test.ts` — Vitest + PGLite tests for the use-cases

@@ -27,16 +27,16 @@ What to include:
 
 I will acknowledge within **3 business days** (Europe/Lisbon time) and
 follow up with a fix timeline once the report is triaged. Reports that
-affect a public production surface (`menu.iedora.com`, `iedora.com`,
-`auth.iedora.com`) are prioritised over reports against unreleased
-branches.
+affect a public production surface (`menu.iedora.com`, `iedora.com`)
+are prioritised over reports against unreleased branches.
 
 ## Scope
 
 In scope:
-- the three product surfaces above and their auth / data flows
-- the Zitadel IdP at `auth.iedora.com` (OIDC server, action targets,
-  session cookie + server-side `menu.session` revocation model)
+- the two product surfaces above and their auth / data flows
+- the in-process auth surface (`@iedora/auth`, better-auth, the
+  `better-auth.session_token` cookie on `.iedora.com`, the `core`
+  Postgres DB)
 - the CI/CD supply chain (GitHub Actions, Tofu deploy, GHCR image build)
 
 Out of scope:

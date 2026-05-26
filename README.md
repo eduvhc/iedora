@@ -12,15 +12,19 @@ plus three shared packages.
   rewrites apex requests internally. One image, one container, two
   hostnames.
 
-Identity is Zitadel (`auth.iedora.com`, self-hosted). Menu is a thin
-OIDC client — see `products/menu/src/features/auth/`.
+Identity is `@iedora/auth` — a shared workspace package wrapping
+[better-auth](https://better-auth.com) (email+password, organization,
+admin plugins) that runs IN-PROCESS in every product. See
+`packages/auth/README.md` for the consumer contract and
+`products/menu/src/features/auth/` for the menu-side wiring.
 
 ## Run it locally
 
 ```bash
 bun install                                  # at the repo root
 go run ./dev/cmd/local-stack                 # boots postgres, localstack,
-                                             # zitadel, openobserve
+                                             # openobserve
+bun run --cwd packages/auth db:migrate       # apply better-auth schema to core DB
 cd products/menu && bun run dev              # menu HMR (reads .env + .env.local)
 ```
 
@@ -30,7 +34,7 @@ cd products/menu && bun run dev              # menu HMR (reads .env + .env.local
 # Stage 2 — IaC (Hetzner + Cloudflare + the compose stack)
 bin/iedora-env tofu -chdir=infra/iac/tofu apply
 
-# Stage 3 — app-state configurators (Zitadel, migrations, dashboards)
+# Stage 3 — app-state configurators (migrations, dashboards)
 bin/iedora-env bin/iedora app apply
 
 # Stage 4 — deploy a product
@@ -51,7 +55,7 @@ See [`docs/deploy.md`](docs/deploy.md) for the architecture, the
 - **[`docs/deploy.md`](docs/deploy.md)** — **the** infra + app-state + deploy doc. Architecture, stages, commands, CI, failure modes, secret rotation, bootstrap, day-2 ops.
 - **[`docs/architecture.md`](docs/architecture.md)** — vertical-slice + hexagonal playbook, how to add a feature.
 - **[`docs/testing.md`](docs/testing.md)** — Vitest + PGLite unit tests, Playwright e2e.
-- **[`docs/tenancy.md`](docs/tenancy.md)** — multi-tenant model + Zitadel org mapping.
+- **[`docs/tenancy.md`](docs/tenancy.md)** — multi-tenant model (better-auth organizations + the `restaurant.organizationId` link).
 - **[`docs/terraform-style.md`](docs/terraform-style.md)** — LLM-safe HCL conventions.
 - **[`docs/security-audit.md`](docs/security-audit.md)** — threat register + supply-chain perimeter.
 - **[`docs/vendors.md`](docs/vendors.md)** — every dependency with rationale.

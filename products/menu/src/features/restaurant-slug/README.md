@@ -43,7 +43,7 @@ rename). Extracting it into its own slice means:
 ## Consumers
 
 - `app/onboarding/actions.ts` — calls `slugify(name)` + `nextAvailableSlug(base)`
-  before the restaurant insert + the Zitadel `createOrganization` call.
+  before the restaurant insert + the `auth.api.createOrganization` call.
 - `features/restaurant-identity/actions.ts` — `updateSlug(currentSlug, next)`
   action delegates to `rename` here, then revalidates both old and new
   slug tags.

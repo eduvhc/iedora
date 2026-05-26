@@ -108,13 +108,19 @@ products/menu/
       index.ts                    barrel
       README.md
   tests/e2e/
-    _bootstrap.ts                 Zitadel mock (OIDC discovery + mgmt subset)
     fixtures.ts                   pageErrors + resetMenu + signedInPage + signIn
     global-setup.ts               truncate the test DB
     global-teardown.ts            close DB pool
     helpers/server-only-stub.ts   tsconfig path target — leave alone
     journeys/                     cross-slice user journeys
 ```
+
+> TODO(phase-1-sweep): the e2e harness was tied to the deleted Zitadel
+> mock at `_bootstrap.ts`. Better-auth runs in-process, so `signIn`
+> now calls `auth.api.signInEmail` against the test DB directly (no
+> network IdP to mock). The fixture + spec patterns below are being
+> rebuilt against `@iedora/auth`; treat the snippets as historical
+> reference until the new harness lands.
 
 `tests/e2e/helpers/` is **zero-domain** (just the `server-only` stub today; future LocalStack/beacon helpers live under `src/shared/testing/`).
 
@@ -168,7 +174,7 @@ test.describe('@smoke menu-builder reorder', () => {
 
 ### Multi-tenant pattern
 
-Use `bindUserToOrg(userId, org)` from `@/features/identity/testing` to register the mapping with the Zitadel mock. Two users + two orgs is the canonical tenant-isolation setup — see `tests/e2e/journeys/tenant-isolation.spec.ts`.
+Two users + two orgs is the canonical tenant-isolation setup — see `tests/e2e/journeys/tenant-isolation.spec.ts`. TODO(phase-1-sweep): document the better-auth equivalent of `bindUserToOrg` once the new harness lands — likely `auth.api.createOrganization` + `auth.api.addMember` against the test DB inside `signIn()`.
 
 ### Tags
 
@@ -252,7 +258,7 @@ Don't reach for `nektos/act` for test-logic failures — it can't reproduce the 
 - **Server Components in jsdom.** They need a Next request scope; jsdom can't supply one. Test via Playwright.
 - **Drizzle queries with mocked Drizzle.** The point of PGLite is that you don't have to.
 - **Server actions directly.** Orchestration shells (auth guard → use-case → revalidate). The use-case is the unit-tested seam; the action's behaviour is covered end-to-end by Playwright.
-- **`openid-client` / `jose` internals.** They have their own conformance + test suites in `node_modules/`. We test what WE wrote on top — the auth slice's port + use-cases.
+- **`better-auth` internals.** It has its own test suite. We test what WE wrote on top — the menu auth slice's DAL guards + the scope-to-permission mapping in `scopes.ts`.
 - **UI styling.** Visual review is a human step.
 - **Internal slice plumbing.** Test through the public API of the slice.
 

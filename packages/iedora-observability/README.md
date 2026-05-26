@@ -180,7 +180,7 @@ they degrade to the no-op tracer from `@opentelemetry/api`.
 
 `@vercel/otel`'s built-in W3C Trace Context propagator handles the
 `traceparent` header on every outbound `fetch` automatically (so
-menu → Zitadel management-API calls and menu → R2/S3 puts stitch into
+menu → R2/S3 puts and any future inter-product HTTP calls stitch into
 one trace with no extra code). Inbound propagation in Next 16 is
 automatic too. There are no inter-product fetches today.
 

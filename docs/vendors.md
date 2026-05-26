@@ -68,25 +68,25 @@ Vendors that process customer data or hold the keys. Each must have a current SO
 
 OSS we run on customer data. Trust based on community maintenance + audit history + CVE-feed monitoring.
 
-### Zitadel
+### better-auth (via `@iedora/auth`)
 
 | | |
 |---|---|
-| **What we use** | Self-hosted IdP at `auth.iedora.com`. Owns user / org / OAuth-client tables in the `zitadel` Postgres database. Menu federates via OIDC (`openid-client` + `jose`) — cutover landed under issue #20 |
+| **What we use** | In-process auth (email+password, organization plugin, admin plugin) wrapped by the shared `@iedora/auth` workspace package. Owns user / session / account / verification / organization / member / invitation tables in the `core` Postgres database (`core` schema). Cookie `better-auth.session_token` is scoped on `.iedora.com` for cross-product SSO |
+| **License** | MIT |
+| **Maintainer** | Bekacru / better-auth-org |
+| **Known CVEs** | Watched via GitHub Advisory Database. See `docs/security-audit.md` § threat #6 (CVE-2026-45364) for the mitigated history |
+| **Monitoring** | GitHub Advisory Database + better-auth security advisories |
+| **Replacement** | Replacement would require swapping the `@iedora/auth` internals (auth-instance + Drizzle schema) — consumers see only `auth.api.*`, so the swap is contained. Realistic options: Lucia, hand-rolled, or back to an external IdP (Zitadel / Keycloak). Multi-day project either way |
+
+### Zitadel (removed)
+
+| | |
+|---|---|
+| **What we used** | Previously the self-hosted IdP at `auth.iedora.com`. Owned user / org / OAuth-client state in the `zitadel` Postgres database; menu federated via OIDC (`openid-client` + `jose`) |
 | **License** | Apache 2.0 |
 | **Maintainer** | ZITADEL (Swiss company, commercial backing) |
-| **Known CVEs** | None tracked at time of review |
-| **Monitoring** | GitHub Advisory Database + ZITADEL security advisories |
-| **Replacement** | Keycloak, Authentik. Replacement requires re-pointing OIDC clients in every consumer — multi-day project |
-
-### Better Auth (removed)
-
-| | |
-|---|---|
-| **What we used** | Menu's local session layer (user/session/account). Removed under issue #20 — replaced by `openid-client` v6 + `jose` v6 OIDC client + JWE session cookie talking directly to Zitadel |
-| **License** | MIT |
-| **Maintainer** | Bekacru / WorkOS |
-| **Status** | No longer in the dependency graph. Kept in this register for one review cycle so any incident-response runbook referencing it still resolves to a source |
+| **Status** | No longer in the dependency graph as of the auth-in-process migration. Container + Stage 3 reconciler + `openid-client` / `jose` deps removed. Kept in this register for one review cycle so any incident-response runbook referencing it still resolves to a source |
 
 ### Drizzle ORM
 
@@ -162,7 +162,7 @@ Before adopting a new third-party:
 
 | Capability | What we don't use | What we do instead | Why |
 |---|---|---|---|
-| Identity | Auth0, Clerk, WorkOS, Stytch | Zitadel (self-hosted) | Cost + full control of auth surface |
+| Identity | Auth0, Clerk, WorkOS, Stytch, Zitadel | better-auth in-process (via `@iedora/auth`) | Single Postgres instance, zero extra service to run, full control of the data model. Swap-out path documented above |
 | Observability | Datadog, Sentry, Honeycomb | OpenObserve (self-hosted) + OTel | Single-operator; alerting is operator's eyes |
 | CI | CircleCI, Buildkite | GitHub Actions | Already inside GitHub trust boundary |
 | Background jobs | Inngest, Trigger.dev | In-process intervals + DB advisory locks | Cron-like work is rare and small |

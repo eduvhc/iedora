@@ -2,78 +2,60 @@
 
 Session resolution + tenant access guards. The DAL of the project lives here.
 
-Menu is a thin Zitadel OIDC client. Org membership lives on Zitadel; this
-slice federates it via `@/features/identity`. The session itself is a
-server-side row owned by `@/features/sessions` — the `menu_session_v2`
-cookie carries only an opaque pointer.
+Identity is sourced from **`@iedora/auth`** (better-auth running
+in-process; see `packages/auth/README.md`). This slice does NOT call an
+external IdP; it consumes `auth.api.*` directly and adds the menu-side
+guards on top — tenant scoping, scope-string checks, the cross-tenant
+`iedora-admin` short-circuit.
 
 ## Public API (`@/features/auth`)
 
-- `verifySession()` — redirects to `/api/auth/login` if no session
-- `getEffectiveOrganizationId(userId)` — first Zitadel org for the user
+- `verifySession()` — redirects to `/sign-in` if no session
+- `getEffectiveOrganizationId(userId)` — first org for the user (via
+  `auth.api.listOrganizations`); the session also carries
+  `activeOrganizationId` for fast-path reads
 - `requireActiveOrganization()` — session + org, else `/onboarding`
 - `requireRestaurantAccess(id)` — verifies membership + returns restaurant
 - `requireRestaurantBySlug(slug)` — same, resolved by URL slug
+- `requireScope(scope)` — checks a `qr-codes:read|write|update|delete`
+  string against the active session's permissions; short-circuits to
+  allowed when `session.user.role === 'iedora-admin'`
 
 All wrappers are `React.cache()`-memoized per request.
 
 ## Ports
 
-- `AuthGateway` (`./ports.ts`) — session cookie + Drizzle restaurant lookup
-- `IdentityGateway` (`@/features/identity/ports`) — Zitadel management API
+- `AuthGateway` (`./ports.ts`) — session lookup + Drizzle restaurant
+  lookup. The production adapter resolves the session via
+  `auth.api.getSession({ headers })` against the in-process auth
+  instance.
 
-Adapters:
-- `./adapters/drizzle.ts` — production restaurant lookup + cookie open →
-  `sessionStore.get(sid)` → bounce if revoked / expired.
-- `./adapters/session.ts` — encrypted session cookie (jose, dir / A256GCM).
-  Cookie payload is `{ sid, sub, exp }` only; permissions + roles live on
-  the server-side row owned by `@/features/sessions`.
-- `./adapters/oidc.ts` — openid-client v6 wrapper for the auth-code dance.
+## Scopes ↔ permissions
+
+`scopes.ts` is the source of truth for the human-readable scope strings
+used at call sites (`qr-codes:read`, `qr-codes:write`, …). The
+`scopeToPermission()` helper converts them to better-auth's
+permission shape (`{qrCodes: ['read']}`) which is what the underlying
+access-control engine in `@iedora/auth` actually checks.
 
 ## Routes
 
-- `GET /api/auth/login?next=<path>` — mints PKCE+state, 302 to Zitadel
-- `GET /api/auth/callback` — exchanges code, inserts a `menu.session` row,
-  sets `menu_session_v2` cookie carrying the row's opaque `sid`
-- `GET|POST /api/auth/logout` — revokes the server-side row, clears
-  cookie, 302 to Zitadel end-session
+- `/api/auth/[...all]` — better-auth's catch-all. Owns sign-in / sign-up
+  / sign-out / get-session / organization + admin plugin endpoints.
+  Mounted by `toNextJsHandler(auth)` against the singleton from
+  `@/shared/auth`.
 
-## Revocation model
+## Session + cookie
 
-The cookie is just a pointer; the authoritative state is `menu.session`.
-That gives us three guarantees the pre-#21 self-contained cookie didn't:
+Sessions are owned by better-auth (`core.session` table). The
+`better-auth.session_token` cookie is scoped on `.iedora.com` so SSO
+works across iedora products (menu today, `core` tomorrow). Cookie
+domain is configured via `IEDORA_AUTH_COOKIE_DOMAIN` (parent domain in
+prod; `localhost` in dev).
 
-1. **Admin revoke** (`revokeSession(sid, 'admin_revoke')`) takes effect on
-   the user's next request, no waiting on the 7-day cookie TTL.
-2. **Scope changes** ride the Zitadel Actions v2 webhook
-   (`/api/zitadel/permissions`) — when it fires, the webhook also calls
-   `refreshPermissionsForUser`, which rewrites `roles` + `permissions`
-   on every active row for the user. Their NEXT request sees the new set.
-3. **Cookie leak** is bounded — a captured cookie is useless once the
-   row is revoked.
-
-### Live grant-change refresh
-
-A second Zitadel Actions v2 target (`menu_grants`, reconciled by
-[`infra/app-state/cmd/zitadel-apply/`](../../../../../infra/app-state/cmd/zitadel-apply/) in both live
-and local — Stage 3 is mode-aware, not Tofu-backed) fires on
-the seven `user.grant.{added,changed,cascade.changed,removed,
-cascade.removed,deactivated,reactivated}` events. The
-`/api/zitadel/grants-changed` route validates the HMAC with
-`ZITADEL_GRANTS_SIGNING_KEY`, re-fetches the user's current iedora-
-project grants via the mgmt API, expands roles to scopes, and calls
-`refreshPermissionsForUser` — so a grant change reflects on the user's
-next request without re-auth.
-
-Known limitation: `user.grant.deactivated` / `reactivated` carry an
-empty payload in Zitadel (`Payload() returns nil`), so the parser
-can't extract a userId. Those events are silently skipped; the row's
-permissions stay stale until the next login, which the function
-webhook still refreshes.
-
-The cookie name was bumped to `menu_session_v2` on the cutover. Pre-#21
-self-contained cookies still in the wild fail closed (decryption
-succeeds, missing `sid` → null → user re-auths).
+Revocation: better-auth supports `auth.api.revokeSession({ token })`
+for admin-revoke flows. An "all sessions for a user" admin view + bulk
+revoke is deferred to the future `core` product (Phase 2).
 
 ## Why this exists
 

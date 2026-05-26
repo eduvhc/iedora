@@ -5,16 +5,16 @@ Where restaurants live in the identity graph and how we evolve when the model st
 ## Shape today (v1)
 
 ```
-identity.user ──(member, role)──> identity.organization
+core.user ──(member, role)──> core.organization
                                          │
-                                         │ id (UUID)
+                                         │ id (text — better-auth id)
                                          ▼
                                menu.restaurant.organizationId
 ```
 
-**One organization → N restaurants.** A user can belong to multiple organizations. A restaurant references exactly one organization by UUID; menu's DB has no FK — the reference is logical, since identity data and menu data live in separate databases.
+**One organization → N restaurants.** A user can belong to multiple organizations. A restaurant references exactly one organization by id; menu's DB has no FK — the reference is logical, since identity data and menu data live in separate databases (`core` for auth, `menu` for restaurants).
 
-> **Identity provider.** Zitadel (`auth.iedora.com`) is the IdP; org + membership rows are projected from Zitadel into menu's DB on each login (issue #20). The `organization` table in menu's schema is the local read-model; Zitadel is the write-side source of truth.
+> **Identity provider.** `@iedora/auth` (better-auth's organization plugin) owns the `core.organization` + `core.member` + `core.invitation` tables. Menu does NOT keep a local read-model — it calls `auth.api.*` for org / membership reads. Cross-product cookies seal on `.iedora.com` so the same login works for the future `core` product without re-authenticating.
 
 **Default onboarding** (`menu/src/app/onboarding/actions.ts`):
 
@@ -64,7 +64,7 @@ Two evolutions are likely. Both are deliberately cheap from the current shape.
 **Shape:**
 
 ```
-identity.organization ──> identity.member          (org-wide role)
+core.organization ──> core.member              (org-wide role)
                                   ↘
                                     menu.restaurant_member  (per-restaurant role, optional)
 ```
@@ -84,7 +84,7 @@ identity.organization ──> identity.member          (org-wide role)
 
 **Reversibility:** drop the table; org-level role is the canonical fallback.
 
-**Doesn't change:** the `organization` / `member` tables, billing (still per-org), OIDC claims.
+**Doesn't change:** the `organization` / `member` tables in `core`, billing (still per-org), session shape.
 
 This is why we picked the v1 shape: migration to A is purely additive.
 
@@ -100,7 +100,7 @@ This is why we picked the v1 shape: migration to A is purely additive.
 
 **Reversibility:** drop the `type` column; treat every org uniformly.
 
-**Doesn't change:** `restaurant.organizationId` (still points at an org), OIDC claims, billing primitives.
+**Doesn't change:** `restaurant.organizationId` (still points at an org), session shape, billing primitives.
 
 ### Migration C — multi-level hierarchy (group · brand · restaurant)
 
@@ -109,7 +109,7 @@ This is why we picked the v1 shape: migration to A is purely additive.
 **Shape:**
 
 ```
-identity.organization
+core.organization
   ├ LVMH       parent_id: NULL          (group)
   ├ Gucci      parent_id: LVMH          (brand)
   └ Versace    parent_id: LVMH          (brand)
@@ -119,7 +119,7 @@ menu.restaurant_member          → Migration A's table
 ```
 
 **Schema additions** (cumulative on top of A):
-- `identity.organization.parent_id` — nullable, references `organization.id`.
+- `core.organization.parent_id` — nullable, references `organization.id`. Better-auth's organization plugin needs to be extended (custom schema) to carry this.
 - Nothing else.
 
 **DAL guard for "can U access R?"** (first match wins):
@@ -129,13 +129,13 @@ menu.restaurant_member          → Migration A's table
 4. User is admin/owner of any ancestor org (walk `parent_id` chain) → that role.
 5. Otherwise → no access.
 
-**OIDC claim:** extend to include the org chain.
+**Session shape:** the active-org block in the better-auth session extends to include the org chain.
 
 **Billing roll-up:** when plan is on the parent (`LVMH.plan = "casa-group"`), children defer. `getEffectivePlan(orgId)` walks `parent_id`.
 
 **Reversibility:** `parent_id` is nullable + ignored. Drop the column, drop the rule-4 branch.
 
-**Doesn't change:** restaurant ownership still points at the BRAND (never the group), OAuth client scopes, existing members without `parent_id`.
+**Doesn't change:** restaurant ownership still points at the BRAND (never the group), AC scope strings, existing members without `parent_id`.
 
 **Cost:** ~2 hours end-to-end. No data migration since `parent_id` defaults to null.
 
@@ -147,8 +147,7 @@ If we ever did need it: every org with N restaurants splits into N orgs. Tooling
 
 ## Where the code expresses this
 
-- `products/menu/src/features/identity/use-cases/create-organization.ts` — the call menu makes to mint an org.
-- `products/menu/src/app/onboarding/actions.ts` — branches: first restaurant → create-org; otherwise reuse active org.
-- `products/menu/src/features/auth/use-cases/require-restaurant-access.ts` — DAL guard that checks "does the caller's set of org IDs include this restaurant's org ID?"
+- `products/menu/src/app/onboarding/actions.ts` — branches: first restaurant → `auth.api.createOrganization` + `setActiveOrganization`; otherwise reuse active org.
+- `products/menu/src/features/auth/use-cases/require-restaurant-access.ts` — DAL guard that checks "does the caller's set of org IDs include this restaurant's org ID?" (resolved via `auth.api.listOrganizations`).
 
 When Migration A lands, `require-restaurant-access` gains a per-restaurant check ahead of the org check. When B lands, onboarding gains an "is the active org personal?" branch.

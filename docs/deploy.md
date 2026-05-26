@@ -18,10 +18,10 @@ Stage 4: Deploy            bin/iedora-env bin/iedora deploy <product>
 
 **Hard split**: Tofu owns infrastructure ONLY — VPS, Cloudflare, GitHub
 config, and the rendered docker-compose stack. Anything that lives
-**inside** a running service (Zitadel org/project/PAT, drizzle
-migrations on postgres, OpenObserve dashboards, the menu app container)
-is **not** in Tofu. App state belongs to Stage 3 (configurators) and
-Stage 4 (per-product deploys).
+**inside** a running service (drizzle migrations on postgres,
+OpenObserve dashboards, the menu app container) is **not** in Tofu.
+App state belongs to Stage 3 (configurators) and Stage 4 (per-product
+deploys).
 
 **Container management**: Tofu renders `/etc/iedora/docker-compose.yml`
 (via [`compose.tf`](../infra/iac/tofu/compose.tf)). The box runs the
@@ -115,31 +115,13 @@ opted in by the `Healthcheck` field on the menu product literal in
 (happy path, probe timeout, probe error, alias-swap failure, naive
 fallback).
 
-### 5. Zitadel reconciler — anti-panic lock
+<!-- Guardrail 5 (Zitadel reconciler anti-panic lock) removed —
+     Zitadel is gone. Auth now runs in-process via @iedora/auth
+     (better-auth) inside each product. No external IdP reconciler.
+     TODO(phase-1-sweep): if a future Stage-3 configurator manages
+     anything in the `core` DB (e.g. seeding the `iedora-admin`
+     bootstrap user), add a comparable destructive-action guard. -->
 
-If a Zitadel resource exists on the live IdP but the corresponding
-sync key is missing from BWS, the reconciler **fails loudly in `live`**
-— never runs an automated `delete + recreate`.
-
-Reason: protects against the cascade where a transient BWS API
-timeout returns "key not found", the reconciler "recovers" by
-re-creating live IAM resources, and live users / service accounts /
-org structures are silently destroyed. Lookup failure is
-operator-investigates territory, not auto-heal.
-
-In `local` mode, the lock is off — delete+recreate is the normal
-first-boot/reset behaviour.
-
-**Escape hatch.** When a one-shot reveal is genuinely lost (audited
-by the operator), pass `--allow-recreate=<resource>` to opt in
-per-resource. Known tokens: `pat`, `target:menu-permissions`,
-`target:menu-grants`. Each opt-in is single-resource — there's no
-`--allow-recreate=all`.
-
-Implementation: `guardRecreate` helper at
-[`infra/app-state/zitadel-apply/reconcile.go`](../infra/app-state/zitadel-apply/reconcile.go),
-gated at the PAT and action-target delete branches. Tested via
-[`infra/app-state/zitadel-apply/reconcile_test.go`](../infra/app-state/zitadel-apply/reconcile_test.go).
 
 ## Architecture
 
@@ -164,15 +146,16 @@ gated at the PAT and action-target delete branches. Tested via
       │  on infra/iac/tofu/        │ appConfigurators            │ hot-swap on box
       ▼                            ▼                             │
  ┌──────────┐               ┌──────────────────┐                 │
- │ Hetzner  │               │ bin/zitadel-     │                 ├──► menu →
- │   VPS    │               │   apply          │                 │     dockerOnHetzner
+ │ Hetzner  │               │ menu-db-         │                 ├──► menu →
+ │   VPS    │               │   migrations     │                 │     dockerOnHetzner
  │          │               │                  │                 │     SSH + docker pull/run
- │ + CF DNS │               │ menu-db-         │                 │     Serves BOTH
- │ + R2     │               │   migrations     │                 │     menu.iedora.com
+ │ + CF DNS │               │ openobserve-     │                 │     Serves BOTH
+ │ + R2     │               │   dashboards     │                 │     menu.iedora.com
  │ + GH cfg │               │                  │                 │     and iedora.com
- │ + compose│               │ openobserve-     │                 │     (proxy.ts rewrites
- │   stack  │               │   dashboards     │                 │      apex → /house/*)
- │   on box │               │                  │                 │
+ │ + compose│               │ (core DB         │                 │     (proxy.ts rewrites
+ │   stack  │               │  migrations:     │                 │      apex → /house/*)
+ │   on box │               │  TODO phase-1-   │                 │
+ │          │               │  sweep)          │                 │
  └────┬─────┘               └────┬─────────────┘                 │
       │ writes via               │ writes
       │ terraform_data           │
@@ -194,7 +177,7 @@ gated at the PAT and action-target delete branches. Tested via
   the registry — no per-target conditional logic.
 - Stage 4 runtimes are polymorphic. Adding a Docker product = struct
   literal. Adding a non-Docker runtime = one new `runtime_<kind>.go`.
-- BWS is the bus. Stage 3 writes Zitadel outputs + per-product app
+- BWS is the bus. Stage 3 writes app-state outputs + per-product app
   secrets; Stage 4 reads. No Tofu round-trips for app values.
 - Stage isolation via SSH+localhost tunnels for internal-only services
   (`openobserve-dashboards` is the pattern reference).
@@ -230,8 +213,7 @@ Plain `tofu apply` on [`infra/iac/tofu/`](../infra/iac/tofu/). Owns:
   `integrations/github` provider ([github.tf](../infra/iac/tofu/github.tf))
 - **The rendered docker-compose stack** ([compose.tf](../infra/iac/tofu/compose.tf))
   — yamlencode'd document covering:
-  - `infra-postgres` (Postgres 18, menu + zitadel databases)
-  - `infra-zitadel` + `infra-zitadel-login` (IdP)
+  - `infra-postgres` (Postgres 18, menu + core databases)
   - `infra-cloudflared` (Zero Trust Tunnel connector — public ingress)
   - `infra-openobserve` (observability backend, bound to 127.0.0.1:5080)
   - `infra-pg-backup` (daily pg_dumpall → R2 GPG-encrypted)
@@ -243,18 +225,15 @@ Plain `tofu apply` on [`infra/iac/tofu/`](../infra/iac/tofu/). Owns:
   API DELETE (otherwise: 409 on non-empty bucket).
 - **Random passwords minted by Tofu, written through to BWS** as
   `IAC_*` ([secrets.tf](../infra/iac/tofu/secrets.tf)) — postgres
-  pwd, backup passphrase, zitadel masterkey, zitadel first-admin pwd,
-  openobserve pwd. The Hetzner IPv4 also writes through here so Stage 3
-  configurators can find the box.
+  pwd, backup passphrase, openobserve pwd. The Hetzner IPv4 also
+  writes through here so Stage 3 configurators can find the box.
 
 **Does NOT own:**
 
-- Zitadel app config (org, project, OIDC app, PAT, action targets) —
-  Stage 3.
 - The menu container — Stage 4 (`dockerOnHetzner`).
 - DB migrations, OO dashboards — Stage 3.
-- The menu session JWE secret — Stage 4 (`appSecrets`, minted on first
-  deploy).
+- The `IEDORA_AUTH_SECRET` for better-auth — Stage 4 (`appSecrets`,
+  minted on first deploy).
 
 ### Single-pass apply
 
@@ -310,56 +289,6 @@ the binary anywhere under `infra/`.
 
 ### Current configurators (run in order)
 
-#### `zitadel-app-config` → [`bin/zitadel-apply`](../bin/zitadel-apply)
-
-Reconciles the Zitadel IdP's application state via REST. Authenticates
-with the FirstInstance-minted SA key (RSA JWT bearer, hand-rolled in Go
-with `crypto/rsa` — no Zitadel SDK pulled in).
-
-**Owns:** org `iedora`, project `iedora`, 6 project roles
-(`iedora-admin`, `qr-codes:{read,write,update,delete,list}`), machine
-user `menu-sa` + IAM_OWNER grant + long-lived PAT, OIDC app `menu`, 2
-action targets (`menu-permissions`, `menu-grants`) + their function/
-event executions, admin email grants.
-
-**Health gate**: `tlsprobe.Wait` on `https://auth.iedora.com/debug/ready`
-+ verifies the served cert is a valid Cloudflare-managed certificate
-(TLS terminates at the CF edge).
-
-**SA key bootstrap**: on cold runs, SSHes to the box and reads the
-FirstInstance-minted JSON key from the `zitadel-bootstrap` named
-volume, writes it to BWS. Subsequent runs find it in env (via
-`with-secrets --stage app`).
-
-**Outputs to BWS** (Stage 4 reads these):
-
-| BWS key                                  | Source                              |
-|------------------------------------------|-------------------------------------|
-| `APP_ZITADEL_MENU_OIDC_CLIENT_ID`      | OIDC app create / search            |
-| `APP_ZITADEL_MENU_OIDC_CLIENT_SECRET`  | Create or regenerate endpoint       |
-| `APP_ZITADEL_MENU_SA_TOKEN`            | PAT create (one-shot reveal)        |
-| `APP_ZITADEL_PERMISSIONS_SIGNING_KEY`  | action_target create (one-shot)     |
-| `APP_ZITADEL_GRANTS_SIGNING_KEY`       | action_target create (one-shot)     |
-| `APP_ZITADEL_IEDORA_PROJECT_ID`        | project create / search             |
-
-**Recovery matrix** for one-shot-reveal values (PAT, signing keys).
-Branch on `(BWS has, Zitadel has)`:
-
-| BWS | Zitadel | Action                                                                    |
-|-----|---------|---------------------------------------------------------------------------|
-| no  | no      | Cold create, write BWS                                                    |
-| yes | yes     | Trust BWS                                                                 |
-| no  | yes     | **Delete + recreate** Zitadel resource, rebind executions, loud warning   |
-| yes | no      | Drop stale BWS key, recreate cold, loud warning                           |
-
-OIDC client_secret is regenerate-able (`POST .../oidc_config/_generate_client_secret`)
-so its recovery is a single API call, not delete+recreate.
-
-**Concurrent-operator guard**: bails on >1 PAT for `menu-sa`.
-Operator reconciles via Zitadel UI before re-running.
-
-**Subsumes** the legacy `zitadel-grant` binary via `--grants-only`.
-
 #### `menu-db-migrations` → [`infra/app-state/menu-db-migrations`](../infra/app-state/menu-db-migrations/) (in-process)
 
 drizzle-kit migrate against menu's postgres database. SSHes to the box,
@@ -403,9 +332,10 @@ POST on miss.
 ### Future configurators (worth knowing about)
 
 Add by appending one struct literal to `appConfigurators` + the binary.
-Likely future entries: per-product DB role provisioner, S3 bucket
-policies on a future internal MinIO, additional Zitadel action targets
-when new products land.
+Likely future entries: `core-db-migrations` (the better-auth schema in
+the `core` Postgres database — TODO(phase-1-sweep); today migrations
+apply via `bun run --cwd packages/auth db:migrate` in dev), per-product
+DB role provisioner, S3 bucket policies on a future internal MinIO.
 
 ## Stage 4 — Deploy (`bin/iedora-env bin/iedora deploy <product>`)
 
@@ -423,7 +353,8 @@ For Docker-runtime products that run on the shared Hetzner VPS.
 **Deploy flow** — zero-downtime hot-swap per [Guardrail #4](#4-stage-4-menu-deploy-is-zero-downtime):
 
 1. Mint any per-product `appSecrets` not yet in BWS (menu mints
-   `DEPLOY_MENU_SESSION_SECRET` on first deploy).
+   `DEPLOY_MENU_IEDORA_AUTH_SECRET` on first deploy — the
+   `IEDORA_AUTH_SECRET` better-auth signs session tokens with).
 2. Resolve box IPv4 from `tofu output -raw hetzner_ipv4`.
 3. Compose env from `envStatic` + `envFromBWS` (Stage 3 outputs +
    AUTOGEN secrets) + `envFromTofu` (DATABASE_URL, OTEL endpoint, S3
@@ -509,9 +440,9 @@ Unclassified keys never enter the spawned process's env.
 | Prefix              | Owns lifecycle      | Examples                                                                                          |
 |---------------------|---------------------|---------------------------------------------------------------------------------------------------|
 | `IAC_BOOTSTRAP_*`   | Operator (manual)   | `IAC_BOOTSTRAP_HCLOUD_TOKEN`, `IAC_BOOTSTRAP_CLOUDFLARE_API_TOKEN`, `IAC_BOOTSTRAP_GHCR_TOKEN`     |
-| `IAC_*`             | Tofu (Stage 2)      | `IAC_POSTGRES_PASSWORD`, `IAC_BACKUP_PASSPHRASE`, `IAC_ZITADEL_MASTERKEY`                          |
-| `APP_<service>_*`   | Stage 3 configurator| `APP_ZITADEL_MENU_OIDC_CLIENT_ID`, `APP_ZITADEL_MENU_SA_TOKEN`, `APP_ZITADEL_PERMISSIONS_SIGNING_KEY` |
-| `DEPLOY_<product>_*`| Stage 4 productRuntime | `DEPLOY_MENU_SESSION_SECRET`                                                                  |
+| `IAC_*`             | Tofu (Stage 2)      | `IAC_POSTGRES_PASSWORD`, `IAC_BACKUP_PASSPHRASE`                                                  |
+| `APP_<service>_*`   | Stage 3 configurator| (none today — was the home of Zitadel outputs; future `core-db-migrations` may add some)         |
+| `DEPLOY_<product>_*`| Stage 4 productRuntime | `DEPLOY_MENU_IEDORA_AUTH_SECRET`                                                              |
 
 The prefix tells you who writes the value — which means it also tells
 you where to look when it goes wrong and which `--stage` will surface
@@ -520,11 +451,10 @@ it. Rotation playbooks for each prefix are in § Secret rotation below.
 | Stage  | Visible BWS keys                                                                                                                |
 |--------|---------------------------------------------------------------------------------------------------------------------------------|
 | iac    | Provider creds (Hetzner, CF, GH), state passphrase, all IAC_*, OO email/password                                      |
-| app    | IAC_BOOTSTRAP_ZITADEL_SA_KEY_JSON, IAC_BOOTSTRAP_GHCR_TOKEN (for menu-db-migrations pulls), OO email/password (dashboards Basic auth), universal keys |
+| app    | IAC_BOOTSTRAP_GHCR_TOKEN (for menu-db-migrations pulls), OO email/password (dashboards Basic auth), universal keys |
 | deploy | Universal + CF/state (for per-product Tofu) + IAC_BOOTSTRAP_GHCR_TOKEN (docker pull) + per-product extras gated by `--product`          |
 
-Per-product extras for `--product menu`: the 6 `APP_ZITADEL_MENU_*`
-keys + `DEPLOY_MENU_SESSION_SECRET`.
+Per-product extras for `--product menu`: `DEPLOY_MENU_IEDORA_AUTH_SECRET`.
 
 TF_VAR_* aliases auto-emitted only for stages that use Tofu (iac,
 deploy). App stage doesn't get TF_VARs.
@@ -546,7 +476,6 @@ bin/iedora-env tofu -chdir=infra/iac/tofu fmt -recursive    # Format .tf files.
 
 # Stage 3 — App state
 bin/iedora-env bin/iedora app apply                         # Every configurator.
-bin/iedora-env bin/zitadel-apply --grants-only              # Just the iedora-admin grants.
 
 # Stage 4 — Deploy
 bin/iedora-env bin/iedora deploy menu                       # Menu.
@@ -579,7 +508,7 @@ flows via `workflow_run` triggers.
 | Workflow | Stage | Trigger |
 |----------|-------|---------|
 | [`infra-deploy.yml`](../.github/workflows/infra-deploy.yml) | 2 | push to main on `infra/iac/**`, `internal/**`, `bin/{bws-sync,bws-upsert,state-bucket-bootstrap}`, `go.{mod,sum}`. Manual dispatch. |
-| [`app-state.yml`](../.github/workflows/app-state.yml)       | 3 | `workflow_run` on infra-deploy success. Also: push on `infra/app-state/zitadel-apply/**`, `infra/app-state/menu-db-migrations/**`, `infra/app-state/openobserve-dashboards/**`, `infra/app-state/cmd/zitadel-apply/**`. Manual dispatch. |
+| [`app-state.yml`](../.github/workflows/app-state.yml)       | 3 | `workflow_run` on infra-deploy success. Also: push on `infra/app-state/menu-db-migrations/**`, `infra/app-state/openobserve-dashboards/**`. Manual dispatch. |
 | [`menu.yml`](../.github/workflows/menu.yml)                 | 1+4 | push to main on `products/menu/**`. Build + push image (multi-arch), then dispatches `deploy.yml(product=menu, sha=...)`. Ships both menu.iedora.com AND iedora.com. |
 | [`deploy.yml`](../.github/workflows/deploy.yml)             | 4 | reusable `workflow_call` invoked by `menu.yml`. Generic over `product`. |
 
@@ -596,24 +525,21 @@ side of `deploy.yml` commit the encrypted `terraform.tfstate` back to
 
 [`dev/docker-compose.yml`](../dev/docker-compose.yml)
 is the source of truth for the local stack shape: postgres,
-localstack (S3 mock), openobserve, zitadel + login UI, house, menu.
+localstack (S3 mock), openobserve, menu.
 Each service is gated by a compose profile matching its name.
 
 [`dev/cmd/local-stack/`](../dev/cmd/local-stack/) is a thin Go shim that:
 
 1. Translates `--only`/`--except` into compose profile flags.
 2. `docker compose up -d --wait` for everything except menu.
-3. Waits for Zitadel `/debug/ready` (no docker healthcheck — the
-   image is distroless, no shell to run one).
-4. Runs `bin/zitadel-apply --mode local --output-file
-   dev/.zitadel-bootstrap/outputs.json` against
-   `localhost:8080`. The SA key is `docker cp`'d out of the
-   `zitadel_bootstrap` named volume.
-5. Composes `products/menu/.env` from local-stack statics +
-   outputs.json + a minted session secret (persisted alongside the
-   outputs).
-6. `docker compose up -d menu` — the menu container's `env_file:`
+3. Composes `products/menu/.env` from local-stack statics +
+   a minted `IEDORA_AUTH_SECRET` (persisted across runs).
+4. `docker compose up -d menu` — the menu container's `env_file:`
    picks up the just-written `.env`.
+
+Auth tables in the `core` Postgres DB are applied via
+`bun run --cwd packages/auth db:migrate` (run by the operator after
+first boot, or by the menu container's startup script).
 
 Menu runs as a container by default (same image as prod). For HMR,
 opt out via `go run ./dev/cmd/local-stack --except menu` and `cd products/menu && bun
@@ -622,7 +548,7 @@ writes `<please_fill>` placeholders into `.env.local` for the
 operator to point at remote URLs.
 
 `go run ./dev/cmd/local-stack --only menu` brings up menu's deps (postgres, localstack,
-openobserve, zitadel) too via the dep closure in the orchestrator.
+openobserve) too via the dep closure in the orchestrator.
 `go run ./dev/cmd/local-stack --reset-db -- <name>` drops + recreates one database.
 
 ## Day-2 operations
@@ -633,7 +559,7 @@ Most day-2 work is SSH against the box. Resolve the host once and re-use:
 HOST=$(bin/iedora-env --stage iac -- tofu -chdir=infra/iac/tofu\1output -raw hetzner_ipv4)
 
 # Logs
-ssh root@$HOST docker logs -f --tail=200 infra-zitadel        # or infra-menu-web / infra-cloudflared / …
+ssh root@$HOST docker logs -f --tail=200 infra-menu-web        # or infra-postgres / infra-cloudflared / …
 
 # psql
 ssh -t root@$HOST docker exec -it infra-postgres psql -U postgres
@@ -654,33 +580,14 @@ ssh -L 5080:localhost:5080 root@$HOST   # then open http://localhost:5080
 |-------------|---------------|
 | `IAC_BOOTSTRAP_*` (HCLOUD, CF, GH, GHCR, etc.) | Regenerate at the source provider, then `bws secret edit <id>` with the new value. |
 | `IAC_*` (Tofu-minted) | `bin/iedora-env --stage iac -- tofu -chdir=infra/iac/tofu\1apply -replace=random_password.<name>`. The `terraform_data.bws_sync_autogen` write-through pushes the new value to BWS automatically. |
-| `APP_ZITADEL_MENU_SA_TOKEN` | `bws secret delete <id>`, then `bin/iedora-env bin/iedora app apply` — zitadel-apply detects `(no BWS, yes Zitadel)`, deletes the live PAT, mints a new one, writes BWS. Menu container restarts on next `bin/iedora-env bin/iedora deploy menu`. |
-| `DEPLOY_MENU_SESSION_SECRET` | `bws secret delete <id>`, then `bin/iedora-env bin/iedora deploy menu`. `dockerOnHetzner.appSecrets` re-mints. All active sessions invalidate (users re-auth). |
-| `IAC_ZITADEL_MASTERKEY` | **Don't rotate casually.** It encrypts Zitadel's projection table — re-keying mid-flight is unsupported. To actually rotate: `TF_VAR_allow_masterkey_rotation=true bin/iedora-env tofu -chdir=infra/iac/tofu apply` (one-time override on the prevent_destroy lifecycle guard), then a Zitadel rebootstrap (see below). |
+| `DEPLOY_MENU_IEDORA_AUTH_SECRET` | `bws secret delete <id>`, then `bin/iedora-env bin/iedora deploy menu`. `dockerOnHetzner.appSecrets` re-mints. All active better-auth sessions invalidate (users re-authenticate). |
 
-### Zitadel rebootstrap (cold-start Zitadel without losing the rest)
+<!-- TODO(phase-1-sweep): document an auth-rebootstrap day-2 procedure
+     (drop+recreate the `core` Postgres DB without affecting `menu`)
+     once the `core-db-migrations` Stage 3 configurator lands. The
+     old Zitadel-rebootstrap section was removed when the external
+     IdP was retired. -->
 
-If Zitadel's state is corrupt or the masterkey rotated:
-
-```bash
-# Drop the live PAT + signing keys from BWS so the reconciler treats this as cold
-for K in IAC_BOOTSTRAP_ZITADEL_SA_KEY_JSON \
-         APP_ZITADEL_MENU_OIDC_CLIENT_ID APP_ZITADEL_MENU_OIDC_CLIENT_SECRET \
-         APP_ZITADEL_MENU_SA_TOKEN APP_ZITADEL_PERMISSIONS_SIGNING_KEY \
-         APP_ZITADEL_GRANTS_SIGNING_KEY APP_ZITADEL_IEDORA_PROJECT_ID; do
-  bws secret delete "$(bws secret list -o json | jq -r ".[]|select(.key==\"$K\")|.id")"
-done
-
-# Recreate the container + drop its database
-ssh root@$HOST docker rm -f infra-zitadel infra-zitadel-login
-ssh root@$HOST docker exec infra-postgres psql -U postgres -c "DROP DATABASE zitadel WITH (FORCE); CREATE DATABASE zitadel;"
-ssh root@$HOST docker volume rm zitadel-bootstrap
-
-# Re-apply infra (recreates the container, FirstInstance re-runs)
-bin/iedora-env tofu -chdir=infra/iac/tofu apply
-bin/iedora-env bin/iedora app apply        # fetches the fresh SA key, reconciles org/project/PAT/etc. cold
-bin/iedora-env bin/iedora deploy menu      # restart menu with the new OIDC client_secret + PAT
-```
 
 ### Backups
 
@@ -787,7 +694,6 @@ the affected stage; the rest have explicit recovery steps below.
 |---------|-------|----------|
 | `Error: error during placement (resource_unavailable, ...)` on `hcloud_server.iedora` | Hetzner datacenter (default `fsn1`) is temporarily out of capacity for the chosen SKU (e.g. CAX11). | Wait 5–10 min, OR pass `TF_VAR_hetzner_location=nbg1` (Nuremberg) or `hel1` (Helsinki) — same EU backbone, similar latency from PT. Validated tier list in `variables.tf::hetzner_location`. |
 | `Error acquiring the state lock` (HTTP 412 `PreconditionFailed`) | Previous `tofu apply` was Ctrl-C'd before releasing the R2-backend lock. Lock ID + path are in the error body. | `bin/iedora-env tofu -chdir=infra/iac/tofu force-unlock -force <LOCK_ID>`. Safe when you know the prior operation is dead (the error shows `Who:` so you can confirm). |
-| `Resource instance random_password.zitadel_masterkey has prevent_destroy set` on `tofu destroy` | The masterkey lifecycle guard (encrypts Zitadel's projection table — rotating it bricks state) blocks all destroys by default. | One-shot override: `TF_VAR_allow_masterkey_rotation=true bin/iedora-env tofu -chdir=infra/iac/tofu destroy`. Don't leave the var set after. |
 | `tofu destroy` reports `0 destroyed` but the Hetzner box / CF DNS / R2 buckets still exist | A previous `tofu apply` was cancelled mid-run; resources were created on the provider side but never persisted to the state file. State is empty so destroy has nothing to do. | Cleanup via API directly. Inventory: `curl ... https://api.hetzner.cloud/v1/servers`, `curl ... /accounts/$AID/r2/buckets`, `curl ... /zones/$ZID/dns_records`. Delete by ID. |
 | Destroy fails: bucket DELETE returns 409 / hangs | `rclone purge` skipped (binary missing or no creds) and the R2 bucket has objects. | `brew install rclone` if missing. Re-run destroy. If buckets stay, manually `rclone purge :s3:<bucket>` with `RCLONE_S3_*` env (see `destroy-hooks.tf`). |
 | `bin/iedora-env` aborts with `RSA: command not found` on tempfile line N | Older versions of iedora-env sourced `bws secret list -o env` directly; multi-line values (SSH private key) break bash quoting. | Pull latest; the helper now reads JSON + base64-decodes per key. If still hitting: `git pull && rm -rf node_modules` + re-test. |
@@ -805,16 +711,12 @@ the affected stage; the rest have explicit recovery steps below.
 | Symptom | Cause | Recovery |
 |---------|-------|----------|
 | `Host key verification failed` from a configurator's SSH call | Operator's `~/.ssh/known_hosts` pins a stale key for the Hetzner IP (recycled across destroy/apply). | `internal/ssh.Client` uses `UserKnownHostsFile=/dev/null + StrictHostKeyChecking=no` — pull latest. For ad-hoc `ssh root@$HOST` from the laptop: `ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$HOST`. |
-| `x509: certificate signed by unknown authority` from `tlsprobe` after Zitadel ready | CF Tunnel serves a local-tunnel cert while the Cloudflare-managed certificate is still propagating; `tlsprobe` rejects it. | `tlsprobe` validates the cert issuer; CF universal certs take 1–2 min to provision after first apply. Budget is 2 min. If exhausted: `ssh root@$HOST docker logs infra-cloudflared` for connectivity issues. |
-| `Errors.Target.DeniedURL` on action-target create | Zitadel's URL validator can't resolve `menu.iedora.com` from inside the iedora docker network. | `zitadel-apply` runs `waitForMenuDNS` before creating action targets — 90s budget. Increase if it fires. |
-| `found N PATs on machine user "menu-sa" (expected 0 or 1)` | Prior run crashed mid-create OR two operators raced. Concurrent guard refuses to silently delete the wrong one. | Reconcile via Zitadel UI; re-run `bin/iedora-env bin/iedora app apply`. |
 | `menu-db-migrations: connection refused` | `infra-postgres` isn't up. | `ssh root@$HOST docker ps`. If missing, `bin/iedora-env tofu -chdir=infra/iac/tofu apply`. |
 
 ### Stage 4 — deploy
 
 | Symptom | Cause | Recovery |
 |---------|-------|----------|
-| `BWS missing APP_ZITADEL_*` | Stage 3 didn't complete. | `bin/iedora-env bin/iedora app apply` first. |
 | `tofu output X empty` | Stage 2 wasn't run, OR an `outputs.tf` entry was added but not applied. | `bin/iedora-env tofu -chdir=infra/iac/tofu apply`. |
 | `unauthorized` from `docker pull ghcr.io/...` | `IAC_BOOTSTRAP_GHCR_TOKEN` expired OR not in scope. | Regenerate the GHCR PAT, `bws secret edit`. The configurator's `docker login` step uses `--password-stdin` so the token never appears in `docker history`. |
 | `Type 'string \| undefined' is not assignable to parameter of type 'string'` in `proxy.ts` during `next build` | `noUncheckedIndexedAccess` is on; `(host ?? '').split(':')[0]` is `string \| undefined`. | `… .split(':')[0] ?? ''`. Or any guard before `houseHosts.has(host)`. |
@@ -868,7 +770,7 @@ verify each container:
 HOST=$(bin/iedora-env tofu -chdir=infra/iac/tofu output -raw hetzner_ipv4)
 ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@$HOST \
   'docker compose -f /etc/iedora/docker-compose.yml ps'
-curl -sI https://auth.iedora.com/debug/ready | head -1   # → HTTP/2 200
+curl -sI https://menu.iedora.com/up | head -1   # → HTTP/2 200
 ```
 
 **Catches**: cloud-init failures (missing packages, bad write_files
@@ -902,7 +804,7 @@ Edit a single container env in `compose.tf` (e.g. flip
 bin/iedora-env tofu -chdir=infra/iac/tofu apply
 
 # On the box: ONLY the affected container should be recreated.
-# postgres, zitadel, cloudflared, openobserve should preserve their uptime.
+# postgres, cloudflared, openobserve should preserve their uptime.
 ssh root@$HOST 'docker ps --format "{{.Names}}\t{{.RunningFor}}"'
 ```
 
@@ -913,8 +815,7 @@ whole stack (the `systemctl reload` vs `restart` finding — see
 ### Layer 4 — Destroy (~3 min, frees all paid resources)
 
 ```bash
-TF_VAR_allow_masterkey_rotation=true \
-  bin/iedora-env tofu -chdir=infra/iac/tofu destroy
+bin/iedora-env tofu -chdir=infra/iac/tofu destroy
 ```
 
 Expected: `Destroy complete! Resources: N destroyed.` with no R2 409s,
@@ -954,10 +855,8 @@ bin/iedora-env tofu -chdir=infra/iac/tofu apply  # 6: warm — final idempotency
 ```
 
 The second cold/destroy pair (4→5) is the load-bearing test. It
-catches the DNS race inside `zitadel-apply` (between
-`cloudflare_dns_record.menu_iedora` create and `zitadel_action_target`
-create) and the OO dashboards' tunnel-then-reconcile flow on a fresh
-target.
+catches CF DNS / cert propagation races and the OO dashboards'
+tunnel-then-reconcile flow on a fresh target.
 
 **One failed step ⇒ do not merge.**
 
@@ -966,21 +865,19 @@ target.
 | Step | What it proves |
 |------|----------------|
 | 1. destroy | `tofu destroy` works from any state. R2 buckets emptied via rclone hooks; BWS keys scrubbed via `bin/bws-sync` batched destroy. |
-| 2. cold deploy | Full bootstrap: 26 Tofu resources, all 3 configurators run cold, menu deploys (serves both menu.iedora.com AND iedora.com). |
+| 2. cold deploy | Full bootstrap: Tofu resources up, both Stage 3 configurators run cold, menu deploys (serves both menu.iedora.com AND iedora.com). |
 | 3. warm deploy | Idempotency at every stage. Stage 2: `0 added, 0 changed, 0 destroyed`. Stage 3: all "updated" or "no diff". Stage 4: re-pull same SHA → no container restart. |
 | 4. destroy (full) | R2 emptying works against real R2 (rclone). |
-| 5. cold deploy #2 | DNS gate inside zitadel-apply fires correctly. PAT/signing-key recovery matrix works. |
+| 5. cold deploy #2 | CF DNS / cert propagation races caught; configurators recover from a fresh estate. |
 | 6. warm deploy | Final no-op. |
 
 ### Expected state after a cold deploy
 
 - **Tofu state** (`infra/iac/tofu/`): ~26 resources (hcloud VPS/firewall/key, cloudflare R2/DNS/api_tokens incl. iedora.com apex + www, github_actions_secret/variable, random_password.*, terraform_data.{bws_sync,iedora_sync,data_bucket_purge,assets_bucket_purge}).
-- **BWS**: 6 `APP_ZITADEL_*` outputs from Stage 3 + `DEPLOY_MENU_SESSION_SECRET` minted by Stage 4 + `IAC_BOOTSTRAP_HOST_IP` + 5 autogen passwords from `bws_sync`.
-- **Zitadel**: org `iedora`, project `iedora`, 6 roles, machine user `menu-sa` with 1 PAT + IAM_OWNER, OIDC app `menu`, 2 action targets with executions.
-- **Box** (`ssh root@$HOST docker ps`): `infra-postgres`, `infra-zitadel`, `infra-zitadel-login`, `infra-cloudflared`, `infra-openobserve`, `infra-pg-backup` (compose-managed via `iedora.service`) + `infra-menu-web` (Stage-4-owned, NOT in compose).
+- **BWS**: `DEPLOY_MENU_IEDORA_AUTH_SECRET` minted by Stage 4 + `IAC_BOOTSTRAP_HOST_IP` + autogen passwords from `bws_sync`.
+- **Box** (`ssh root@$HOST docker ps`): `infra-postgres`, `infra-cloudflared`, `infra-openobserve`, `infra-pg-backup` (compose-managed via `iedora.service`) + `infra-menu-web` (Stage-4-owned, NOT in compose).
 - **Public endpoints**:
   - `https://menu.iedora.com/up` → 200 `{"ok":true,"db":"ok"}`
-  - `https://auth.iedora.com/.well-known/openid-configuration` → 200
   - `https://iedora.com` → 200 (house landing — served by menu container via `proxy.ts` Host rewrite)
 
 ## File map
@@ -989,7 +886,6 @@ target.
 bin/                                     `go run` / `bash` shims operators invoke directly
   iedora                                   → infra/deploy/cmd/iedora
   state-bucket-bootstrap                   → infra/iac/cmd/state-bucket-bootstrap (Stage -1)
-  zitadel-apply                            → infra/app-state/cmd/zitadel-apply
   bws-sync                                 → infra/iac/cmd/bws-sync
   bws-upsert                               → infra/iac/cmd/bws-upsert (Tofu local-exec helper)
                                             (menu-db-migrations + openobserve-dashboards
@@ -1003,11 +899,9 @@ infra/deploy/cmd/iedora/                  Stage 3 + Stage 4 orchestrator
   ssh.go, paths.go, log.go
 
 infra/app-state/                         Stage 3 — each subdir is a self-contained configurator
-  cmd/zitadel-apply/                       thin binary wrapper (package main)
-  zitadel-apply/                           Zitadel REST reconciler (org / project / OIDC /
-                                           machine user + PAT / action targets / grants)
   menu-db-migrations/                      drizzle-kit migrate via SSH + docker run
   openobserve-dashboards/                  SSH-L tunnel + go:embed JSONs + REST upsert
+                                           (TODO(phase-1-sweep): core-db-migrations)
 
 internal/                                Shared Go helpers (repo-root single Go module)
   bws/                                     bws CLI wrapper (ProjectID, ListSecrets, Find, Upsert, Delete)
@@ -1028,11 +922,11 @@ infra/                                   Stage 2 — IaC for the shared estate
       bws-upsert/                          Single-key variant (ad-hoc)
       infra-pg-backup/                     Postgres-backup container (Go + Dockerfile, arm64)
       state-bucket-bootstrap/              Stage -1 — R2 bucket + token bootstrap
-    postgres/                              init.sql — CREATE DATABASE menu / zitadel on first boot
+    postgres/                              init.sql — CREATE DATABASE menu / core on first boot
 
 dev/                                     Local stack (mirror of Stages 2-4)
   docker-compose.yml, localstack-init.sh   the stack itself
-  cmd/local-stack/                         Driver: compose up → zitadel-apply --mode local
+  cmd/local-stack/                         Driver: compose up → menu .env
 ```
 
 ## Scaling notes — multi-machine, multi-agent
@@ -1095,17 +989,13 @@ as the operator / agent count rises:
 ## Why this design
 
 - **Tofu is great at provisioning, bad at app config.** Cloud APIs are
-  CRUD-with-stable-IDs — Tofu's wheelhouse. App-level APIs (Zitadel,
-  OpenObserve, drizzle migrate) are imperative, often have one-shot
-  reveals (PAT, signing keys), and need ordering across resources. The
-  Zitadel TF provider's plan-time `Configure()` failure, the
-  HTTPS_PROXY DNS-override sidecar we used to need, the 3-pass
-  deploy dance with placeholder auth modes — all symptoms of forcing
-  app state through Tofu. A bespoke reconciler that knows the app's
-  quirks is better here.
+  CRUD-with-stable-IDs — Tofu's wheelhouse. App-level APIs (drizzle
+  migrate, OpenObserve dashboards) are imperative and need ordering
+  across resources. A bespoke reconciler that knows the app's quirks
+  is better here.
 
-- **Stage isolation matches blast radius.** A bug in
-  `bin/zitadel-apply` can't touch Tofu state. A typo in
+- **Stage isolation matches blast radius.** A bug in a Stage 3
+  configurator can't touch Tofu state. A typo in
   `products/menu/src/app/house/page.tsx` only affects the iedora.com
   landing — the menu app still ships. Each stage is independently
   runnable for surgical re-rolls (`bin/iedora-env bin/iedora app apply
@@ -1119,6 +1009,9 @@ as the operator / agent count rises:
   writes outputs; Stage 4 reads them directly. The encrypted Tofu state
   is canonical for infra; BWS is canonical for app state.
 
-The trade-off: re-implementing CRUD against ~10 Zitadel REST endpoints
-(~2000 LOC of Go vs ~430 LOC of Tofu). Worth it given the operational
-pain the Tofu-managed Zitadel inflicted.
+Historical note: the Zitadel-as-IdP era of this design (a Stage 3
+`zitadel-apply` configurator that reconciled an external Zitadel
+container via REST) was retired when auth moved in-process via
+`@iedora/auth` (better-auth). The remaining Stage 3 surface is much
+smaller — just menu-db-migrations + openobserve-dashboards (plus
+`core-db-migrations` to come).
