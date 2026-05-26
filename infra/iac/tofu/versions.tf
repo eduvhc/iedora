@@ -43,28 +43,16 @@ terraform {
       source  = "cloudflare/cloudflare"
       version = "~> 5.19"
     }
-    github = {
-      source  = "integrations/github"
-      version = "~> 6.12"
-    }
-    # Manages the Hetzner CAX11 VPS (replaced the homelab on 2026-05-19 — the
-    # homelab had no public IPv4 + Cloudflare Free blocks gRPC at the edge,
-    # which broke the Zitadel TF provider. Hetzner has a public IPv4 so
-    # auth.iedora.com goes direct, no CF in path for that hostname).
     hcloud = {
       source  = "hetznercloud/hcloud"
       version = "~> 1.63"
     }
-    # Derives the operator's SSH public key from the BWS-stored private key
-    # via `data "tls_public_key"`. Avoids storing the public key separately
-    # — single source of truth for the key material.
+    # Derives the operator's SSH public key from the BWS-stored private key.
     tls = {
       source  = "hashicorp/tls"
       version = "~> 4.1"
     }
-    # Mints the menu session cookie's encryption key directly in TF state.
-    # Rotate via `tofu apply -replace=random_password.menu_session_secret`.
-    # Zitadel app-state is no longer managed here — see app-state/zitadel.
+    # Mints postgres / openobserve / backup-passphrase secrets.
     random = {
       source  = "hashicorp/random"
       version = "~> 3.6"
@@ -95,25 +83,12 @@ provider "cloudflare" {
   api_token = var.cloudflare_api_token
 }
 
-# GitHub — reconciles the repo's Actions secrets + variables. Provider auth
-# is a fine-grained PAT (BWS key IAC_BOOTSTRAP_GITHUB_API_TOKEN) scoped to one repo
-# with permissions: Actions read+write, Secrets read+write, Variables
-# read+write, Contents read. The PAT itself can't be created by Tofu
-# (chicken/egg) — generate once at https://github.com/settings/tokens?type=beta
-# and push to BWS. See infra/iac/tofu/github.tf.
-provider "github" {
-  owner = var.github_owner
-  token = var.github_token
-}
-
-# Hetzner Cloud — provisions the CAX11 VPS that runs every infra container.
-# Auth is a project-scoped API token (IAC_BOOTSTRAP_HCLOUD_TOKEN, set once in BWS).
-#
-# The Docker daemon on the box is NOT a Tofu provider. The box owns its
-# containers via `iedora.service` (a systemd unit that runs `docker
-# compose`); Tofu renders the compose file (compose.tf) and pushes
-# day-2 changes through `terraform_data.iedora_sync` (sync.tf).
-# ghcr.io auth is baked into /root/.docker/config.json by cloud-init.
+# Hetzner Cloud — provisions the CAX11 VPS that runs every infra
+# container. The Docker daemon on the box is NOT a Tofu provider; the
+# box owns its containers via `iedora.service` (systemd + docker
+# compose). Tofu renders the compose file (compose.tf) and pushes day-2
+# changes through `terraform_data.iedora_sync` (sync.tf). ghcr.io auth
+# is baked into /root/.docker/config.json by cloud-init.
 provider "hcloud" {
   token = var.infra_hcloud_token
 }

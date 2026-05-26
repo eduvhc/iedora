@@ -5,7 +5,7 @@ package main
 // runDeployProduct / runDestroyProduct.
 //
 // Polymorphism lives on `runtime` — see runtime.go for the interface,
-// runtime_docker.go / runtime_cf.go for the two implementations.
+// runtime_docker.go for the only implementation today.
 //
 // Adding a product:
 //
@@ -20,9 +20,9 @@ type product struct {
 	// Used as the workflow_call input to .github/workflows/deploy.yml.
 	name string
 
-	// runtime — how this product is shipped. Two implementations today
-	// (dockerOnHetzner, cloudflareWorker). Adding a third (Vercel,
-	// Cloudflare Pages, etc.) = new struct in runtime_<kind>.go.
+	// runtime — how this product is shipped. One implementation today
+	// (dockerOnHetzner). Adding another (Vercel, Cloudflare Pages, etc.) =
+	// new struct in runtime_<kind>.go.
 	runtime productRuntime
 }
 

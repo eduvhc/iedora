@@ -50,6 +50,5 @@ func iacDir() string {
 }
 
 // repoRoot is `<iacDir>/../..` — the home of `bin/`, `infra/`, etc.
-// Used by `configurators.go` to find shim binaries (`bin/<name>`) and
-// by the cloudflareWorker runtime to resolve per-product Tofu roots.
+// Used to resolve shim binaries (`bin/<name>`) and shared assets.
 func repoRoot() string { return filepath.Dir(filepath.Dir(iacDir())) }

@@ -63,33 +63,17 @@ variable "assets_hostname" {
   default     = "assets.iedora.com"
 }
 
-# ── GitHub repo config ───────────────────────────────────────────────────────
+# ── GitHub owner (for GHCR image refs only) ─────────────────────────────────
+# The `github` provider was removed when the github_actions_secret /
+# github_actions_variable resources went away. `github_owner` survives
+# because compose.tf + hetzner.tf use it to build `ghcr.io/<owner>/...`
+# image references and the cloud-init docker login payload.
 
 variable "github_owner" {
-  description = "GitHub user/org that owns the repo. TF_VAR_github_owner."
+  description = "GitHub user/org that owns the repo. Used to build ghcr.io/<owner>/* image refs."
   type        = string
   default     = "eduvhc"
 }
-
-variable "github_repo" {
-  description = "GitHub repo name. TF_VAR_github_repo."
-  type        = string
-  default     = "iedora"
-}
-
-variable "github_token" {
-  description = <<-EOT
-    GitHub fine-grained PAT for the provider. TF_VAR_github_token (set by
-    bws run from IAC_BOOTSTRAP_GITHUB_API_TOKEN). Repo-scoped with:
-    Actions r/w, Secrets r/w, Variables r/w, Contents r.
-  EOT
-  type        = string
-  sensitive   = true
-}
-
-# Values pushed into the repo's Actions config. Each maps 1:1 to a
-# GitHub Actions secret or variable; the source is BWS (for secrets) or a
-# default string (for variables that aren't secret).
 
 variable "bws_project_id" {
   description = "BWS project UUID. TF_VAR_bws_project_id."
@@ -127,45 +111,18 @@ variable "infra_hcloud_token" {
 }
 
 variable "hetzner_server_type" {
-  description = <<-EOT
-    Hetzner SKU for the infra VPS. CAX11 (arm64 Ampere Altra, 2 vCPU /
-    4 GB RAM / 40 GB NVMe SSD, €3.79/mo) is the default — cheapest
-    tier that comfortably runs the full stack (postgres + zitadel +
-    caddy + openobserve + menu + backups) now that the menu CI
-    workflow ships native arm64 images via the matrix build
-    (linux/amd64 on ubuntu-24.04, linux/arm64 on ubuntu-24.04-arm).
-
-    Cross-arch SKU changes (CX/CPX/CCX <-> CAX) force a destroy +
-    recreate of `hcloud_server.iedora` — Hetzner can't resize between
-    architectures in place. Restore from the R2 pg_dumpall backup
-    after a switch; see docs/deploy.md § Day-2 operations.
-
-    Scale path (in-place resize stays within an arch family):
-      arm64 (Ampere — default tier):
-        cax11  2/4GB/40GB    €3.79   — entry / pre-customer (default)
-        cax21  4/8GB/80GB    €7.59
-        cax31  8/16GB/160GB  €15.29
-      x86_64 (legacy / fallback if an upstream image lacks arm64):
-        cx23   2/4GB/40GB    €3.99
-        cpx22  2/4GB/80GB    €7.99
-        cpx32  4/8GB/160GB   €13.99
-        ccx13  2/8GB/80GB    €16.99  — dedicated, noisy-neighbour proof
-  EOT
+  description = "Hetzner SKU. Default cax11 (arm64, 2 vCPU / 4 GB / 40 GB). Cross-arch SKU changes force a destroy + recreate — restore from the R2 backup. In-arch resizes are in-place."
   type        = string
   default     = "cax11"
 
   validation {
     condition     = contains(["cx23", "cpx22", "cpx32", "cpx42", "ccx13", "ccx23", "cax11", "cax21", "cax31", "cax41"], var.hetzner_server_type)
-    error_message = "Use a Hetzner SKU from cax* (arm64, default) or cx*/cpx*/ccx* (x86_64). Multi-arch images cover both."
+    error_message = "Use a Hetzner SKU from cax* (arm64, default) or cx*/cpx*/ccx* (x86_64)."
   }
 }
 
 variable "hetzner_location" {
-  description = <<-EOT
-    Hetzner datacenter. fsn1 (Falkenstein, DE) and nbg1 (Nuremberg, DE) both
-    sit on the EU backbone — ~40-50ms RTT from Portugal. hel1 (Helsinki, FI)
-    adds ~30ms. Stick with fsn1 unless DC capacity forces a move.
-  EOT
+  description = "Hetzner datacenter. fsn1 / nbg1 (DE) ~40-50ms from Portugal; hel1 (FI) adds ~30ms."
   type        = string
   default     = "fsn1"
 
@@ -176,30 +133,16 @@ variable "hetzner_location" {
 }
 
 # ── Container secrets (BWS-sourced) ──────────────────────────────────────────
-# Tofu inputs that flow into the rendered docker-compose.yml under
-# compose.tf. bws run exports each as TF_VAR_* from its BWS key.
 
 variable "infra_ghcr_token" {
-  description = <<-EOT
-    Classic GitHub PAT (write:packages) used to pull `ghcr.io/eduvhc/infra-pg-backup`
-    from the homelab. TF_VAR_infra_ghcr_token (from BWS IAC_BOOTSTRAP_GHCR_TOKEN).
-    Only needed because the self-built backup image is private; everything
-    else (postgres, openobserve, zitadel, cloudflared) is on public registries.
-  EOT
+  description = "GitHub PAT (write:packages) for pulling the private infra-pg-backup image. From BWS IAC_BOOTSTRAP_GHCR_TOKEN."
   type        = string
   sensitive   = true
 }
 
 variable "infra_openobserve_root_user_email" {
-  description = "OpenObserve root login email. TF_VAR_infra_openobserve_root_user_email (from BWS IAC_BOOTSTRAP_OPENOBSERVE_ROOT_USER_EMAIL)."
+  description = "OpenObserve root login email. From BWS IAC_BOOTSTRAP_OPENOBSERVE_ROOT_USER_EMAIL."
   type        = string
   sensitive   = true
 }
-
-# ── Menu app runtime env ─────────────────────────────────────────────────────
-# Every runtime env var the menu container needs is composed by Stage 4
-# (`iedora deploy menu`) from:
-#   - BWS values (AUTOGEN_* secrets Tofu mints via secrets.tf), and
-#   - Tofu outputs (menu_*, see outputs.tf).
-# No module.menu_env shared with Tofu — Stage 4 owns the recipe.
 
