@@ -53,11 +53,9 @@ See [`docs/deploy/README.md`](docs/deploy/README.md) for the architecture, the
 
 - **[`AGENTS.md`](AGENTS.md)** — tech stack, hard rules, file layout, conventions (loaded by AI assistants too).
 - **[`docs/deploy/README.md`](docs/deploy/README.md)** — **the** infra + app-state + deploy doc. Day 0 / Day 1 / Day 2 lifecycle, stages, CI, failure modes, secret rotation.
-- **[`docs/architecture.md`](docs/architecture.md)** — vertical-slice + hexagonal playbook, how to add a feature.
 - **[`products/menu/tests/README.md`](products/menu/tests/README.md)** — Vitest + PGLite unit tests, Playwright e2e.
 - **[`infra/CLAUDE.md`](infra/CLAUDE.md)** § HCL style — LLM-safe HCL conventions.
 - **[`docs/vendors.md`](docs/vendors.md)** — every dependency with rationale.
-- **[`docs/ai.md`](docs/ai.md)** — MCP servers loaded by Claude Code.
 - **[`docs/SECURITY.md`](docs/SECURITY.md)** — security policy + vulnerability reporting.
 
 ## License

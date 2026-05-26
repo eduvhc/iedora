@@ -185,16 +185,33 @@ One workflow per workspace. Each is self-contained: own `paths:` trigger, own en
 1. `node_modules/next/dist/docs/` — bundled, version-matched Next.js docs.
 2. `node_modules/better-auth/` — auth instance, plugins, server APIs.
 3. `node_modules/drizzle-orm/` — query builder, types.
-4. `apps/web/src/features/<slice>/README.md` — every slice has a short doc.
-5. `packages/<package>/README.md` — every shared package documents its surface.
-6. `docs/agents/slice-pattern.md` — slice contract + how to add a feature. (Auto-imported.)
-7. `docs/agents/cross-product-rules.md` — the 2 rules every frontend product enforces. (Auto-imported.)
-8. `docs/architecture.md` — monorepo overview + menu's slice inventory + anti-patterns.
-9. `products/menu/tests/README.md` — test pyramid (Vitest+PGLite unit, Playwright e2e).
-10. `docs/vendors.md` — every dependency with rationale.
-11. `docs/deploy/README.md` — **the** infra + app-state + deploy doc. Day 0 / Day 1 / Day 2 lifecycle, stages, commands, CI, failure modes, secret rotation, backups, dev stack. One doc for everything pipeline-shaped.
-12. `infra/CLAUDE.md` § HCL style — LLM-safe HCL conventions for `infra/iac/tofu/`.
-13. `docs/ai.md` — MCP servers loaded by Claude Code locally.
+4. `products/menu/src/features/README.md` — slice inventory (16 slices, one-liner each) + anti-patterns.
+5. `products/menu/src/features/<slice>/README.md` — per-slice doc (where present).
+6. `packages/<package>/README.md` — every shared package documents its surface.
+7. `apps/web/CLAUDE.md`, `products/<x>/CLAUDE.md`, `infra/CLAUDE.md` — scope-local rules, auto-loaded by Claude Code under that subtree.
+8. `docs/agents/slice-pattern.md` — slice contract + how to add a feature. (Auto-imported.)
+9. `docs/agents/cross-product-rules.md` — the 2 rules every frontend product enforces. (Auto-imported.)
+10. `products/menu/tests/README.md` — test pyramid (Vitest+PGLite unit, Playwright e2e).
+11. `docs/vendors.md` — every dependency with rationale.
+12. `docs/deploy/README.md` — **the** infra + app-state + deploy doc. Day 0 / Day 1 / Day 2 lifecycle, stages, commands, CI, failure modes, secret rotation, backups, dev stack.
+13. `infra/CLAUDE.md` § HCL style — LLM-safe HCL conventions for `infra/iac/tofu/`.
 14. `docs/SECURITY.md` — security policy + vulnerability reporting.
+
+## MCP servers (local Claude Code)
+
+[`.mcp.json`](.mcp.json) is checked in, so every contributor's Claude
+Code session loads the same servers. All `bunx`-launched except the
+remote GitHub one.
+
+| Server | Purpose | Needs |
+|---|---|---|
+| `shadcn` | Pull shadcn/ui component sources | — |
+| `postgres` | Read-only query of the local `menu` DB | local Postgres on `:5432` |
+| `bun` | Run Bun scripts/tests via MCP | — |
+| `next-devtools` | Next.js 16 devtools introspection | — |
+| `playwright` | Drive a browser for E2E exploration | — |
+| `github` | Issues/PRs/repo over the GitHub MCP | `GITHUB_PERSONAL_ACCESS_TOKEN` env var |
+
+Only `github` needs a credential — export `GITHUB_PERSONAL_ACCESS_TOKEN` in your shell before launching Claude Code.
 
 The bundled docs match installed versions — trust them over recall.
