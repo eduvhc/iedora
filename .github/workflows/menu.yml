@@ -251,10 +251,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # arm64-only: the Hetzner box is a CAX11 (Ampere Altra arm64).
+        # Building amd64 was wasted CI time + GHCR storage with no
+        # consumer. If a future product needs x86 (Hetzner CX/CPX or
+        # operator-laptop pull), re-add `- platform: linux/amd64 ...`.
         include:
-          - platform: linux/amd64
-            runner: ubuntu-24.04
-            bws_arch: x86_64-unknown-linux-gnu
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
             bws_arch: aarch64-unknown-linux-gnu
@@ -347,11 +348,11 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # ── Stage 1b: stitch digests into a manifest list ───────────────────────
-  # Combines the amd64 + arm64 digests pushed above into a single
-  # multi-arch manifest list under `:latest` + `:<sha>`. Runs once on
-  # x86_64 — the merge is just registry plumbing, no image content
-  # crosses the runner.
+  # ── Stage 1b: stitch the arm64 digest into a manifest list ───────────────
+  # Wraps the single arm64 digest pushed above into a manifest list tagged
+  # `:latest` + `:<sha>`. The list is the same shape that arm64+amd64
+  # would have produced — single-platform today, ready to fan out to
+  # multi-arch when a consumer needs x86.
   merge:
     name: Merge multi-arch manifest
     needs: [build]
