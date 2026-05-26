@@ -3,6 +3,14 @@
 > One doc, end-to-end. Architecture + commands + ops in one place. If
 > something contradicts this, this wins — it's the only deploy doc.
 
+**Operational lifecycle — three Days, jump to whichever fits:**
+
+| | What | Section |
+|---|---|---|
+| **Day 0** | Wipe everything. Cloud + Tofu state + BWS managed-keys → zero. | [§ Day 0](#day-0--wipe-everything-clean-slate) |
+| **Day 1** | Cold-start deploy. Empty cloud → working `menu.iedora.com` + `core.iedora.com` + `iedora.com`. | [§ Day 1](#day-1--cold-start-deploy) |
+| **Day 2** | Ongoing operations. Logs, psql, backup/restore, secret rotation, troubleshooting. | [§ Day 2](#day-2--ongoing-operations) |
+
 ## The pipeline
 
 Four stages. Each runs independently and is idempotent. No task runner
@@ -551,7 +559,7 @@ operator to point at remote URLs.
 openobserve) too via the dep closure in the orchestrator.
 `go run ./dev/cmd/local-stack --reset-db -- <name>` drops + recreates one database.
 
-## Day-2 operations
+## Day 2 — Ongoing operations
 
 Most day-2 work is SSH against the box. Resolve the host once and re-use:
 
@@ -607,27 +615,109 @@ Retention: 14 days (`BACKUP_KEEP_DAYS=14`).
 previously-encrypted dumps become unreadable. Pre-launch this is
 acceptable; post-launch use a dual-passphrase window.
 
-## Bootstrap (cold from scratch)
+## Day 0 — Wipe everything (clean slate)
 
-First-time setup on a fresh laptop + empty cloud:
+When the goal is a TRUE zero state — no cloud resources, no Tofu state,
+nothing for the next deploy to inherit. Use this before a Day 1 from
+scratch.
 
-1. **Local tools**: `brew install opentofu gh go-task bitwarden/tap/bws`,
+The operator needs `BWS_ACCESS_TOKEN` in their shell and `bws / tofu /
+rclone / curl / jq` on PATH.
+
+```bash
+# 1. Tear down everything Tofu manages (VPS, DNS, Tunnel, R2 buckets,
+#    R2 tokens, BWS IAC_* keys). Destroy-hooks purge each R2 bucket
+#    via rclone before the API DELETE.
+bin/iedora-env tofu -chdir=infra/iac/tofu init
+bin/iedora-env tofu -chdir=infra/iac/tofu destroy -auto-approve
+
+# If the Cloudflare tunnel DELETE 400s with "active connections", wait
+# 2–3 min for the CF edge to drop the cloudflared connector and retry:
+until bin/iedora-env tofu -chdir=infra/iac/tofu destroy -auto-approve; do sleep 30; done
+
+# 2. Verify zero orphans (anything created outside Tofu's awareness).
+bin/iedora-env bash -c '
+  curl -fsS -H "Authorization: Bearer $IAC_BOOTSTRAP_HCLOUD_TOKEN" \
+    https://api.hetzner.cloud/v1/servers | jq -r ".servers[] | .name"
+  ZONE=$(curl -fsS -H "Authorization: Bearer $IAC_BOOTSTRAP_CLOUDFLARE_API_TOKEN" \
+    "https://api.cloudflare.com/client/v4/zones?name=iedora.com" | jq -r ".result[0].id")
+  curl -fsS -H "Authorization: Bearer $IAC_BOOTSTRAP_CLOUDFLARE_API_TOKEN" \
+    "https://api.cloudflare.com/client/v4/zones/$ZONE/dns_records" \
+    | jq -r ".result[] | \"\(.type) \(.name)\""
+  curl -fsS -H "Authorization: Bearer $IAC_BOOTSTRAP_CLOUDFLARE_API_TOKEN" \
+    "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/cfd_tunnel?is_deleted=false" \
+    | jq -r ".result[] | .name"
+'
+# Expect: nothing iedora-shaped. The `iedora-tofu-state` R2 bucket and
+# `iedora-tofu-state-r2` CF token survive — they're Stage -1 (next step).
+```
+
+**Optional — Day 0 deep**: nuke the Stage -1 state bucket + scoped
+token too. After this, the next deploy MUST re-run
+`bin/state-bucket-bootstrap` (which is otherwise idempotent and a fast
+no-op on warm runs).
+
+```bash
+bin/iedora-env bash -c '
+  TOKEN="$IAC_BOOTSTRAP_CLOUDFLARE_API_TOKEN"
+  # Revoke the R2-scoped state token.
+  TID=$(curl -fsS -H "Authorization: Bearer $TOKEN" "https://api.cloudflare.com/client/v4/user/tokens?per_page=50" \
+        | jq -r ".result[] | select(.name==\"iedora-tofu-state-r2\") | .id")
+  [ -n "$TID" ] && curl -fsS -X DELETE -H "Authorization: Bearer $TOKEN" \
+    "https://api.cloudflare.com/client/v4/user/tokens/$TID" >/dev/null
+  # Delete the state bucket.
+  curl -fsS -X DELETE -H "Authorization: Bearer $TOKEN" \
+    "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/r2/buckets/iedora-tofu-state" >/dev/null
+  # Drop the BWS keys that pointed at them.
+  for K in IAC_BOOTSTRAP_TOFU_STATE_ACCESS_KEY IAC_BOOTSTRAP_TOFU_STATE_SECRET_KEY IAC_BOOTSTRAP_TOFU_STATE_BUCKET; do
+    ID=$(bws secret list "$BWS_PROJECT_ID" -o json | jq -r ".[] | select(.key==\"$K\") | .id")
+    [ -n "$ID" ] && bws secret delete "$ID"
+  done
+'
+```
+
+**What survives Day 0** (operator-managed `IAC_BOOTSTRAP_*` in BWS):
+`CLOUDFLARE_API_TOKEN`, `STATE_PASSPHRASE`, `HCLOUD_TOKEN`,
+`GHCR_TOKEN`, `SSH_PRIVATE_KEY`, `OPENOBSERVE_ROOT_USER_EMAIL`. Plus
+the GH Actions secret `BWS_ACCESS_TOKEN`. These are the seven things
+you NEVER want Tofu to manage; everything else is Tofu-minted on
+Day 1.
+
+## Day 1 — Cold-start deploy
+
+From an empty cloud → working production. Two flavours:
+
+- **First time on a fresh laptop** — needs the prerequisites in
+  [§ Day 1 prerequisites](#day-1-prerequisites) one-off.
+- **After a Day 0 wipe** — prerequisites already in BWS; skip straight
+  to [§ Day 1 deploy](#day-1-deploy).
+
+### Day 1 prerequisites
+
+One-off setup. After this, the same `BWS_ACCESS_TOKEN` + the seven
+operator-managed bootstrap keys are reused across every Day 0/1 cycle.
+
+1. **Local tools**: `brew install opentofu gh bitwarden/tap/bws rclone`,
    Docker Desktop or OrbStack, `gh auth login` with `write:packages`.
+
 2. **Cloudflare API token** at dash.cloudflare.com → API Tokens:
    - Account · Account Settings · Read
    - Account · Workers R2 Storage · Edit
    - Zone · DNS · Edit (scoped to your zone)
    - User · API Tokens · Edit (Tofu mints sub-tokens)
-3. **SSH key**: `ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519` if
-   you don't have one. Tofu registers `~/.ssh/id_ed25519.pub` as
-   `hcloud_ssh_key.operator`.
-4. **Populate BWS** — only `BWS_ACCESS_TOKEN` needs to be in your shell
-   (e.g. `export BWS_ACCESS_TOKEN=0.…` in `~/.secrets`). Then:
+
+3. **SSH key**: `ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519`
+   (skip if you already have one). Tofu registers
+   `~/.ssh/id_ed25519.pub` as `hcloud_ssh_key.operator`.
+
+4. **Populate BWS** — only `BWS_ACCESS_TOKEN` needs to be in your
+   shell (`export BWS_ACCESS_TOKEN=0.…` in `~/.secrets` is the usual
+   pattern). Then:
 
    ```bash
-   PROJECT_ID=$(bws project list -o json | jq -r '.[]|select(.name=="iedora-deploy")|.id')
+   PROJECT_ID=$(bws project list -o json | jq -r '.[] | select(.name=="iedora-deploy") | .id')
    for KEY in IAC_BOOTSTRAP_CLOUDFLARE_API_TOKEN IAC_BOOTSTRAP_STATE_PASSPHRASE \
-              IAC_BOOTSTRAP_HCLOUD_TOKEN IAC_BOOTSTRAP_GITHUB_API_TOKEN IAC_BOOTSTRAP_GHCR_TOKEN \
+              IAC_BOOTSTRAP_HCLOUD_TOKEN IAC_BOOTSTRAP_GHCR_TOKEN \
               IAC_BOOTSTRAP_SSH_PRIVATE_KEY IAC_BOOTSTRAP_OPENOBSERVE_ROOT_USER_EMAIL; do
      read -s -p "$KEY: " V && echo
      bws secret create "$KEY" "$V" "$PROJECT_ID" -o none
@@ -637,34 +727,26 @@ First-time setup on a fresh laptop + empty cloud:
    Source-of-truth notes:
    - `IAC_BOOTSTRAP_STATE_PASSPHRASE`: `openssl rand -hex 32` — encrypts Tofu state.
    - `IAC_BOOTSTRAP_HCLOUD_TOKEN`: Hetzner console → Security → API tokens (R/W).
-   - `IAC_BOOTSTRAP_GITHUB_API_TOKEN`: fine-grained PAT scoped to the repo
-     (Actions r/w, Secrets r/w, Variables r/w, Contents r).
    - `IAC_BOOTSTRAP_GHCR_TOKEN`: classic PAT with `write:packages` (fine-
      grained + personal account + GHCR is GitHub's worst-supported
      combo — keep classic until iedora moves to an org).
    - `IAC_BOOTSTRAP_SSH_PRIVATE_KEY`: `cat ~/.ssh/id_ed25519`.
 
    The `IAC_BOOTSTRAP_TOFU_STATE_*` keys are minted by
-   `state-bucket-bootstrap` on first apply — DO NOT populate them.
+   `state-bucket-bootstrap` (next step) — DO NOT populate them.
 
-5. **Set the bootstrap GH Actions secret** that the CI workflow needs
-   BEFORE it can even hydrate the BWS env. Just ONE — `BWS_ACCESS_TOKEN`.
+5. **Set the bootstrap GH Actions secret** the CI workflow needs
+   BEFORE it can hydrate the BWS env. Just ONE — `BWS_ACCESS_TOKEN`.
    It can NOT be Tofu-managed (chicken-egg: `infra-deploy.yml` reads
-   it to run Tofu in the first place). One-time, survives `tofu
-   destroy`:
+   it to run Tofu in the first place). One-time, survives every
+   `tofu destroy`:
 
    ```bash
-   # Paste the BWS machine token (same value as your shell BWS_ACCESS_TOKEN).
    gh secret set BWS_ACCESS_TOKEN --repo eduvhc/iedora
    ```
 
    That's the only thing CI needs out-of-band. Every other credential
-   (SSH private key, CF/Hetzner/GHCR tokens, project IDs, account IDs,
-   hostnames) is either in BWS or auto-derived by `bin/iedora-env`
-   from the CF/BWS APIs. No `gh variable set` either — the previous
-   `BWS_PROJECT_ID` / `CLOUDFLARE_ACCOUNT_ID` / `MENU_PUBLIC_HOSTNAME`
-   GH variables were Tofu write-throughs that vanished on every
-   destroy (same chicken-egg). `bin/iedora-env` auto-discovers them:
+   is either in BWS or auto-derived by `bin/iedora-env`:
 
    - `BWS_PROJECT_ID`         → first project from `bws project list`.
    - `CLOUDFLARE_ACCOUNT_ID`  → CF `/accounts` API.
@@ -679,9 +761,54 @@ First-time setup on a fresh laptop + empty cloud:
    gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo eduvhc/iedora
    ```
 
-7. **Run the pipeline**: `bin/iedora-env bin/iedora doctor && bin/iedora-env bin/state-bucket-bootstrap && bin/iedora-env tofu -chdir=infra/iac/tofu init -upgrade && bin/iedora-env tofu -chdir=infra/iac/tofu apply`.
-   First time: 5–10 min. Validate `https://menu.iedora.com/up` returns
-   `{"ok":true,"db":"ok"}`.
+### Day 1 deploy
+
+The canonical sequence, top to bottom. ~6–8 min cold; idempotent
+(safe to re-run any step).
+
+```bash
+# 0. Preflight — fails fast if PATH, BWS, or bootstrap secrets are off.
+bin/iedora-env bin/iedora doctor
+
+# 1. Stage -1 — R2 bucket + scoped API token for Tofu state.
+#    Idempotent: writes IAC_BOOTSTRAP_TOFU_STATE_{ACCESS_KEY,SECRET_KEY,
+#    BUCKET} to BWS. Day-2 fast path on warm runs.
+bin/iedora-env bin/state-bucket-bootstrap
+
+# 2. Stage 2 — the shared estate. Provisions Hetzner CAX11 + cloud-init
+#    drops the compose stack (postgres, openobserve, cloudflared,
+#    infra-pg-backup), renders the CF Tunnel + DNS records, mints
+#    every IAC_* secret and writes them to BWS.
+bin/iedora-env tofu -chdir=infra/iac/tofu init -upgrade
+bin/iedora-env tofu -chdir=infra/iac/tofu apply -auto-approve
+
+# 3. Core schema — better-auth tables in the `core` Postgres database.
+#    NOTE: TODO(phase-1-sweep) — Stage 3 will own this; today it's a
+#    one-off via an SSH local-forward tunnel from the operator's
+#    machine.
+HOST=$(bin/iedora-env tofu -chdir=infra/iac/tofu output -raw hetzner_ipv4)
+ssh -fN -L 15432:infra-postgres:5432 root@$HOST
+CORE_PWD=$(bin/iedora-env bash -c 'echo $IAC_POSTGRES_PASSWORD')
+CORE_DATABASE_URL="postgres://postgres:$CORE_PWD@localhost:15432/core" \
+  bun run --cwd packages/auth db:migrate
+pkill -f "ssh -fN -L 15432:" || true
+
+# 4. Stage 3 — menu DB migrations + OpenObserve dashboards.
+bin/iedora-env bin/iedora app apply
+
+# 5. Stage 4 — deploy the menu container. Mints DEPLOY_IEDORA_CORE_SECRET
+#    on first run (better-auth session signing key, persisted to BWS).
+bin/iedora-env bin/iedora deploy menu
+
+# 6. Smoke test.
+curl -fsS https://menu.iedora.com/up                                    # {"ok":true,"db":"ok"}
+curl -fsS -o /dev/null -w "%{http_code}\n" https://core.iedora.com/sign-in   # 200
+curl -fsS -o /dev/null -w "%{http_code}\n" https://iedora.com/                # 200 (apex → /house)
+```
+
+If anything in 2–5 fails, the failing stage is the recovery point —
+each stage is independently re-runnable. Common failures live in
+[§ Failure modes / troubleshooting](#failure-modes--troubleshooting).
 
 ## Failure modes / troubleshooting
 
