@@ -11,10 +11,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // DefaultProjectName is the BWS project the orchestrator looks up when
@@ -91,13 +93,9 @@ func Upsert(ctx context.Context, projectID, key, value string) error {
 		// the bws CLI's clap parser rejects flag-like values in the
 		// space-separated form, and autogen passwords with special=true
 		// can begin with `-`. Joining with `=` is unambiguous.
-		cmd := exec.CommandContext(ctx, "bws", "secret", "edit", id, "--value="+value, "-o", "none")
-		cmd.Stderr = os.Stderr
-		return cmd.Run()
+		return runMutating(ctx, "secret", "edit", id, "--value="+value, "-o", "none")
 	}
-	cmd := exec.CommandContext(ctx, "bws", "secret", "create", "-o", "none", "--", key, value, projectID)
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return runMutating(ctx, "secret", "create", "-o", "none", "--", key, value, projectID)
 }
 
 // Delete removes a secret by key. No-op if absent.
@@ -110,11 +108,10 @@ func Delete(ctx context.Context, projectID, key string) error {
 	if !found {
 		return nil
 	}
-	cmd := exec.CommandContext(ctx, "bws", "secret", "delete", id)
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return runMutating(ctx, "secret", "delete", id)
 }
 
+// runJSON exec's `bws <args> -o json` and returns stdout.
 func runJSON(ctx context.Context, args ...string) ([]byte, error) {
 	full := append(args, "-o", "json")
 	cmd := exec.CommandContext(ctx, "bws", full...)
@@ -125,4 +122,66 @@ func runJSON(ctx context.Context, args ...string) ([]byte, error) {
 		return nil, fmt.Errorf("bws %s: %w (stderr: %s)", strings.Join(args, " "), err, strings.TrimSpace(stderr.String()))
 	}
 	return stdout.Bytes(), nil
+}
+
+// runMutating exec's a mutating `bws` command (secret create/edit/delete)
+// with bounded exponential backoff on HTTP 429 ("Too Many Requests").
+// BWS rate-limits mutating calls at ~1/s server-side, and Tofu fires
+// parallel `for_each` provisioners that easily exceed that. Without
+// retry, a destroy of 6 sibling resources leaves 1-2 behind.
+//
+// We retry only on 429 — anything else (4xx that isn't 429, transport
+// error, malformed args) propagates immediately.
+func runMutating(ctx context.Context, args ...string) error {
+	const (
+		maxAttempts    = 6
+		initialBackoff = 1500 * time.Millisecond // BWS asks for ~1s; pad a bit.
+		maxBackoff     = 8 * time.Second
+	)
+
+	backoff := initialBackoff
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		var stderr bytes.Buffer
+		cmd := exec.CommandContext(ctx, "bws", args...)
+		cmd.Stderr = &stderr
+
+		if err := cmd.Run(); err == nil {
+			if attempt > 1 {
+				// Emit the recovery so it's visible in `tofu apply` /
+				// destroy logs — useful when chasing flakes.
+				fmt.Fprintf(os.Stderr, "bws %s: succeeded after %d attempts\n", strings.Join(args, " "), attempt)
+			}
+			return nil
+		} else {
+			stderrText := strings.TrimSpace(stderr.String())
+			lastErr = fmt.Errorf("bws %s: %w (stderr: %s)", strings.Join(args, " "), err, stderrText)
+
+			// Non-retryable: anything that isn't a 429. Stop early.
+			if !is429(stderrText) {
+				return lastErr
+			}
+
+			// 429 — wait + try again. Last attempt skips the sleep.
+			if attempt == maxAttempts {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				return errors.Join(lastErr, ctx.Err())
+			case <-time.After(backoff):
+			}
+			if backoff < maxBackoff {
+				backoff *= 2
+				if backoff > maxBackoff {
+					backoff = maxBackoff
+				}
+			}
+		}
+	}
+	return fmt.Errorf("bws %s: gave up after %d attempts (last error: %w)", strings.Join(args, " "), maxAttempts, lastErr)
+}
+
+func is429(stderr string) bool {
+	return strings.Contains(stderr, "429") || strings.Contains(stderr, "Too Many Requests") || strings.Contains(stderr, "Slow down")
 }

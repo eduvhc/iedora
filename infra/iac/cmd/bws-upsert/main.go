@@ -1,26 +1,26 @@
-// bws-upsert — write-or-update a single BWS secret by key.
+// bws-upsert — write/update OR delete a single BWS secret by key.
 //
-// Tiny shim invoked from terraform_data.bws_sync_autogen's local-exec
-// provisioner in infra/iac/tofu/secrets.tf. Replaces the previous inline
-// bash heredoc, which:
+// Tiny shim invoked from terraform_data.bws_sync_*'s local-exec
+// provisioner in infra/iac/tofu/secrets.tf. Two modes:
 //
-//   - Duplicated the logic in internal/bws.Upsert (had to be patched
-//     twice when the bws CLI's clap parser started rejecting flag-like
-//     values).
-//   - Required `bash` + `jq` + the right escaping rules on every
-//     execution host. The Go helper requires only `bws` itself, the
-//     same hard dep the rest of the deploy already has.
+//	BWS_DELETE unset (default) — upsert (create or edit).
+//	BWS_DELETE=1               — delete by key. BWS_VALUE not required.
+//
+// Why both modes in one binary: destroy-time local-exec needs to
+// remove the BWS key Tofu wrote at create-time, and keeping the
+// `bin/bws-upsert` reference stable in compose.tf-style paths is
+// easier than maintaining a separate `bin/bws-delete`. Same env
+// shape, one toggle.
 //
 // Inputs (env, matches the local-exec environment block):
 //
 //	BWS_PROJECT_ID  iedora-deploy project UUID
 //	BWS_KEY         secret key (e.g. IAC_POSTGRES_PASSWORD)
-//	BWS_VALUE       secret value (verbatim — may contain leading `-`,
-//	                newlines, etc; the Go wrapper handles quoting)
+//	BWS_VALUE       upsert mode only: secret value (verbatim)
+//	BWS_DELETE      "1" to delete; anything else / unset = upsert
 //
-// Exit 0 on success (create or edit), non-zero on any failure with a
-// stderr diagnostic. Idempotent — bws.Upsert checks list-first, then
-// either edits an existing secret or creates a new one.
+// Exit 0 on success (or "already gone" for delete), non-zero on any
+// failure with a stderr diagnostic. Idempotent in both modes.
 package main
 
 import (
@@ -47,12 +47,19 @@ func run() error {
 	if key == "" {
 		return fmt.Errorf("BWS_KEY missing")
 	}
+
+	ctx := context.Background()
+
+	if os.Getenv("BWS_DELETE") == "1" {
+		return bws.Delete(ctx, projectID, key)
+	}
+
 	// BWS_VALUE is allowed to be empty (representing "no value yet"),
 	// so don't reject "". Reject only the unset case via os.LookupEnv.
 	value, present := os.LookupEnv("BWS_VALUE")
 	if !present {
-		return fmt.Errorf("BWS_VALUE not set in environment")
+		return fmt.Errorf("BWS_VALUE not set in environment (set BWS_DELETE=1 for delete mode)")
 	}
 
-	return bws.Upsert(context.Background(), projectID, key, value)
+	return bws.Upsert(ctx, projectID, key, value)
 }

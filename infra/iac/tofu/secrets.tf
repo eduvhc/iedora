@@ -72,67 +72,69 @@ resource "random_password" "openobserve_password" {
 # for secrets that govern how IaC containers boot (postgres password,
 # backup passphrase, Zitadel masterkey, etc.).
 
-# Sync each generated value to BWS under its IAC_* key.
-# Idempotent: if the secret exists, edit; else create. The bws CLI
-# inherits BWS_ACCESS_TOKEN from the wrapping `bws run` call.
+# Sync the Tofu-managed secrets to BWS under stable IAC_* keys.
 #
-# No Bitwarden-Secrets-Manager provider exists in the OpenTofu registry
-# (checked 2026-05-20 — only `maxlaverse/bitwarden` for the password
-# vault, no SM resource). `terraform_data` + local-exec is the
-# documented escape hatch when no provider exists. `terraform_data`
-# replaces the older `null_resource` pattern as of Tofu 1.4+ — same
-# semantics, but `triggers_replace` is typed (any) and the resource is
-# built into the terraform.io namespace, no extra provider needed.
+# One batched resource instead of N parallel ones — see the comment in
+# bws-sync's main.go for why. BWS rate-limits mutating calls at ~1/s
+# server-side, and Tofu's per-resource parallelism (default 10) had
+# 7 simultaneous `bws secret edit` calls hitting 429s and leaving
+# the destroy partially complete.
 #
-# `triggers_replace` is set to a sha256 of the value so the diff in
-# `tofu plan` shows "replaced because triggers_replace changed" without
-# leaking the secret itself. Value is piped through an env var to keep
-# it off the command line (avoids `ps` + shell-history disclosure).
+# This single `terraform_data` runs `bin/bws-sync` once per apply (or
+# destroy), and the binary walks the secret list sequentially.
+#
+# Why `terraform_data` at all: no Bitwarden-Secrets-Manager provider
+# exists in the OpenTofu registry as of 2026-05; `terraform_data` +
+# local-exec is the documented escape hatch.
 
 locals {
-  autogen_lookup = {
+  # Keys + values to mirror into BWS on apply. Kept as a single map so
+  # the trigger hash + the JSON payload to bws-sync share a source of
+  # truth.
+  bws_managed = {
     IAC_POSTGRES_PASSWORD              = random_password.postgres.result
     IAC_BACKUP_PASSPHRASE              = random_password.backup_passphrase.result
     IAC_ZITADEL_MASTERKEY              = random_password.zitadel_masterkey.result
     IAC_ZITADEL_FIRST_ADMIN_PASSWORD   = random_password.zitadel_first_admin.result
     IAC_OPENOBSERVE_ROOT_USER_PASSWORD = random_password.openobserve_password.result
+    IAC_BOOTSTRAP_HOST_IP              = hcloud_server.iedora.ipv4_address
   }
 }
 
-resource "terraform_data" "bws_sync_autogen" {
-  for_each = toset(keys(local.autogen_lookup))
+resource "terraform_data" "bws_sync" {
+  # Recreate the resource (re-running both create + the prior
+  # destroy-time provisioner) whenever any value changes — `tofu plan`
+  # shows the hash diff without leaking any secret content.
+  triggers_replace = sha256(jsonencode(local.bws_managed))
 
-  triggers_replace = sha256(local.autogen_lookup[each.key])
-
-  # Single Go helper at bin/bws-upsert handles list-then-edit-or-
-  # create, including the leading-`-` value quoting bws CLI's clap parser
-  # is strict about. Same shape as null_resource.iedora_admin_grants ↔
-  # bin/zitadel-grant. Replaces a duplicate bash+jq heredoc that drifted
-  # against internal/bws.Upsert.
-  provisioner "local-exec" {
-    environment = {
-      BWS_KEY        = each.key
-      BWS_VALUE      = local.autogen_lookup[each.key]
-      BWS_PROJECT_ID = var.bws_project_id
-    }
-    command = "${path.module}/../../../bin/bws-upsert"
+  # Captured in state so the destroy-time provisioner can read it via
+  # `self.input` (destroy-time provisioners can't see siblings or vars).
+  input = {
+    project_id = var.bws_project_id
+    keys       = sort(keys(local.bws_managed))
   }
-}
 
-# ── Hetzner box IPv4 → BWS ──────────────────────────────────────────────────
-# Stage 3 configurators (zitadel-apply, openobserve-dashboards) read the
-# Hetzner box's IPv4 from BWS to know where to SSH. Tofu writes it on
-# every apply via the same bws-upsert pattern as the autogen secrets.
-# Replaces the Go post-apply write-through that lived in iac.go.
-resource "terraform_data" "bws_sync_host_ip" {
-  triggers_replace = sha256(hcloud_server.iedora.ipv4_address)
-
+  # Apply: write/update every key, sequentially, in one process.
+  # BWS_SECRETS_JSON contains the full {key: value} map; bws-sync
+  # iterates + calls `bws secret create|edit` per entry.
   provisioner "local-exec" {
     environment = {
-      BWS_KEY        = "IAC_BOOTSTRAP_HOST_IP"
-      BWS_VALUE      = hcloud_server.iedora.ipv4_address
-      BWS_PROJECT_ID = var.bws_project_id
+      BWS_PROJECT_ID   = self.input.project_id
+      BWS_SECRETS_JSON = jsonencode(local.bws_managed)
     }
-    command = "${path.module}/../../../bin/bws-upsert"
+    command = "${path.module}/../../../bin/bws-sync"
+  }
+
+  # Destroy: delete every key, sequentially. bws.Delete is idempotent
+  # (no-op when absent), so a partial-state destroy + re-destroy is
+  # safe.
+  provisioner "local-exec" {
+    when = destroy
+    environment = {
+      BWS_PROJECT_ID = self.input.project_id
+      BWS_KEYS       = join(",", self.input.keys)
+      BWS_DELETE     = "1"
+    }
+    command = "${path.module}/../../../bin/bws-sync"
   }
 }
