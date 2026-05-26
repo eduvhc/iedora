@@ -18,7 +18,12 @@ COPY cmd ./cmd
 COPY internal ./internal
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /iedora-backup ./backup
 
-FROM postgres:18.4-alpine@sha256:96d56f7f57c6aacd1fcb908bc83b345ec5f83231ee486dd66a1baadce274db88
+# Tag-only reference (no `@sha256:` pin) — SHA-pinned bases lock to a
+# specific manifest blob, which is per-arch in a multi-arch image, and
+# leaks amd64-only binaries (tini, gnupg) into an arm64 host. Bump the
+# postgres tag (and re-verify CVE-2025-8715 is still fixed in the new
+# point release) when upgrading.
+FROM postgres:18.4-alpine
 
 RUN apk add --no-cache gnupg tini
 
