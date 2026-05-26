@@ -749,25 +749,58 @@ First-time setup on a fresh laptop + empty cloud:
    min. Validate `https://menu.iedora.com/up` returns
    `{"ok":true,"db":"ok"}`.
 
-## Failure modes
+## Failure modes / troubleshooting
 
 The ones operators are likely to hit. Most are recoverable by re-running
-the affected stage.
+the affected stage; the rest have explicit recovery steps below.
 
-| Symptom | Stage | Cause | Recovery |
-|---------|-------|-------|----------|
-| `Host key verification failed` from kreuzwerker/docker | 2 | Hetzner recycled an IPv4 that's still in `~/.ssh/known_hosts` | Orchestrator runs `ssh-keygen -R` automatically before Pass 2. If hit manually: `ssh-keygen -R <ip>` + retry. |
-| `x509: certificate signed by unknown authority` after Zitadel ready | 3 | Caddy served `/debug/ready` via internal CA while ACME was mid-challenge | `tlsprobe.probeCertIssuer` rejects "Caddy Local Authority"; budget is 6m. If exhausted: `ssh root@$HOST docker logs infra-caddy` for LE rate-limit / firewall issues. |
-| `Errors.Target.DeniedURL` on action_target create | 3 | Zitadel's URL validator can't resolve `menu.iedora.com` from inside the iedora docker network | `zitadel-apply` runs `waitForMenuDNS` before creating action targets — 90s budget. Increase if it fires. |
-| `found N PATs on machine user "menu-sa" (expected 0 or 1)` | 3 | Prior run crashed mid-create OR two operators raced. Concurrent guard refuses to silently delete the wrong one. | Reconcile via Zitadel UI; re-run `bin/iedora-env bin/iedora app apply`. |
-| `BWS missing APP_ZITADEL_*` | 4 | Stage 3 didn't complete | Run `bin/iedora-env bin/iedora app apply` first; or `bin/iedora-env tofu -chdir=infra/iac/tofu apply` + `bin/iedora-env bin/iedora app apply` + `bin/iedora-env bin/iedora deploy menu` chains them. |
-| `tofu output X empty` | 4 | Stage 2 wasn't run, OR an `outputs.tf` entry was added but not applied | Run `bin/iedora-env tofu -chdir=infra/iac/tofu apply`. |
-| `unauthorized` from `docker pull ghcr.io/...` | 3/4 | `IAC_BOOTSTRAP_GHCR_TOKEN` expired OR not in scope | Regenerate the PAT, `bws secret edit`. The configurator's `docker login` step uses `--password-stdin` so the token never appears in `docker history`. |
-| `menu-db-migrations: connection refused` | 3 | `infra-postgres` isn't up | `ssh root@$HOST docker ps`. If missing, `bin/iedora-env tofu -chdir=infra/iac/tofu apply`. |
-| `iedora.com` 530 / connection refused | n/a | A record resolves but TLS fails | Either `infra-caddy` is down (`docker logs infra-caddy`) or the worker isn't published. CF Workers' apex custom-domain takes a few seconds after `cloudflare_workers_custom_domain` create. |
-| `menu.iedora.com` 502 between deploys | 4 | The hot-swap flow normally prevents this — the old container keeps serving until `/up` passes on the new one. A brief (~150ms) window can still fire during the `docker network disconnect/connect` chain at step 7, where the live alias is momentarily unbound. | Retry the request; the alias is bound again within the same second. If persistent: `ssh root@$HOST docker ps` — both `infra-menu-web` and `infra-menu-web-next` running means rename never landed; rename manually. |
-| `tofu apply` hangs at Pass 2 | 2 | Cloud-init still installing Docker. `null_resource.docker_ready` waits up to 5m | `ssh root@<ip> 'cloud-init status'`. If stuck >10m: `tofu apply -replace=hcloud_server.iedora` for a fresh box. |
-| Destroy fails: `bucket not empty` 409 on CF R2 | 2 | `internal/r2.EmptyBucket` failed silently | Read the destroy log's `! R2 empty failed` line; check `internal/r2/r2_test.go` is green; manually empty via the CF dashboard, retry. |
+### Tofu apply / destroy
+
+| Symptom | Cause | Recovery |
+|---------|-------|----------|
+| `Error: error during placement (resource_unavailable, ...)` on `hcloud_server.iedora` | Hetzner datacenter (default `fsn1`) is temporarily out of capacity for the chosen SKU (e.g. CAX11). | Wait 5–10 min, OR pass `TF_VAR_hetzner_location=nbg1` (Nuremberg) or `hel1` (Helsinki) — same EU backbone, similar latency from PT. Validated tier list in `variables.tf::hetzner_location`. |
+| `Error acquiring the state lock` (HTTP 412 `PreconditionFailed`) | Previous `tofu apply` was Ctrl-C'd before releasing the R2-backend lock. Lock ID + path are in the error body. | `bin/iedora-env tofu -chdir=infra/iac/tofu force-unlock -force <LOCK_ID>`. Safe when you know the prior operation is dead (the error shows `Who:` so you can confirm). |
+| `Resource instance random_password.zitadel_masterkey has prevent_destroy set` on `tofu destroy` | The masterkey lifecycle guard (encrypts Zitadel's projection table — rotating it bricks state) blocks all destroys by default. | One-shot override: `TF_VAR_allow_masterkey_rotation=true bin/iedora-env tofu -chdir=infra/iac/tofu destroy`. Don't leave the var set after. |
+| `tofu destroy` reports `0 destroyed` but the Hetzner box / CF DNS / R2 buckets still exist | A previous `tofu apply` was cancelled mid-run; resources were created on the provider side but never persisted to the state file. State is empty so destroy has nothing to do. | Cleanup via API directly. Inventory: `curl ... https://api.hetzner.cloud/v1/servers`, `curl ... /accounts/$AID/r2/buckets`, `curl ... /zones/$ZID/dns_records`. Delete by ID. |
+| Destroy fails: bucket DELETE returns 409 / hangs | `rclone purge` skipped (binary missing or no creds) and the R2 bucket has objects. | `brew install rclone` if missing. Re-run destroy. If buckets stay, manually `rclone purge :s3:<bucket>` with `RCLONE_S3_*` env (see `destroy-hooks.tf`). |
+| `bin/iedora-env` aborts with `RSA: command not found` on tempfile line N | Older versions of iedora-env sourced `bws secret list -o env` directly; multi-line values (SSH private key) break bash quoting. | Pull latest; the helper now reads JSON + base64-decodes per key. If still hitting: `git pull && rm -rf node_modules` + re-test. |
+
+### Stage 2 — infra (Hetzner / Cloudflare)
+
+| Symptom | Cause | Recovery |
+|---------|-------|----------|
+| `iedora.service failed because the control process exited with error code` after first apply, log says `service "X" refers to undefined volume "Y": invalid compose project` | HCL volume map key (e.g. `caddy_data`) doesn't match the name referenced in the service's `volumes` list (e.g. `caddy-data`). yamlencode emits keys verbatim. | Quote hyphenated keys in `compose.tf::local.compose.volumes` — `"caddy-data" = { name = "caddy-data" }` — so the key matches the service reference. |
+| All containers restart on a small env change | Older `iedora.service` ran `systemctl restart` which fires `ExecStop = docker compose down` → `ExecStart` (full down/up). | Pull latest. The unit now has `ExecReload = docker compose up -d --remove-orphans` and `sync.tf` calls `systemctl reload` instead of restart — only containers whose config actually changed are recreated. |
+| Caddy still serves old routing after a Caddyfile edit | The Caddyfile is bind-mounted; changing it on the host doesn't trigger a container restart, and the caddy daemon caches its config in memory. | `sync.tf` now runs `docker exec infra-caddy caddy reload --config /etc/caddy/Caddyfile` after the file push. If you bypassed sync: `ssh root@$HOST docker exec infra-caddy caddy reload --config /etc/caddy/Caddyfile`. |
+| BWS destroy hooks report `429 Too Many Requests` and leave 1–2 IAC_* keys behind | BWS mutating-call rate limit is ~1/s server-side. Older code fired N parallel `terraform_data.bws_sync_*` provisioners and saturated it. | Pull latest. `bws-sync` (single resource, sequential batch) replaces the per-key resources. If a key still lingers: `BWS_PROJECT_ID=... BWS_KEY=<key> BWS_DELETE=1 bin/bws-upsert`. |
+
+### Stage 3 — app state
+
+| Symptom | Cause | Recovery |
+|---------|-------|----------|
+| `Host key verification failed` from a configurator's SSH call | Operator's `~/.ssh/known_hosts` pins a stale key for the Hetzner IP (recycled across destroy/apply). | `internal/ssh.Client` uses `UserKnownHostsFile=/dev/null + StrictHostKeyChecking=no` — pull latest. For ad-hoc `ssh root@$HOST` from the laptop: `ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$HOST`. |
+| `x509: certificate signed by unknown authority` from `tlsprobe` after Zitadel ready | Caddy served `/debug/ready` via its internal CA while Let's Encrypt's ACME challenge was still mid-flight. | `tlsprobe.probeCertIssuer` rejects "Caddy Local Authority"; budget is 6m. If exhausted: `ssh root@$HOST docker logs infra-caddy` for LE rate-limit / firewall issues. |
+| `Errors.Target.DeniedURL` on action-target create | Zitadel's URL validator can't resolve `menu.iedora.com` from inside the iedora docker network. | `zitadel-apply` runs `waitForMenuDNS` before creating action targets — 90s budget. Increase if it fires. |
+| `found N PATs on machine user "menu-sa" (expected 0 or 1)` | Prior run crashed mid-create OR two operators raced. Concurrent guard refuses to silently delete the wrong one. | Reconcile via Zitadel UI; re-run `bin/iedora-env bin/iedora app apply`. |
+| `menu-db-migrations: connection refused` | `infra-postgres` isn't up. | `ssh root@$HOST docker ps`. If missing, `bin/iedora-env tofu -chdir=infra/iac/tofu apply`. |
+
+### Stage 4 — deploy
+
+| Symptom | Cause | Recovery |
+|---------|-------|----------|
+| `BWS missing APP_ZITADEL_*` | Stage 3 didn't complete. | `bin/iedora-env bin/iedora app apply` first. |
+| `tofu output X empty` | Stage 2 wasn't run, OR an `outputs.tf` entry was added but not applied. | `bin/iedora-env tofu -chdir=infra/iac/tofu apply`. |
+| `unauthorized` from `docker pull ghcr.io/...` | `IAC_BOOTSTRAP_GHCR_TOKEN` expired OR not in scope. | Regenerate the GHCR PAT, `bws secret edit`. The configurator's `docker login` step uses `--password-stdin` so the token never appears in `docker history`. |
+| `Type 'string \| undefined' is not assignable to parameter of type 'string'` in `proxy.ts` during `next build` | `noUncheckedIndexedAccess` is on; `(host ?? '').split(':')[0]` is `string \| undefined`. | `… .split(':')[0] ?? ''`. Or any guard before `houseHosts.has(host)`. |
+| `iedora.com` / `menu.iedora.com` → 502 from Caddy | Caddy is up but `infra-menu-web` upstream isn't running (Stage 4 didn't deploy, or container crashed). | `ssh root@$HOST docker ps` — confirm `infra-menu-web` listed. If missing: `bin/iedora-env bin/iedora deploy menu`. |
+| Hot-swap window (~150ms) where `menu.iedora.com` 502s mid-deploy | The brief alias-unbind during `docker network disconnect/connect`. | Retry the request; the alias rebinds within the second. If persistent: both `infra-menu-web` and `infra-menu-web-next` running means the rename never landed — rename manually. |
+
+### CI
+
+| Symptom | Cause | Recovery |
+|---------|-------|----------|
+| `App state (Stage 3)` workflow fails with `Error loading key "/home/runner/.ssh/id_ed25519": error in libcrypto`, `SSH_KEY:` line is empty in the env dump | `tofu destroy` removed the `github_actions_secret.secrets` resources Tofu had written — `IAC_BOOTSTRAP_SSH_PRIVATE_KEY` and `BWS_ACCESS_TOKEN` are gone from the repo. | Expected after a `tofu destroy`. Either: (a) `bin/iedora-env tofu -chdir=infra/iac/tofu apply` rewrites them on next apply, (b) set manually with `gh secret set <NAME> --repo eduvhc/iedora`, or (c) ignore — next real deploy fixes it. |
+| `menu.yml` E2E run hangs / fails after long re-arrangement | Stale CI cache (e.g. node_modules, Playwright browsers) confused by a workspaces refactor. | Re-run the workflow with `gh run rerun <run-id> --failed`. If still red: bump the cache key or delete the cache via the Actions UI. |
 
 ## Pre-merge runbook
 
