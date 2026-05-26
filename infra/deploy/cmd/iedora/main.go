@@ -22,6 +22,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -96,18 +97,43 @@ func dispatchIac(ctx context.Context, argv []string) error {
 // runIacIP prints the provisioned Hetzner box's IPv4 to stdout (or nothing
 // if the box hasn't been provisioned yet). Used by CI workflows that need
 // the IP for `ssh-keyscan` / SSH agent setup BEFORE running a heavier
-// orchestrator subcommand. Centralises the `tofu output -raw hetzner_ipv4`
-// pattern that previously lived inline in three workflow files, each
-// preceded by its own copy-pasted `tofu init` step. Lazy init in
-// `runTofuOutput` handles the backend-init prerequisite automatically.
+// orchestrator subcommand. Centralises the box-IP read that previously
+// lived inline in three workflow files, each preceded by its own
+// copy-pasted `tofu init` step. Lazy init in `runTofuOutput` handles
+// the backend-init prerequisite automatically.
+//
+// Implementation note: uses `tofu output -json` (no name) and parses
+// client-side rather than `tofu output -raw hetzner_ipv4`. When state
+// has no outputs, `-raw <name>` emits a "Warning: No outputs found"
+// banner to STDOUT (not stderr — yes, really) and exits 0, which would
+// leak the banner into the captured value. `-json` returns clean `{}`
+// on empty state, exit 0 — safe for `HOST=$(bin/iedora iac ip)`.
 func runIacIP(ctx context.Context, argv []string) error {
 	if len(argv) > 0 {
 		return fmt.Errorf("iac ip takes no arguments")
 	}
 	currentMode.Require(mode.Live)
-	out, _ := runTofuOutput(ctx, nil, "output", "-raw", "hetzner_ipv4")
-	if out != "" {
-		fmt.Println(out)
+	raw, err := runTofuOutput(ctx, nil, "output", "-json")
+	if err != nil {
+		// Backend not reachable / state corrupt → real error. Empty
+		// state isn't an error here (returns "{}").
+		return err
+	}
+	if raw == "" || raw == "{}" {
+		return nil
+	}
+	var outputs map[string]struct {
+		Value any `json:"value"`
+	}
+	if err := json.Unmarshal([]byte(raw), &outputs); err != nil {
+		return fmt.Errorf("parse tofu outputs: %w", err)
+	}
+	o, ok := outputs["hetzner_ipv4"]
+	if !ok {
+		return nil
+	}
+	if s, ok := o.Value.(string); ok && s != "" {
+		fmt.Println(s)
 	}
 	return nil
 }
