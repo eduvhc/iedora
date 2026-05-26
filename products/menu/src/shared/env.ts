@@ -5,7 +5,7 @@
  *  - Build (`SKIP_ENV_VALIDATION=1`): returns a stub Proxy so `next build`'s
  *    "collect page data" phase can evaluate server modules (lib/db, auth,
  *    storage) without real secrets. Tofu wires the real env at runtime
- *    (docker_container.menu_web in infra/iac/tofu/containers.tf).
+ *    (Stage 4 `dockerOnHetzner` runtime — `infra/deploy/cmd/iedora/runtime_docker.go`).
  *  - Runtime: parses `process.env` with Zod and crashes loud, naming the
  *    offending keys — no buried postgres-js stack traces.
  *

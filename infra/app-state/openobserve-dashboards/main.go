@@ -27,7 +27,7 @@
 // through both — anything reachable from `box:localhost` is reachable
 // at our local forwarded port.
 //
-// Inputs (env, set by `bin/with-secrets --stage app` from BWS):
+// Inputs (env, set by `bin/iedora-env` from BWS):
 //
 //	IAC_BOOTSTRAP_HOST_IP                                  Hetzner box IPv4 (universal scope)
 //	IAC_BOOTSTRAP_SSH_PRIVATE_KEY                          loaded into ssh-agent before exec OR
@@ -80,7 +80,7 @@ const runsIn = mode.Live
 
 // dashboardsFS embeds every JSON in the repo's
 // `infra/openobserve/dashboards/` directory at compile time. Editing a
-// dashboard = edit the JSON + rebuild (or `go run`); next `task app:apply`
+// dashboard = edit the JSON + rebuild (or `go run`); next `bin/iedora-env bin/iedora app apply`
 // picks it up. No external state, no version skew.
 //
 //go:embed dashboards/*.json
@@ -97,7 +97,7 @@ func Run(ctx context.Context) error {
 func run(ctx context.Context) error {
 	host := os.Getenv("IAC_BOOTSTRAP_HOST_IP")
 	if host == "" {
-		return fmt.Errorf("IAC_BOOTSTRAP_HOST_IP missing — `task infra:up` should have written it to BWS")
+		return fmt.Errorf("IAC_BOOTSTRAP_HOST_IP missing — `bin/iedora-env tofu -chdir=infra/iac/tofu apply` should have written it to BWS")
 	}
 	email := mustEnv("IAC_BOOTSTRAP_OPENOBSERVE_ROOT_USER_EMAIL")
 	password := mustEnv("IAC_OPENOBSERVE_ROOT_USER_PASSWORD")

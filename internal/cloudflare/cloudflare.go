@@ -1,6 +1,6 @@
 // Package cloudflare wraps the bits of the Cloudflare REST API the
 // deploy stack needs. Today: account discovery for the wrapping
-// `bin/with-secrets` script + token-ID lookup for using a CF API
+// `bin/iedora-env` script + token-ID lookup for using a CF API
 // token as an R2 S3 access key + R2-bucket / scoped-API-token CRUD
 // for the state-bucket bootstrap.
 //
@@ -8,7 +8,7 @@
 // exponential-backoff loop that retries transport errors, HTTP 5xx,
 // and HTTP 429. The CF edge serves intermittent 503s for "unknown
 // API error" that resolve in a second; without retry, a single one
-// fails the whole `just deploy` at the `bin/with-secrets` bootstrap.
+// fails the whole `just deploy` at the `bin/iedora-env` bootstrap.
 package cloudflare
 
 import (
@@ -81,7 +81,7 @@ func AccountID(ctx context.Context, cfToken string) (string, error) {
 }
 
 // R2S3Credentials derives the R2 S3-API access key + secret key from a
-// Cloudflare API token. Convention (matches what containers.tf does for
+// Cloudflare API token. Convention (matches what compose.tf does for
 // the per-bucket tokens): access_key = token's CF ID, secret_key =
 // hex(sha256(token-value)).
 //

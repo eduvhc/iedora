@@ -245,13 +245,13 @@ func runResetDB(ctx context.Context, dbName string) {
 		execPsql(ctx, `DROP DATABASE IF EXISTS menu;`)
 		execPsql(ctx, `CREATE DATABASE menu;`)
 	case "zitadel":
-		fmt.Printf("%s reset-db zitadel — drops zitadel DB + bootstrap volume; re-run task local to re-bootstrap\n", logPrefix)
+		fmt.Printf("%s reset-db zitadel — drops zitadel DB + bootstrap volume; re-run go run ./dev/cmd/local-stack to re-bootstrap\n", logPrefix)
 		// Stop zitadel containers so we can drop the DB cleanly.
 		_ = exec.CommandContext(ctx, "docker", "stop", "infra-zitadel-login", "infra-zitadel").Run()
 		execPsql(ctx, `DROP DATABASE IF EXISTS zitadel;`)
 		execPsql(ctx, `CREATE DATABASE zitadel;`)
 		_ = exec.CommandContext(ctx, "docker", "volume", "rm", "iedora-local_zitadel_bootstrap").Run()
-		fmt.Printf("%s ✓ re-run task local to re-bootstrap\n", logPrefix)
+		fmt.Printf("%s ✓ re-run go run ./dev/cmd/local-stack to re-bootstrap\n", logPrefix)
 	default:
 		fail("--reset-db: unknown db %q (want `menu` or `zitadel`)", dbName)
 	}

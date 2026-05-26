@@ -60,18 +60,12 @@ logs when asked to debug CI).
 ### Auth — CLAUDE_CODE_OAUTH_TOKEN
 
 The action authenticates with a Pro/Max **OAuth token**, not an
-Anthropic API key. It is BWS-managed and Tofu-written-through, the same
-shape as every other GitHub Actions secret in this repo (`docs/deploy.md`
-§ Tofu-managed write-throughs). Only *minting* the token is interactive
-(`claude setup-token`); *storing* it is a static string, so it fits the
-write-through pattern with no exception.
-
-The chain: `IAC_BOOTSTRAP_CLAUDE_CODE_OAUTH_TOKEN` in BWS (`iedora-deploy`
-project) → `bin/with-secrets` exports `TF_VAR_claude_code_oauth_token`
-→ `variable "claude_code_oauth_token"` (`infra/iac/tofu/variables.tf`) →
-`local.github_secrets["CLAUDE_CODE_OAUTH_TOKEN"]` (`infra/iac/tofu/github.tf`)
-→ `task up` reconciles the GitHub Actions secret the workflow
-reads as `${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}`.
+Anthropic API key. Unlike the rest of the deploy chain, this one is
+**operator-managed directly as a GitHub Actions repo secret** — not
+BWS-stored, not Tofu-written-through. The token is per-operator
+(tied to the human's Anthropic account) and the workflow is
+conversation-triggered, not part of the deploy pipeline; mixing it
+into BWS + Tofu adds plumbing without leverage.
 
 One-time setup:
 
@@ -85,30 +79,24 @@ One-time setup:
    ```
 
    It prints a token starting with `sk-ant-oat…`.
-3. **Put it in BWS** as `IAC_BOOTSTRAP_CLAUDE_CODE_OAUTH_TOKEN` in the
-   `iedora-deploy` project (`bws secret create`, or the Bitwarden UI).
-   The value never goes near the GitHub UI or shell history.
-4. **Write it through:** `task up`. Tofu reconciles the
-   `CLAUDE_CODE_OAUTH_TOKEN` GitHub Actions secret from BWS,
-   *overwriting* any value already there — so a previously hand-set
-   `gh secret set` value is cleanly superseded on the first apply (no
-   `gh secret delete` needed; the secret name is the same).
+3. **Set it as a GitHub Actions secret:**
 
-Do not edit the GitHub secret in the UI or with `gh secret set` once
-it's Tofu-managed — the next `task up` silently clobbers it
-(infra hard rule 1). Change the value in BWS instead.
+   ```
+   gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo eduvhc/iedora
+   ```
+
+   `gh` reads the value from stdin so it never touches shell history.
 
 ### Rotation / revocation
 
-- **Rotate:** re-run `claude setup-token`, update
-  `IAC_BOOTSTRAP_CLAUDE_CODE_OAUTH_TOKEN` in BWS, `task up`. Same
-  recipe as every other write-through (or `bws secret edit <id>` directly).
+- **Rotate:** re-run `claude setup-token`, then `gh secret set
+  CLAUDE_CODE_OAUTH_TOKEN --repo eduvhc/iedora` again. Done.
 - **Revoke:** revoke the OAuth grant in your Anthropic account and
-  remove the BWS key + the `github.tf` map entry, then
-  `task up`. The workflow then fails closed (auth error) —
-  it does not run unauthenticated.
-- Treat its lifecycle as "rotate on suspicion, revoke when the Action
-  is removed" — see `docs/deploy.md` § Expiration discipline.
+  `gh secret delete CLAUDE_CODE_OAUTH_TOKEN --repo eduvhc/iedora`. The
+  workflow then fails closed (auth error) — it does not run
+  unauthenticated.
+- **Disable entirely:** delete `.github/workflows/claude.yml`. The
+  GitHub app + secret can stay (harmless) or be removed for hygiene.
 
 ## MCP servers (local Claude Code)
 

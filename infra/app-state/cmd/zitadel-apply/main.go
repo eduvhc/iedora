@@ -4,7 +4,7 @@
 // Kept as a separate binary (in addition to the in-process invocation
 // from `bin/iedora app apply`) for two callers:
 //
-//   - `task zitadel:grants` — the Taskfile escape hatch that runs only
+//   - `bin/iedora-env bin/zitadel-apply --grants-only` — escape hatch that runs only
 //     the admin-grants phase via `--grants-only`. Iedora doesn't expose
 //     per-configurator flag passthrough today; standalone invocation is
 //     simpler than threading flags through the orchestrator.

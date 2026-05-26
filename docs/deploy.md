@@ -531,7 +531,7 @@ TF_VAR_* aliases auto-emitted only for stages that use Tofu (iac,
 deploy). App stage doesn't get TF_VARs.
 
 Tests at
-[`infra/deploy/cmd/with-secrets/env_test.go`](../infra/deploy/cmd/with-secrets/env_test.go)
+[`infra/deploy/cmd/iedora/env_test.go`](../infra/deploy/cmd/iedora/env_test.go)
 cover every stage path.
 
 ## Local commands
@@ -619,14 +619,14 @@ Each service is gated by a compose profile matching its name.
    picks up the just-written `.env`.
 
 Menu runs as a container by default (same image as prod). For HMR,
-opt out via `task local --except menu` and `cd products/menu && bun
+opt out via `go run ./dev/cmd/local-stack --except menu` and `cd products/menu && bun
 run dev` — the orchestrator drops the in-container env values and
 writes `<please_fill>` placeholders into `.env.local` for the
 operator to point at remote URLs.
 
-`task local --only menu` brings up menu's deps (postgres, localstack,
+`go run ./dev/cmd/local-stack --only menu` brings up menu's deps (postgres, localstack,
 openobserve, zitadel) too via the dep closure in the orchestrator.
-`task local:reset-db -- <name>` drops + recreates one database.
+`go run ./dev/cmd/local-stack --reset-db -- <name>` drops + recreates one database.
 
 ## Day-2 operations
 
@@ -772,18 +772,18 @@ the affected stage.
 ## Pre-merge runbook
 
 Run before merging any change to the orchestrator (`infra/deploy/cmd/iedora/`,
-`infra/deploy/cmd/with-secrets/`, `infra/app-state/cmd/zitadel-apply/`, the other Stage 3
+`infra/deploy/cmd/iedora/`, `infra/app-state/cmd/zitadel-apply/`, the other Stage 3
 binaries, `infra/iac/tofu/*.tf`, `internal/*`, `bin/*`,
-`Taskfile.yml`, or `products/*/infra/iac/tofu/*.tf`). The sequence proves
+`products/menu/**` (which now also hosts iedora.com), or `infra/iac/**/*.tf`). The sequence proves
 the moving parts compose correctly against live cloud APIs — unit
 tests cover individual helpers but only this catches cross-API
 problems (DNS races, state-vs-cloud drift, one-shot reveal recovery).
 
 ```bash
-task down       # 1: tear down from any state — idempotent
+bin/iedora-env tofu -chdir=infra/iac/tofu destroy       # 1: tear down from any state — idempotent
 bin/iedora-env tofu -chdir=infra/iac/tofu apply  # 2: cold deploy (full bootstrap)
 bin/iedora-env tofu -chdir=infra/iac/tofu apply  # 3: warm — every stage should be no-diff/no-op
-task down       # 4: destroy from a full estate
+bin/iedora-env tofu -chdir=infra/iac/tofu destroy       # 4: destroy from a full estate
 bin/iedora-env tofu -chdir=infra/iac/tofu apply  # 5: cold deploy AGAIN — catches state-vs-cloud drift, DNS races
 bin/iedora-env tofu -chdir=infra/iac/tofu apply  # 6: warm — final idempotency check
 ```
@@ -821,7 +821,7 @@ target.
 ## File map
 
 ```
-bin/                                     `go run` shims the Taskfile shells through
+bin/                                     `go run` / `bash` shims operators invoke directly
   iedora                                   → infra/deploy/cmd/iedora
   with-secrets                             → deploy/with-secrets
   state-bucket-bootstrap                   → iac/cmd/state-bucket-bootstrap (Stage -1)
@@ -856,14 +856,17 @@ internal/                                Shared Go helpers (repo-root single Go 
   testfakes/                               test-only HTTP server fakes
 
 infra/                                   Stage 2 — IaC for the shared estate
-  tofu/                                    central Tofu root
-    versions.tf, variables.tf, hetzner.tf, main.tf, containers.tf,
-    secrets.tf, github.tf, outputs.tf
-  modules/services/                        Tofu modules for each live shared service
-    postgres/, zitadel/, zitadel-login/, openobserve/
-  bws-upsert/                              BWS write-through helper for Tofu (terraform_data)
-  backup/                                  self-built Postgres-backup image (Dockerfile + Go binary)
-  postgres/                                init.sql — CREATE DATABASE menu / zitadel on first boot
+  iac/
+    tofu/                                  central Tofu root
+      versions.tf, variables.tf, hetzner.tf, main.tf, compose.tf,
+      sync.tf, destroy-hooks.tf, secrets.tf, github.tf, outputs.tf
+      templates/{Caddyfile,cloud-init.yml,iedora.service}
+    cmd/
+      bws-sync/                            Batched BWS write/delete (Tofu local-exec entry point)
+      bws-upsert/                          Single-key variant (ad-hoc)
+      infra-pg-backup/                     Postgres-backup container (Go + Dockerfile, arm64)
+      state-bucket-bootstrap/              Stage -1 — R2 bucket + token bootstrap
+    postgres/                              init.sql — CREATE DATABASE menu / zitadel on first boot
 
 dev/                                     Local stack (mirror of Stages 2-4)
   docker-compose.yml, localstack-init.sh   the stack itself

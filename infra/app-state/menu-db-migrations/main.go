@@ -28,7 +28,7 @@
 //	hetzner_ipv4              SSH target.
 //	menu_database_url         DATABASE_URL the container sees (postgres+pwd composed).
 //
-// No BWS reads. Stage 3 env hydration via `bin/with-secrets --stage app`
+// No BWS reads. Stage 3 env hydration via `bin/iedora-env`
 // doesn't include postgres password (it's iac-scoped); we get the
 // composed URL via Tofu output, which works because the operator's
 // shell still has BWS_ACCESS_TOKEN, the wrapper still hydrates the iac
@@ -38,9 +38,9 @@
 // imports + calls it in-process. There is no bin/menu-db-migrations
 // shim anymore; the configurator runs as part of `bin/iedora app apply`.
 //
-// Since this code runs UNDER `bin/with-secrets --stage app`,
+// Since this code runs UNDER `bin/iedora-env`,
 // it only sees app-scope env. To call `tofu output`, it shells out to
-// `bin/with-secrets --stage iac -- tofu output -raw ...`. Cheap nested
+// `tofu output -raw ...`. Cheap nested
 // invocation: bws-list cache, no extra credential round-trip.
 package menudbmigrations
 
@@ -98,7 +98,7 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("read hetzner_ipv4: %w", err)
 	}
 	if host == "" {
-		return fmt.Errorf("hetzner_ipv4 empty — has `task infra:up` run?")
+		return fmt.Errorf("hetzner_ipv4 empty — has `bin/iedora-env tofu -chdir=infra/iac/tofu apply` run?")
 	}
 
 	dbURL, err := tofuOutput(ctx, "menu_database_url")

@@ -53,7 +53,7 @@ func ensureSAKey(ctx context.Context, cfg Config, m mode.Mode) (string, error) {
 
 	// Warm-path BWS read. with-secrets normally injects this into env
 	// at the parent layer, but we also check directly in case the
-	// binary is invoked outside `bin/with-secrets`.
+	// binary is invoked outside `bin/iedora-env`.
 	pid, err := bws.ProjectID(ctx)
 	if err != nil {
 		return "", fmt.Errorf("resolve BWS project: %w", err)
@@ -69,7 +69,7 @@ func ensureSAKey(ctx context.Context, cfg Config, m mode.Mode) (string, error) {
 	// Cold path. Need the box IP to SSH for the SA key.
 	host := os.Getenv("IAC_BOOTSTRAP_HOST_IP")
 	if host == "" {
-		return "", fmt.Errorf("IAC_BOOTSTRAP_HOST_IP missing — `task infra:up` writes it to BWS; check Stage 2 completed")
+		return "", fmt.Errorf("IAC_BOOTSTRAP_HOST_IP missing — `bin/iedora-env tofu -chdir=infra/iac/tofu apply` writes it to BWS; check Stage 2 completed")
 	}
 
 	// Health gate: Zitadel must be up + serving the real LE cert before

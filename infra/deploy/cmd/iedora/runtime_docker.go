@@ -18,7 +18,7 @@ import (
 // Docker container on the shared Hetzner VPS. The runtime owns the
 // container lifecycle (pull → migrate → stop → run); it does NOT own the
 // docker_network or named volumes, which stay declared in Tofu under
-// `infra/iac/tofu/containers.tf`.
+// `infra/iac/tofu/compose.tf`.
 //
 // All operations go through SSH because dockerd on the VPS isn't exposed
 // to the public internet — the orchestrator's machine never talks to

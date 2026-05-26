@@ -60,7 +60,7 @@ stays — R2 sees encrypted bytes, never plaintext.
 solves the chicken/egg: it creates the R2 bucket + scoped API token
 via the Cloudflare API and writes the credentials to BWS. Idempotent
 — warm runs rotate the token value in place so BWS converges. Run
-once per fresh ecosystem via `bin/with-secrets --stage iac --
+once per fresh ecosystem via `bin/iedora-env --stage iac --
 bin/state-bucket-bootstrap`.
 
 The scoped token has only `Workers R2 Storage Bucket Item Write` on
@@ -77,19 +77,19 @@ Three new keys, taxonomy `IAC_BOOTSTRAP_TOFU_STATE_*`:
 | `IAC_BOOTSTRAP_TOFU_STATE_SECRET_KEY` | hex(sha256(token value)) (= S3 secret key) |
 | `IAC_BOOTSTRAP_TOFU_STATE_BUCKET` | `iedora-tofu-state` (literal, for sanity-checking) |
 
-`bin/with-secrets --stage iac` and `--stage deploy` both export these
+`bin/iedora-env --stage iac` and `--stage deploy` both export these
 as `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` so the s3 backend
 authenticates without per-workflow boilerplate.
 
 ### Migration (executed once on the fresh ecosystem)
 
-1. `task down` against the old local-state setup (the backend block was
+1. `bin/iedora-env tofu -chdir=infra/iac/tofu destroy` against the old local-state setup (the backend block was
    stashed during destroy).
-2. `bin/with-secrets --stage iac -- bin/state-bucket-bootstrap` — R2
+2. `bin/state-bucket-bootstrap` — R2
    bucket + token + BWS keys.
 3. `git rm --cached` both `terraform.tfstate` files; `rm -rf
    .terraform/` from both roots so init starts clean.
-4. `task up` cold against the empty R2 bucket — init creates the state
+4. the full deploy pipeline cold against the empty R2 bucket — init creates the state
    object, apply lands 34 resources, configurators run, deploys ship.
 
 Smoke-tested green: `menu.iedora.com/up` → 200 `{"ok":true,"db":"ok"}`,
@@ -101,7 +101,7 @@ Smoke-tested green: `menu.iedora.com/up` → 200 `{"ok":true,"db":"ok"}`,
 - [`internal/cloudflare/r2_bucket.go`](../internal/cloudflare/r2_bucket.go) + [`api_token.go`](../internal/cloudflare/api_token.go) — helpers added during the work.
 - [`infra/bin/state-bucket-bootstrap`](../infra/bin/state-bucket-bootstrap) — wrapper shim.
 - [`infra/iac/tofu/versions.tf`](../infra/iac/tofu/versions.tf) + [`products/house/infra/iac/tofu/versions.tf`](../products/house/infra/iac/tofu/versions.tf) — `backend "s3"` blocks.
-- [`infra/deploy/cmd/with-secrets/env.go`](../infra/deploy/cmd/with-secrets/env.go) — new BWS keys + AWS_* env aliases.
+- [`infra/deploy/cmd/iedora/env.go`](../infra/deploy/cmd/iedora/env.go) — new BWS keys + AWS_* env aliases.
 - `.github/workflows/infra-deploy.yml` + `deploy.yml` — commit-back steps removed; `permissions: contents: write` → `read`.
 - `.gitignore` — state files excluded; build-artefact binary list extended.
 - State files `git rm --cached`'d.
@@ -232,7 +232,7 @@ to test against) cover the verification surface adequately.
    SSH executor.
 4. Update `### Failure modes` row "`menu.iedora.com` 502 between
    deploys" — should no longer fire.
-5. Manual validation: `task deploy:menu` × 5, monitor
+5. Manual validation: `bin/iedora-env bin/iedora deploy menu` × 5, monitor
    `menu.iedora.com/up` in a loop with `--max-time 1` from a
    second terminal. Expect zero non-200s.
 

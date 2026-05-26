@@ -14,7 +14,7 @@
 //	--mode live   writes outputs to BWS; gated by DNS + TLS probes (prod)
 //	--mode local  writes outputs as JSON to --output-file; in-memory store (dev)
 //
-// Inputs (env, set by `bin/with-secrets` for prod or the dev orchestrator):
+// Inputs (env, set by `bin/iedora-env` for prod or the dev orchestrator):
 //
 //	IAC_BOOTSTRAP_ZITADEL_SA_KEY_JSON  full SA key JSON (the file FirstInstance writes)
 //	ZA_BASE_URL                Zitadel base URL; defaults to https://auth.iedora.com
@@ -22,7 +22,7 @@
 //	ZA_ADMIN_EMAILS            JSON array OR comma-separated list of admin emails
 //	ZA_SSH_HOST                Hetzner IPv4 for the menu-DNS gate; live mode only.
 //	                           Falls back to IAC_BOOTSTRAP_HOST_IP if unset (which
-//	                           is what `bin/with-secrets --stage app` already exports).
+//	                           is what `bin/iedora-env` already exports).
 //	ZA_MENU_DNS_BUDGET         optional poll budget (e.g. "90s"); default 90s
 //
 // Flags:
@@ -139,7 +139,7 @@ func loadConfig(grantsOnly bool, m mode.Mode, outputFile string) (Config, error)
 		MenuHostname: envOr("ZA_MENU_HOSTNAME", "menu.iedora.com"),
 		// SSHHost resolves from ZA_SSH_HOST first (explicit override) and
 		// falls back to IAC_BOOTSTRAP_HOST_IP — the BWS-written Hetzner
-		// IPv4 that's already in env via `bin/with-secrets --stage app`.
+		// IPv4 that's already in env via `bin/iedora-env`.
 		// Neither the iedora orchestrator nor app-state.yml exports
 		// ZA_SSH_HOST today, so without this fallback the live
 		// menu-DNS gate would error out (per wait_dns.go). cmd/dev
