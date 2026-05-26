@@ -5,7 +5,7 @@
  *  - Build (`SKIP_ENV_VALIDATION=1`): returns a stub Proxy so `next build`'s
  *    "collect page data" phase can evaluate server modules (lib/db, auth,
  *    storage) without real secrets. Tofu wires the real env at runtime
- *    (docker_container.menu_web in infra/tofu/containers.tf).
+ *    (docker_container.menu_web in infra/iac/tofu/containers.tf).
  *  - Runtime: parses `process.env` with Zod and crashes loud, naming the
  *    offending keys — no buried postgres-js stack traces.
  *
@@ -24,13 +24,13 @@ const serverSchema = z.object({
   // Auth (Zitadel native OIDC) ------------------------------------------
   // Menu's public base URL — used to build the OIDC redirect_uri and
   // post-logout URI. Must match the values declared in TF for
-  // zitadel_application_oidc.menu (infra/tofu/zitadel.tf).
+  // zitadel_application_oidc.menu (infra/iac/tofu/zitadel.tf).
   MENU_PUBLIC_URL: z.url(),
 
   // 32-byte (or more) secret used to derive the JWE encryption key for
   // the menu session cookie (jose, alg=dir, enc=A256GCM). Minted in TF
   // by random_password.menu_session_secret. Rotating it invalidates
-  // every session — see infra/tofu/zitadel.tf.
+  // every session — see infra/iac/tofu/zitadel.tf.
   MENU_SESSION_SECRET: z.string().min(32),
 
   // Zitadel issuer base URL. Discovery doc lives at

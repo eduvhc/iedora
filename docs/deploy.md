@@ -12,7 +12,7 @@ recipes.
 
 ```
 Stage 1: Build & Test      per-product (bun, docker build, tests)
-Stage 2: IaC               task infra:up    → tofu apply on infra/tofu/
+Stage 2: IaC               task infra:up    → tofu apply on infra/iac/tofu/
 Stage 3: App state         task app:apply   → configurator registry
 Stage 4: Deploy            task deploy:<p>  → per-product runtime
 ```
@@ -78,7 +78,7 @@ Without expand/contract, a breaking migration kills the still-running
 old container while Stage 4 is mid-pull.
 
 Implementation: `gateMigrations` at
-[`app-state/menu-db-migrations/lint.go`](../app-state/menu-db-migrations/lint.go)
+[`infra/app-state/cmd/menu-db-migrations/lint.go`](../infra/app-state/cmd/menu-db-migrations/lint.go)
 scans `products/menu/drizzle/*.sql` for `DROP COLUMN` / `DROP TABLE`
 / `ALTER COLUMN ... TYPE` / `RENAME COLUMN` / `RENAME TABLE`. In
 live mode, each destructive statement must carry an inline
@@ -86,7 +86,7 @@ live mode, each destructive statement must carry an inline
 marker (scoped to the same `--> statement-breakpoint` block) or the
 configurator refuses to run. In local mode, violations log to
 stderr but don't block. Tested via
-[`lint_test.go`](../app-state/menu-db-migrations/lint_test.go).
+[`lint_test.go`](../infra/app-state/cmd/menu-db-migrations/lint_test.go).
 
 ### 4. Stage 4 menu deploy is zero-downtime
 
@@ -103,10 +103,10 @@ replacement is healthy. The contract:
 5. Stop + remove the old container.
 
 Implemented in
-[`deploy/iedora/runtime_docker.go::dockerOnHetzner.deployHotSwap`](../deploy/iedora/runtime_docker.go),
+[`infra/deploy/cmd/iedora/runtime_docker.go::dockerOnHetzner.deployHotSwap`](../infra/deploy/cmd/iedora/runtime_docker.go),
 opted in by the `Healthcheck` field on the menu product literal in
-[`products.go`](../deploy/iedora/products.go). Tested via
-[`runtime_docker_swap_test.go`](../deploy/iedora/runtime_docker_swap_test.go)
+[`products.go`](../infra/deploy/cmd/iedora/products.go). Tested via
+[`runtime_docker_swap_test.go`](../infra/deploy/cmd/iedora/runtime_docker_swap_test.go)
 (happy path, probe timeout, probe error, alias-swap failure, naive
 fallback).
 
@@ -132,9 +132,9 @@ per-resource. Known tokens: `pat`, `target:menu-permissions`,
 `--allow-recreate=all`.
 
 Implementation: `guardRecreate` helper at
-[`app-state/zitadel/reconcile.go`](../app-state/zitadel/reconcile.go),
+[`infra/app-state/cmd/zitadel-apply/reconcile.go`](../infra/app-state/cmd/zitadel-apply/reconcile.go),
 gated at the PAT and action-target delete branches. Tested via
-[`app-state/zitadel/reconcile_test.go`](../app-state/zitadel/reconcile_test.go).
+[`infra/app-state/cmd/zitadel-apply/reconcile_test.go`](../infra/app-state/cmd/zitadel-apply/reconcile_test.go).
 
 ## Architecture
 
@@ -156,7 +156,7 @@ gated at the PAT and action-target delete branches. Tested via
  └────┬─────┘               └──────┬───────┘              └──────┬───────┘
       │                            │                             │
       │ tofu apply                 │ walks                       │ fans out
-      │  on infra/tofu/            │ appConfigurators            │ over
+      │  on infra/iac/tofu/            │ appConfigurators            │ over
       ▼                            ▼                             │ products[]
  ┌──────────┐               ┌──────────────────┐                 │
  │ Hetzner  │               │ bin/zitadel-     │                 ├──► menu →
@@ -215,22 +215,22 @@ already has its own conventions.
 
 ## Stage 2 — IaC (`task infra:up`)
 
-`tofu apply` on [`infra/tofu/`](../infra/tofu/). Owns:
+`tofu apply` on [`infra/iac/tofu/`](../infra/iac/tofu/). Owns:
 
-- **Hetzner VPS, firewall, SSH key** ([hetzner.tf](../infra/tofu/hetzner.tf))
+- **Hetzner VPS, firewall, SSH key** ([hetzner.tf](../infra/iac/tofu/hetzner.tf))
 - **Cloudflare** R2 buckets, DNS records, scoped API tokens
-  ([main.tf](../infra/tofu/main.tf))
+  ([main.tf](../infra/iac/tofu/main.tf))
 - **GitHub Actions config** — secrets + variables on the repo, via the
-  `integrations/github` provider ([github.tf](../infra/tofu/github.tf))
+  `integrations/github` provider ([github.tf](../infra/iac/tofu/github.tf))
 - **Docker network + named volumes** + **shared service containers**
-  ([containers.tf](../infra/tofu/containers.tf)):
+  ([containers.tf](../infra/iac/tofu/containers.tf)):
   - `infra-postgres` (Postgres 18, menu + zitadel databases)
   - `infra-zitadel` + `infra-zitadel-login` (IdP)
   - `infra-caddy` (TLS termination, reverse proxy)
   - `infra-openobserve` (observability backend, bound to 127.0.0.1:5080)
   - `infra-backups` (daily pg_dumpall → R2 GPG-encrypted)
 - **Random passwords minted by Tofu, written through to BWS** as
-  `IAC_*` ([secrets.tf](../infra/tofu/secrets.tf)) — postgres
+  `IAC_*` ([secrets.tf](../infra/iac/tofu/secrets.tf)) — postgres
   pwd, backup passphrase, zitadel masterkey, zitadel first-admin pwd,
   openobserve pwd.
 
@@ -262,8 +262,8 @@ warm runs both passes are no-diff refreshes (~3s each).
 State lives in the `iedora-tofu-state` R2 bucket via the OpenTofu
 `s3` backend. Two roots share the bucket with different keys:
 
-- `infra/tofu/` → `infra/tofu/terraform.tfstate`
-- `products/house/infra/tofu/` → `products/house/infra/tofu/terraform.tfstate`
+- `infra/iac/tofu/` → `infra/iac/tofu/terraform.tfstate`
+- `products/house/infra/iac/tofu/` → `products/house/infra/iac/tofu/terraform.tfstate`
 
 The state object is still encrypted at rest by Tofu's PBKDF2 +
 AES-GCM `encryption {}` block (passphrase from
@@ -279,7 +279,7 @@ bucket that stores its own state). See
 ## Stage 3 — App state (`task app:apply`)
 
 Walks the configurator registry in
-[`deploy/iedora/configurators.go`](../deploy/iedora/configurators.go).
+[`infra/deploy/cmd/iedora/configurators.go`](../infra/deploy/cmd/iedora/configurators.go).
 Each configurator is a separate binary that owns one running shared
 service's application-level configuration.
 
@@ -398,7 +398,7 @@ when new products land.
 ## Stage 4 — Deploy (`task deploy:<product>`)
 
 Per-product. Fans out across the registry in
-[`deploy/iedora/products.go`](../deploy/iedora/products.go). Each
+[`infra/deploy/cmd/iedora/products.go`](../infra/deploy/cmd/iedora/products.go). Each
 product has a `productRuntime` — the polymorphism point for "how does
 this product get shipped to its runtime."
 
@@ -463,7 +463,7 @@ For static-site products on Cloudflare Workers.
 **Deploy flow**:
 
 1. `bun run build` in `products/<name>/` (Astro for house).
-2. `tofu init -upgrade` in `products/<name>/infra/tofu/`.
+2. `tofu init -upgrade` in `products/<name>/infra/iac/tofu/`.
 3. `tofu apply -auto-approve` — uses
    `cloudflare/cloudflare 5.11+`'s native dist/ upload directly inside
    `cloudflare_workers_script`, no wrangler needed.
@@ -475,7 +475,7 @@ state is separately encrypted).
 ### Adding a product
 
 1. `mkdir products/<name>/` with build config.
-2. (Optional) `products/<name>/infra/tofu/` for per-product cloud
+2. (Optional) `products/<name>/infra/iac/tofu/` for per-product cloud
    resources (own R2 bucket, custom domain, workers script).
 3. One struct entry in `products.go` selecting a `productRuntime`. If
    the deploy shape is new (not Docker, not CF Workers), add a new
@@ -520,7 +520,7 @@ TF_VAR_* aliases auto-emitted only for stages that use Tofu (iac,
 deploy). App stage doesn't get TF_VARs.
 
 Tests at
-[`deploy/with-secrets/env_test.go`](../deploy/with-secrets/env_test.go)
+[`infra/deploy/cmd/with-secrets/env_test.go`](../infra/deploy/cmd/with-secrets/env_test.go)
 cover every stage path.
 
 ## Local commands (Taskfile)
@@ -531,7 +531,7 @@ task doctor                      # Preflight: PATH, BWS auth, bootstrap secrets 
 task up                          # Full pipeline: infra:up → app:apply → deploy:all.
 task down                        # Full teardown: products → infra:down.
 
-task infra:up                    # Stage 2 only — tofu apply on infra/tofu/.
+task infra:up                    # Stage 2 only — tofu apply on infra/iac/tofu/.
 task infra:down                  # Stage 2 destroy.
 task app:apply                   # Stage 3 — every configurator.
 task deploy:menu                 # Stage 4 menu.
@@ -551,7 +551,7 @@ task zitadel:grants              # Re-run iedora-admin grants only (`bin/zitadel
 
 Each task is a 1-line shim into the Go orchestrator. The Taskfile
 exists so the operator has a stable command surface; the actual logic
-is in `deploy/iedora/` and the per-configurator/per-runtime
+is in `infra/deploy/cmd/iedora/` and the per-configurator/per-runtime
 binaries.
 
 ## CI flow
@@ -561,8 +561,8 @@ flows via `workflow_run` triggers.
 
 | Workflow | Stage | Trigger |
 |----------|-------|---------|
-| [`infra-deploy.yml`](../.github/workflows/infra-deploy.yml) | 2 | push to main on `infra/tofu/**`, `deploy/iedora/**`, `deploy/with-secrets/**`, `Taskfile.yml`. Manual dispatch. |
-| [`app-state.yml`](../.github/workflows/app-state.yml)       | 3 | `workflow_run` on infra-deploy success. Also: push on `app-state/zitadel/**`, `app-state/menu-db-migrations/**`, `app-state/openobserve-dashboards/**`. Manual dispatch. |
+| [`infra-deploy.yml`](../.github/workflows/infra-deploy.yml) | 2 | push to main on `infra/iac/tofu/**`, `infra/deploy/cmd/iedora/**`, `infra/deploy/cmd/with-secrets/**`, `Taskfile.yml`. Manual dispatch. |
+| [`app-state.yml`](../.github/workflows/app-state.yml)       | 3 | `workflow_run` on infra-deploy success. Also: push on `infra/app-state/cmd/zitadel-apply/**`, `infra/app-state/cmd/menu-db-migrations/**`, `infra/app-state/cmd/openobserve-dashboards/**`. Manual dispatch. |
 | [`menu.yml`](../.github/workflows/menu.yml)                 | 1+4 | push to main on `products/menu/**`. Build + push image, then dispatches `deploy.yml(product=menu, sha=...)`. |
 | [`house.yml`](../.github/workflows/house.yml)               | 1+4 | push to main on `products/house/**`. Dispatches `deploy.yml(product=house)`. |
 | [`deploy.yml`](../.github/workflows/deploy.yml)             | 4 | reusable `workflow_call` invoked by `menu.yml` / `house.yml`. Generic over `product`. |
@@ -576,19 +576,19 @@ side of `deploy.yml` commit the encrypted `terraform.tfstate` back to
 
 ## Local stack (`task local`)
 
-[`dev/docker-compose.yml`](../dev/docker-compose.yml)
+[`infra/dev/docker-compose.yml`](../infra/dev/docker-compose.yml)
 is the source of truth for the local stack shape: postgres,
 localstack (S3 mock), openobserve, zitadel + login UI, house, menu.
 Each service is gated by a compose profile matching its name.
 
-[`dev/orchestrator/`](../dev/orchestrator/) is a thin Go shim that:
+[`infra/dev/cmd/local-stack/`](../infra/dev/cmd/local-stack/) is a thin Go shim that:
 
 1. Translates `--only`/`--except` into compose profile flags.
 2. `docker compose up -d --wait` for everything except menu.
 3. Waits for Zitadel `/debug/ready` (no docker healthcheck — the
    image is distroless, no shell to run one).
 4. Runs `bin/zitadel-apply --mode local --output-file
-   dev/.zitadel-bootstrap/outputs.json` against
+   infra/dev/.zitadel-bootstrap/outputs.json` against
    `localhost:8080`. The SA key is `docker cp`'d out of the
    `zitadel_bootstrap` named volume.
 5. Composes `products/menu/.env` from local-stack statics +
@@ -612,7 +612,7 @@ openobserve, zitadel) too via the dep closure in the orchestrator.
 Most day-2 work is SSH against the box. Resolve the host once and re-use:
 
 ```bash
-HOST=$(bin/with-secrets --stage iac -- tofu -chdir=infra/tofu output -raw hetzner_ipv4)
+HOST=$(bin/with-secrets --stage iac -- tofu -chdir=infra/iac/tofu\1output -raw hetzner_ipv4)
 
 # Logs
 ssh root@$HOST docker logs -f --tail=200 infra-zitadel        # or infra-menu-web / infra-caddy / …
@@ -635,7 +635,7 @@ ssh -L 5080:localhost:5080 root@$HOST   # then open http://localhost:5080
 | Secret kind | How to rotate |
 |-------------|---------------|
 | `IAC_BOOTSTRAP_*` (HCLOUD, CF, GH, GHCR, etc.) | Regenerate at the source provider, then `bws secret edit <id>` with the new value. |
-| `IAC_*` (Tofu-minted) | `bin/with-secrets --stage iac -- tofu -chdir=infra/tofu apply -replace=random_password.<name>`. The `terraform_data.bws_sync_autogen` write-through pushes the new value to BWS automatically. |
+| `IAC_*` (Tofu-minted) | `bin/with-secrets --stage iac -- tofu -chdir=infra/iac/tofu\1apply -replace=random_password.<name>`. The `terraform_data.bws_sync_autogen` write-through pushes the new value to BWS automatically. |
 | `APP_ZITADEL_MENU_SA_TOKEN` | `bws secret delete <id>`, then `task app:apply` — zitadel-apply detects `(no BWS, yes Zitadel)`, deletes the live PAT, mints a new one, writes BWS. Menu container restarts on next `task deploy:menu`. |
 | `DEPLOY_MENU_SESSION_SECRET` | `bws secret delete <id>`, then `task deploy:menu`. `dockerOnHetzner.appSecrets` re-mints. All active sessions invalidate (users re-auth). |
 | `IAC_ZITADEL_MASTERKEY` | **Don't rotate casually.** It encrypts Zitadel's projection table — re-keying mid-flight is unsupported. To actually rotate: `TF_VAR_allow_masterkey_rotation=true task infra:up` (one-time override on the prevent_destroy lifecycle guard), then a Zitadel rebootstrap (see below). |
@@ -667,7 +667,7 @@ task deploy:menu      # restart menu with the new OIDC client_secret + PAT
 ### Backups
 
 `infra-backups` runs the Go binary
-[`infra/backup`](../infra/backup/) in daemon
+[`infra/backup`](../infra/iac/cmd/iedora-backup/) in daemon
 mode on `SCHEDULE=@daily`: `pg_dumpall` every database on
 `infra-postgres` → R2 (`iedora-data` bucket, `pg/` prefix),
 GPG-encrypted with `IAC_BACKUP_PASSPHRASE`. The S3 client is
@@ -750,10 +750,10 @@ the affected stage.
 
 ## Pre-merge runbook
 
-Run before merging any change to the orchestrator (`deploy/iedora/`,
-`deploy/with-secrets/`, `app-state/zitadel/`, the other Stage 3
-binaries, `infra/tofu/*.tf`, `internal/*`, `bin/*`,
-`Taskfile.yml`, or `products/*/infra/tofu/*.tf`). The sequence proves
+Run before merging any change to the orchestrator (`infra/deploy/cmd/iedora/`,
+`infra/deploy/cmd/with-secrets/`, `infra/app-state/cmd/zitadel-apply/`, the other Stage 3
+binaries, `infra/iac/tofu/*.tf`, `internal/*`, `bin/*`,
+`Taskfile.yml`, or `products/*/infra/iac/tofu/*.tf`). The sequence proves
 the moving parts compose correctly against live cloud APIs — unit
 tests cover individual helpers but only this catches cross-API
 problems (DNS races, state-vs-cloud drift, one-shot reveal recovery).
@@ -788,8 +788,8 @@ target.
 
 ### Expected state after a cold deploy
 
-- **Tofu state** (`infra/tofu/`): ~40 resources (hcloud VPS/firewall/key, docker_network + volumes, the shared `module.*` blocks for postgres/zitadel/zitadel-login/openobserve/backups, cloudflare R2/DNS/api_tokens, github_actions_secret/variable, random_password.*, terraform_data.bws_sync_autogen).
-- **House Tofu state** (`products/house/infra/tofu/`): 3 resources (cloudflare_workers_script.house, cloudflare_workers_custom_domain.apex, data.cloudflare_zone.iedora).
+- **Tofu state** (`infra/iac/tofu/`): ~40 resources (hcloud VPS/firewall/key, docker_network + volumes, the shared `module.*` blocks for postgres/zitadel/zitadel-login/openobserve/backups, cloudflare R2/DNS/api_tokens, github_actions_secret/variable, random_password.*, terraform_data.bws_sync_autogen).
+- **House Tofu state** (`products/house/infra/iac/tofu/`): 3 resources (cloudflare_workers_script.house, cloudflare_workers_custom_domain.apex, data.cloudflare_zone.iedora).
 - **BWS**: 6 `APP_ZITADEL_*` outputs from Stage 3 + `DEPLOY_MENU_SESSION_SECRET` minted by Stage 4.
 - **Zitadel**: org `iedora`, project `iedora`, 6 roles, machine user `menu-sa` with 1 PAT + IAM_OWNER, OIDC app `menu`, 2 action targets with executions.
 - **Box** (`ssh root@$HOST docker ps`): `infra-postgres`, `infra-zitadel`, `infra-zitadel-login`, `infra-caddy`, `infra-openobserve`, `infra-backups` (Tofu-owned, Stage 2) + `infra-menu-web` (Stage-4-owned, NOT in Tofu state).
@@ -802,13 +802,13 @@ target.
 
 ```
 bin/                                     `go run` shims the Taskfile shells through
-  iedora                                   → deploy/iedora
+  iedora                                   → infra/deploy/cmd/iedora
   with-secrets                             → deploy/with-secrets
   state-bucket-bootstrap                   → deploy/state-bucket-bootstrap (Stage -1)
-  zitadel-apply                            → app-state/zitadel
+  zitadel-apply                            → infra/app-state/cmd/zitadel-apply
   menu-db-migrations                       → app-state/menu-db-migrations
   openobserve-dashboards                   → app-state/openobserve-dashboards
-  bws-upsert                               → infra/bws-upsert (Tofu local-exec helper)
+  bws-upsert                               → infra/iac/cmd/bws-upsert (Tofu local-exec helper)
 
 deploy/                                  Stage 2/3/4 orchestrator + helpers
   iedora/                                  orchestrator: subcommands + runtime registry
@@ -865,7 +865,7 @@ dev/                                     Local stack (mirror of Stages 2-4)
 
 - **Stage isolation matches blast radius.** A bug in
   `bin/zitadel-apply` can't touch Tofu state. A typo in
-  `products/house/infra/tofu/` can't plan a change against the menu
+  `products/house/infra/iac/tofu/` can't plan a change against the menu
   container. Each stage is independently runnable for surgical re-rolls
   (`task app:apply --only menu-db-migrations`).
 

@@ -1,4 +1,4 @@
-# Stage 2 (IaC) — `task infra:up` against `infra/tofu/`.
+# Stage 2 (IaC) — `task infra:up` against `infra/iac/tofu/`.
 #
 # What this workflow OWNS:
 #   - Hetzner VPS, firewall, SSH key
@@ -29,14 +29,13 @@ on:
   push:
     branches: [main]
     paths:
-      - 'infra/tofu/**'
-      - 'infra/modules/**'
-      - 'infra/postgres/**'
-      - 'deploy/iedora/**'
-      - 'deploy/with-secrets/**'
-      - 'internal/**'
+      - 'infra/iac/**'
+      - 'infra/deploy/cmd/iedora/**'
+      - 'infra/deploy/cmd/with-secrets/**'
+      - 'infra/internal/**'
       - 'bin/iedora'
       - 'bin/with-secrets'
+      - 'bin/bws-upsert'
       - 'go.mod'
       - 'go.sum'
       - 'Taskfile.yml'

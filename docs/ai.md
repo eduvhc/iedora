@@ -68,8 +68,8 @@ write-through pattern with no exception.
 
 The chain: `IAC_BOOTSTRAP_CLAUDE_CODE_OAUTH_TOKEN` in BWS (`iedora-deploy`
 project) → `bin/with-secrets` exports `TF_VAR_claude_code_oauth_token`
-→ `variable "claude_code_oauth_token"` (`infra/tofu/variables.tf`) →
-`local.github_secrets["CLAUDE_CODE_OAUTH_TOKEN"]` (`infra/tofu/github.tf`)
+→ `variable "claude_code_oauth_token"` (`infra/iac/tofu/variables.tf`) →
+`local.github_secrets["CLAUDE_CODE_OAUTH_TOKEN"]` (`infra/iac/tofu/github.tf`)
 → `task up` reconciles the GitHub Actions secret the workflow
 reads as `${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}`.
 

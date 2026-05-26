@@ -27,7 +27,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **TypeScript** strict, every workspace.
 - **Drizzle ORM** + `postgres-js`, **Postgres 18**.
 - **`openid-client` v6 + `jose` v6** — Zitadel OIDC client + cookie JWE.
-- **Zitadel** v4.15.0 — self-hosted IdP. The CONTAINER is Tofu-managed (`infra/tofu/containers.tf::module.zitadel`). The APP STATE (org, project, OIDC app, action targets, PAT) is reconciled by `bin/zitadel-apply` (Stage 3 of the pipeline), via Zitadel's REST API.
+- **Zitadel** v4.15.0 — self-hosted IdP. The CONTAINER is Tofu-managed (`infra/iac/tofu/containers.tf::module.zitadel`). The APP STATE (org, project, OIDC app, action targets, PAT) is reconciled by `bin/zitadel-apply` (Stage 3 of the pipeline), via Zitadel's REST API.
 - **shadcn/ui** + Tailwind v4 — menu only. Editorial primitives come from **`@iedora/design-system`**.
 - **@dnd-kit** — menu's drag-and-drop builder.
 - **Bun** — package manager, test runner, dev orchestrator. **Production runtime is Node** — `bun + next build` is unstable as of 2026 (oven-sh/bun#23944); `next start` runs under Node in the production container.
@@ -58,43 +58,48 @@ iedora/                                  repo root
   bun.lock                               single workspace lockfile
   package.json                           workspaces: packages/* + products/{menu,house}
   Taskfile.yml                           operator entry point — `task infra:up`, `task deploy:menu`, …
+  go.mod, go.sum                         single Go module rooted at the repo root
   .github/                               composite setup action + one workflow per pipeline stage
   .mcp.json                              shadcn, postgres, bun, next-devtools, playwright MCP servers
   docs/                                  brand-level docs
 
-  bin/                                   Shim entry points (go run wrappers — see deploy/CLAUDE.md)
+  bin/                                   Shim entry points — `go run` wrappers operators invoke
     iedora                                  pipeline orchestrator (iac | app | deploy | pipeline)
     with-secrets                            BWS env wrapper. `--stage iac|app|deploy [--product NAME]`
+    state-bucket-bootstrap                  Stage -1 — provisions R2 bucket + token for Tofu's s3 backend
     bws-upsert                              Stage 2 helper invoked by Tofu's bws_sync_autogen provisioner
     zitadel-apply                           Stage 3 — Zitadel app config (org / project / OIDC / PAT)
     menu-db-migrations                      Stage 3 — drizzle-kit migrate on menu's postgres DB
     openobserve-dashboards                  Stage 3 — push dashboard JSONs via SSH-L tunnel
-  go.mod, go.sum                         single Go module (github.com/eduvhc/iedora) at repo root
-  internal/                              Shared Go helpers (bws, cloudflare, r2, tlsprobe, testfakes)
 
-  infra/                                 Stage 2 ONLY. IaC for the shared estate.
-    tofu/                                  single encrypted Tofu root (VPS + CF + GH config + shared
-                                           containers: postgres, zitadel, zitadel-login, caddy,
-                                           openobserve, backups). Menu container = Stage 4, NOT here.
-    modules/services/                      Tofu sub-modules (postgres, openobserve, zitadel, …)
-    postgres/init.sql                      CREATE DATABASE menu / zitadel (Stage-2 container boot)
-    backup/                                self-built Postgres-backup image
-    bws-upsert/                            Go helper for Stage 2's terraform_data.bws_sync_autogen
-
-  app-state/                             Stage 3. Each subdir is a self-contained configurator.
-    zitadel/                               Zitadel REST reconciler (org / project / OIDC / PAT / …)
-    menu-db-migrations/                    drizzle-kit migrate runner (SSH + docker run)
-    openobserve-dashboards/                dashboard reconciler (SSH-L tunnel + go:embed JSONs)
-
-  deploy/                                Cross-stage orchestrator + env wrapper.
-    iedora/                                Go orchestrator + configurator registry + productRuntime registry
-    with-secrets/                          Stage-filtered BWS env wrapper
-
-  dev/                                   Local development stack (mirror of the 4 stages).
-    orchestrator/                          Go binary driving local Docker + LocalStack
-    docker-compose.yml                     Local stack: postgres + zitadel + openobserve + LocalStack
-    localstack-init.sh                     Seeds LocalStack's R2 buckets on first boot
-    .zitadel-bootstrap/                    (gitignored) local Zitadel FirstInstance outputs
+  infra/                                 Every pipeline concern. See infra/CLAUDE.md for the deep dive.
+    iac/                                   Stage 2 — IaC for the shared estate
+      tofu/                                  Encrypted Tofu root (VPS + CF + GH config + shared
+                                             containers: postgres, zitadel, zitadel-login, caddy,
+                                             openobserve, backups). Menu container = Stage 4, NOT here.
+      modules/services/                      Tofu sub-modules (postgres, openobserve, zitadel, …)
+      postgres/init.sql                      CREATE DATABASE menu / zitadel (Stage-2 container boot)
+      cmd/
+        bws-upsert/                          Go helper for terraform_data.bws_sync_autogen
+        iedora-backup/                       Backup container (Go + Dockerfile co-located)
+    app-state/                             Stage 3 — configurators (one per concern)
+      cmd/
+        zitadel-apply/                       Zitadel REST reconciler
+        menu-db-migrations/                  drizzle-kit migrate runner (SSH + docker run)
+        openobserve-dashboards/              dashboard reconciler (SSH-L tunnel + go:embed JSONs)
+    deploy/                                Stage -1 + Stage 4 + cross-stage orchestrator
+      cmd/
+        iedora/                              Orchestrator + configurator registry + productRuntime registry
+        with-secrets/                        Stage-filtered BWS env wrapper
+        state-bucket-bootstrap/              Stage -1 — R2 bucket + token bootstrap (chicken/egg)
+    dev/                                   Local stack (mirror of all 4 stages, local Docker)
+      docker-compose.yml                     Postgres + Zitadel + OpenObserve + LocalStack
+      localstack-init.sh                     Seeds LocalStack's R2 buckets on first boot
+      cmd/
+        local-stack/                         Driver: compose up → zitadel-apply --mode local → menu .env
+      .zitadel-bootstrap/                    (gitignored) local Zitadel FirstInstance outputs
+    internal/                              Shared Go libs (bws, cloudflare, mode, r2, tlsprobe, testfakes)
+                                           Go's `internal/` visibility scopes these to infra/<stage>/cmd/.
 
   packages/
     eslint-config/                       flat-config factories shared by every workspace
@@ -106,7 +111,7 @@ iedora/                                  repo root
     house/                               Astro — iedora.com
 ```
 
-Menu's `infra/` owns a Dockerfile (built by CI into the GHCR image) plus a tiny Tofu root for the R2 assets bucket and `assets.iedora.com`. The menu container itself is NOT declared in `infra/tofu/containers.tf` — only the shared services (postgres, zitadel, caddy, openobserve, backups) live there. Menu's lifecycle (pull/run on every deploy) is owned by Stage 4 via [`deploy/iedora/runtime_docker.go`](deploy/iedora/runtime_docker.go); Caddy routes to it by network alias so the container can come and go between deploys without touching Tofu.
+Menu's `infra/` owns a Dockerfile (built by CI into the GHCR image) plus a tiny Tofu root for the R2 assets bucket and `assets.iedora.com`. The menu container itself is NOT declared in `infra/iac/tofu/containers.tf` — only the shared services (postgres, zitadel, caddy, openobserve, backups) live there. Menu's lifecycle (pull/run on every deploy) is owned by Stage 4 via [`infra/deploy/cmd/iedora/runtime_docker.go`](infra/deploy/cmd/iedora/runtime_docker.go); Caddy routes to it by network alias so the container can come and go between deploys without touching Tofu.
 
 ## Commands
 
@@ -127,14 +132,14 @@ The deploy pipeline is 4 stages. Local operator orchestration via Taskfile; CI v
 
 ```
 Stage 1: Build & Test      per-product (bun, docker build, tests)
-Stage 2: IaC               task infra:up    — tofu apply on infra/tofu/
+Stage 2: IaC               task infra:up    — tofu apply on infra/iac/tofu/
 Stage 3: AppState          task app:apply   — configurator registry (Zitadel today)
 Stage 4: Deploy            task deploy:<p>  — per-product runtime
 ```
 
 - `task up` — full pipeline: infra:up → app:apply → deploy:all.
 - `task down` — full teardown: destroy products → infra:down.
-- `task infra:up` / `task infra:down` — Stage 2 only (`tofu apply` / `destroy` on `infra/tofu/`).
+- `task infra:up` / `task infra:down` — Stage 2 only (`tofu apply` / `destroy` on `infra/iac/tofu/`).
 - `task app:apply` — Stage 3 (`bin/zitadel-apply` reconciles Zitadel app state).
 - `task deploy:menu` / `task deploy:house` / `task deploy:all` — Stage 4 per-product (or fan-out).
 - `task local` — boots the local dev stack. `task local:down` wipes it; `task local:reset-db -- <service>` (e.g. `menu` or `zitadel`) drops + recreates one database without touching the rest.
@@ -157,7 +162,7 @@ One workflow per workspace. Each is self-contained: own `paths:` trigger, own en
     house.yml                    Stage 1+4: dispatch deploy.yml for house (Astro → CF Workers)
     deploy.yml                   Stage 4 reusable workflow_call (product, image_sha)
     app-state.yml                Stage 3: task app:apply (configurator registry)
-    infra-deploy.yml             Stage 2: task infra:up (tofu apply on infra/tofu/)
+    infra-deploy.yml             Stage 2: task infra:up (tofu apply on infra/iac/tofu/)
     design-system.yml            unit (jsdom)
     observability.yml            unit (no-op-in-tests + tenant attrs)
     codeql.yml                   SAST (push + PR + weekly)

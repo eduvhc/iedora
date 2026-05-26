@@ -121,7 +121,7 @@ products/menu/
 
 Dev: `task local` brings up the local stack (docker compose at `dev/docker-compose.yml`) — same Dockerfile shape as prod. For HMR, `task local --except menu && cd products/menu && bun run dev` (reads `.env` + `.env.local`).
 
-Prod: Stage 4 (`task deploy:menu` → `dockerOnHetzner` runtime in [`deploy/iedora/runtime_docker.go`](../../deploy/iedora/runtime_docker.go)) SSHes to the box, pulls `ghcr.io/eduvhc/menu:<sha>` (CI-pushed), runs migrations, and replaces the container. The container is NOT declared in `infra/tofu/containers.tf` — only the shared services are.
+Prod: Stage 4 (`task deploy:menu` → `dockerOnHetzner` runtime in [`infra/deploy/cmd/iedora/runtime_docker.go`](../../infra/deploy/cmd/iedora/runtime_docker.go)) SSHes to the box, pulls `ghcr.io/eduvhc/menu:<sha>` (CI-pushed), runs migrations, and replaces the container. The container is NOT declared in `infra/iac/tofu/containers.tf` — only the shared services are.
 
 ## Commands
 

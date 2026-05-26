@@ -19,4 +19,4 @@ set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$DIR")"
 
-exec go run -C "$REPO_ROOT" ./deploy/iedora "$@"
+exec go run -C "$REPO_ROOT" ./infra/deploy/cmd/iedora "$@"

@@ -1,7 +1,7 @@
 # Stage 3 (AppState) — runs every Stage-3 configurator against the live
 # infra. Today: `bin/zitadel-apply` reconciles the Zitadel IdP. Future
 # configurators (OpenObserve dashboards, per-app DB migrators) join the
-# registry at `deploy/iedora/configurators.go` and run on every
+# registry at `infra/deploy/cmd/iedora/configurators.go` and run on every
 # `app:apply` invocation — no workflow edit needed.
 #
 # Triggers:
@@ -20,12 +20,12 @@ on:
   push:
     branches: [main]
     paths:
-      - 'app-state/**'
-      - 'deploy/iedora/configurators.go'
+      - 'infra/app-state/**'
+      - 'infra/deploy/cmd/iedora/configurators.go'
       - 'bin/zitadel-apply'
       - 'bin/menu-db-migrations'
       - 'bin/openobserve-dashboards'
-      - 'internal/**'
+      - 'infra/internal/**'
       - 'go.mod'
       - 'go.sum'
       - '.github/workflows/app-state.yml'

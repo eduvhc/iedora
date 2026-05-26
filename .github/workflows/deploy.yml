@@ -3,7 +3,7 @@
 # (menu.yml, house.yml). Generic over product name: the inner
 # `task deploy:<product>` dispatches through the productRuntime
 # interface, so adding a 4th product = (1) new struct in
-# `deploy/iedora/products.go`, (2) new caller workflow that invokes
+# `infra/deploy/cmd/iedora/products.go`, (2) new caller workflow that invokes
 # THIS workflow with `inputs.product=<name>`.
 #
 # Inputs:
@@ -18,7 +18,7 @@ on:
   workflow_call:
     inputs:
       product:
-        description: 'Product name (matches `deploy/iedora/products.go` registry: menu | house | …).'
+        description: 'Product name (matches `infra/deploy/cmd/iedora/products.go` registry: menu | house | …).'
         type: string
         required: true
       image_sha:

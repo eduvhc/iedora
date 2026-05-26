@@ -10,7 +10,7 @@ Apply to every Tofu root and module in `infra/`.
 2. **`for_each` over `count`. `lifecycle.enabled` over `count = X ? 1 : 0`. `for_each` over copy-paste.** `count` shifts addresses when an element is removed; `for_each` keyed on a set/map keeps them stable. For zero-or-one gates use `lifecycle { enabled = expr }` (OpenTofu 1.11+) — the resource lives at its canonical address (no `[0]` index in references) when enabled, has zero instances when not.
 3. **Every input variable has a `validation` block.** Cheapest pre-`apply` gate. Pair with `nullable = false` when required.
 4. **`locals` blocks are short, self-documenting, named as nouns.** `local.github_variables` is unambiguous; `local.tmp` is not.
-5. **One root module per blast-radius unit.** Per-product Tofu roots stay separate. Shared code goes in `infra/modules/`, not in a consolidated root.
+5. **One root module per blast-radius unit.** Per-product Tofu roots stay separate. Shared code goes in `infra/iac/modules/`, not in a consolidated root.
 6. **CI runs `tofu fmt -recursive`, `tofu validate`, and `tflint`.** Planned; not yet wired.
 7. **Plan to a file, apply the file.** `tofu plan -out=plan.bin` then `tofu apply plan.bin` — no race with concurrent state edits.
 8. **Every sensitive output gets `sensitive = true`.** Prevents accidental log leaks.

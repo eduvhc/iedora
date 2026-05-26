@@ -28,7 +28,7 @@ org provisioning (`POST /admin/v1/orgs` then add the user as `ORG_OWNER`).
 
 The user's own access_token doesn't carry IAM_OWNER scope; the
 membership search and org-create endpoints reject it. Stage 3's
-[`app-state/zitadel`](../../../../../app-state/zitadel/) reconciler
+[`infra/app-state/cmd/zitadel-apply`](../../../../../infra/app-state/cmd/zitadel-apply/) reconciler
 mints a long-lived PAT for the `menu_sa` machine user with IAM_OWNER
 and writes it to BWS as `APP_ZITADEL_MENU_SA_TOKEN`; the menu container
 reads it as `ZITADEL_MANAGEMENT_TOKEN`.
