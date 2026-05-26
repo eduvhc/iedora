@@ -72,45 +72,45 @@ output "iedora_core_trusted_origins" {
   value       = "https://core.${var.zone_name},https://${var.menu_public_hostname},https://${var.zone_name},https://www.${var.zone_name}"
 }
 
-output "menu_s3_endpoint" {
-  description = "R2 S3 endpoint for menu's assets bucket."
+output "assets_s3_endpoint" {
+  description = "R2 S3 endpoint for the public assets bucket."
   value       = "https://${var.account_id}.r2.cloudflarestorage.com"
 }
 
-output "menu_s3_public_url" {
-  description = "Public base URL for menu assets (CF custom domain)."
+output "assets_s3_public_url" {
+  description = "Public base URL for assets (CF custom domain)."
   value       = "https://${var.assets_hostname}"
 }
 
-output "menu_s3_bucket" {
-  description = "R2 bucket name for menu assets."
+output "assets_s3_bucket" {
+  description = "R2 bucket name for assets."
   value       = cloudflare_r2_bucket.assets.name
 }
 
-output "menu_s3_access_key" {
-  description = "S3 access key (CF API token id) for the menu assets bucket."
+output "assets_s3_access_key" {
+  description = "S3 access key (CF API token id) for the assets bucket."
   value       = cloudflare_api_token.assets_r2.id
   sensitive   = true
 }
 
-output "menu_s3_secret_key" {
-  description = "S3 secret key (sha256 of CF API token value) for the menu assets bucket."
+output "assets_s3_secret_key" {
+  description = "S3 secret key (sha256 of CF API token value) for the assets bucket."
   value       = sha256(cloudflare_api_token.assets_r2.value)
   sensitive   = true
 }
 
-output "menu_otel_endpoint" {
-  description = "OTLP HTTP endpoint for menu (OpenObserve in local mode)."
+output "otel_endpoint" {
+  description = "OTLP HTTP endpoint (OpenObserve in local mode)."
   value       = "http://infra-openobserve:5080/api/default"
 }
 
-output "menu_otel_headers" {
-  description = "OTLP Basic-auth header for menu → OpenObserve."
+output "otel_headers" {
+  description = "OTLP Basic-auth header for the web container → OpenObserve."
   value       = "Authorization=Basic%20${base64encode("${var.infra_openobserve_root_user_email}:${random_password.openobserve_password.result}")}"
   sensitive   = true
 }
 
-output "menu_host_name" {
+output "host_name" {
   description = "Hetzner box name — becomes host.name OTel resource attribute."
   value       = hcloud_server.iedora.name
 }

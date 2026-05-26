@@ -4,6 +4,8 @@ Menu-specific hard rules, file layout, and commands. Root `AGENTS.md` covers cro
 
 Menu is a SaaS multi-tenant restaurant menu builder (menu.iedora.com). Each tenant is an organization that owns one or more `restaurant` rows. Admins build menus via drag-and-drop; the public menu renders from the same data.
 
+> **Layout post-Opt-B**: this package contains the menu **slices, drizzle schema, shared UI, and i18n catalogs** — but NOT the Next.js routes. Every `page.tsx` / `route.ts` / `layout.tsx` / `actions.ts` lives in `apps/web/src/app/`. Those route files import slice barrels here via the `@/...` path mapping in apps/web's tsconfig (`@/* → ../../products/menu/src/*`). Adding a route = edit `apps/web/src/app/`; adding a slice or a use-case = edit here.
+
 > **Identity.** `@iedora/auth` is the shared auth surface — better-auth (email+password, organization, admin plugins) running IN-PROCESS inside menu. Sessions and orgs live in the dedicated `core` Postgres database (better-auth tables in the `core` schema). The `better-auth.session_token` cookie scopes on `.iedora.com` so a login here will work on the future `core` product too. `src/features/auth/` owns the DAL guards + the role/scope taxonomy (`scopes.ts` maps `qr-codes:read|write|…` strings to better-auth's `{qrCodes:['read']}` permission shape; `requireScope()` short-circuits when `session.user.role === 'iedora-admin'`). Cross-tenant data (memberships, org provisioning) is reached via `auth.api.*` — never via direct SQL against `core.*`. See `packages/auth/README.md` for the consumer contract.
 
 ## Hard rules

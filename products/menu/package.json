@@ -3,11 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Menu product — restaurant menu builder. Slices, pages, drizzle schema + migrations, e2e tests. Consumed by @iedora/web (the Next.js shell) via wildcard subpath exports.",
+  "description": "Menu product — restaurant menu builder. Slices + drizzle schema + migrations + shared UI. The Next.js routes live in apps/web/src/app/; this package exposes the slice barrels they import (via @/* path mapping in apps/web's tsconfig).",
   "exports": {
     ".": "./src/index.ts",
-    "./*": "./src/*.tsx",
-    "./*/route": "./src/*/route.ts",
     "./i18n/messages/*.json": "./src/i18n/messages/*.json"
   },
   "scripts": {

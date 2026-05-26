@@ -307,7 +307,7 @@ drizzle-kit migrate against the `core` Postgres database — the
 `@iedora/auth` schema (user / session / account / verification /
 organization / member / invitation / rate_limit). SSHes to the box,
 runs `docker run --rm --network iedora -e CORE_DATABASE_URL=...
-ghcr.io/<owner>/web:<MENU_IMAGE_SHA> node /app/packages/auth/scripts/migrate.mjs`.
+ghcr.io/<owner>/web:<IMAGE_SHA> node /app/packages/auth/scripts/migrate.mjs`.
 
 Runs **first** so the web container — which reads `core.session` rows
 on every request — boots against a migrated schema. The migrate script
@@ -324,10 +324,10 @@ container. Same image, same docker network, same pull dance as
 
 drizzle-kit migrate against the `menu` postgres database. SSHes to the box,
 runs `docker run --rm --network iedora -e DATABASE_URL=...
-ghcr.io/<owner>/web:<MENU_IMAGE_SHA> node scripts/migrate.mjs`.
+ghcr.io/<owner>/web:<IMAGE_SHA> node scripts/migrate.mjs`.
 
 The migrate script holds `pg_advisory_lock(727072073)` for
-concurrent-deploy safety. Inputs: `MENU_IMAGE_SHA` env (default
+concurrent-deploy safety. Inputs: `IMAGE_SHA` env (default
 "latest"), `hetzner_ipv4` + `menu_database_url` from `tofu output`
 (nested `bin/iedora-env --stage iac` call — Stage 3's env scope
 doesn't include the postgres password directly).
@@ -418,7 +418,7 @@ network disconnect` against the `-next` container only. The OLD
 container — still bound to the live alias — keeps serving traffic.
 
 **Inputs**:
-- `MENU_IMAGE_SHA` env — set by CI (`github.sha`) or operator (export).
+- `IMAGE_SHA` env — set by CI (`github.sha`) or operator (export).
   Default "latest". (Env-var name kept its historical `MENU_` prefix;
   it's the image SHA for the `web` artifact today.)
 - `IAC_BOOTSTRAP_HOST_IP` — universal-scope BWS key, written by Stage 2.

@@ -16,7 +16,6 @@ const nextConfig: NextConfig = {
     '@iedora/design-system',
     '@iedora/observability',
     '@iedora/product-core',
-    '@iedora/product-house',
     '@iedora/product-menu',
   ],
   outputFileTracingIncludes: {

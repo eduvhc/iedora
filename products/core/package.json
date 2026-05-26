@@ -3,10 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Core product — auth + admin (sign-in/up/out + sessions/audit). Pages + server functions consumed by @iedora/web; mounted at /core/* via proxy.ts host-based rewrite (core.iedora.com → /core/*).",
+  "description": "Core product — auth + admin guards consumed by apps/web's core.iedora.com routes (sign-in/up/out + sessions/audit). After Opt-B the Next.js routes themselves live in apps/web/src/app/core/; this package only exposes server-only guards (getSession, requireIedoraAdmin).",
   "exports": {
-    ".": "./src/index.ts",
-    "./*": "./src/*.tsx"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

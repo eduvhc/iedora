@@ -25,7 +25,7 @@
 //
 // Inputs (env, injected by `bws run`):
 //
-//	MENU_IMAGE_SHA          image tag to run migrations from. Default "latest".
+//	IMAGE_SHA               image tag to run migrations from. Default "latest".
 //	GHCR_OWNER              GHCR namespace. Default "eduvhc".
 //	IEDORA_DOCKER_NETWORK   docker network on the box. Default "iedora".
 //	IAC_BOOTSTRAP_GHCR_TOKEN docker login token (best-effort; cached pull works without).
@@ -61,7 +61,7 @@ func Run(ctx context.Context) error {
 }
 
 func run(ctx context.Context) error {
-	sha := envOr("MENU_IMAGE_SHA", "latest")
+	sha := envOr("IMAGE_SHA", "latest")
 	owner := envOr("GHCR_OWNER", "eduvhc")
 	network := envOr("IEDORA_DOCKER_NETWORK", "iedora")
 

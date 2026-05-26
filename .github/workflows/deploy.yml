@@ -49,11 +49,10 @@ jobs:
 
     env:
       BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
-      # Forwarded to the dockerOnHetzner runtime — it reads MENU_IMAGE_SHA
-      # (the env-var name kept its historical `MENU_` prefix; the
-      # productRuntime contract exposes it as `imageSHAEnv` on the
-      # `web` product) at deploy time.
-      MENU_IMAGE_SHA: ${{ inputs.image_sha }}
+      # Forwarded to the dockerOnHetzner runtime — it reads IMAGE_SHA at
+      # deploy time (named per the productRuntime contract's
+      # `imageSHAEnv` field on each product struct in products.go).
+      IMAGE_SHA: ${{ inputs.image_sha }}
 
     steps:
       - name: Checkout

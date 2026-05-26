@@ -92,8 +92,8 @@ variable "menu_public_hostname" {
   default     = "menu.iedora.com"
 }
 
-# NOTE: var.menu_image_sha was removed. The menu image SHA is now an
-# input to Stage 4 (`iedora deploy menu`), passed via env (MENU_IMAGE_SHA)
+# NOTE: var.menu_image_sha was removed. The web image SHA is now an
+# input to Stage 4 (`iedora deploy web`), passed via env (IMAGE_SHA)
 # or workflow_call input. Tofu no longer pins the image.
 
 # ── Hetzner Cloud ────────────────────────────────────────────────────────────

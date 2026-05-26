@@ -14,7 +14,6 @@
         "@iedora/design-system": "workspace:*",
         "@iedora/observability": "workspace:*",
         "@iedora/product-core": "workspace:*",
-        "@iedora/product-house": "workspace:*",
         "@iedora/product-menu": "workspace:*",
         "next": "16.2.6",
         "next-intl": "^4.12.0",
@@ -159,28 +158,6 @@
       "peerDependencies": {
         "next": "^16.0.0",
         "next-intl": "^4.0.0",
-        "react": "^19.0.0",
-      },
-    },
-    "products/house": {
-      "name": "@iedora/product-house",
-      "version": "0.1.0",
-      "dependencies": {
-        "@iedora/design-system": "workspace:*",
-      },
-      "devDependencies": {
-        "@iedora/eslint-config": "workspace:*",
-        "@types/node": "^22.19.19",
-        "@types/react": "^19.2.6",
-        "eslint": "^9.39.4",
-        "next": "16.2.6",
-        "react": "^19.2.0",
-        "typescript": "^6.0.3",
-        "typescript-eslint": "^8.46.0",
-        "vitest": "^4.1.7",
-      },
-      "peerDependencies": {
-        "next": "^16.0.0",
         "react": "^19.0.0",
       },
     },
@@ -531,8 +508,6 @@
     "@iedora/observability": ["@iedora/observability@workspace:packages/iedora-observability"],
 
     "@iedora/product-core": ["@iedora/product-core@workspace:products/core"],
-
-    "@iedora/product-house": ["@iedora/product-house@workspace:products/house"],
 
     "@iedora/product-menu": ["@iedora/product-menu@workspace:products/menu"],
 

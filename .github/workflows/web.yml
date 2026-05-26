@@ -288,9 +288,9 @@ jobs:
   # ── Stage 4: deploy the freshly-built image ─────────────────────────────
   # Invokes the reusable deploy.yml workflow with product=web + this
   # commit's SHA. The dockerOnHetzner runtime (products.go) reads
-  # MENU_IMAGE_SHA from env to pin the image — no more TF_VAR + tofu
-  # apply round-trip. Rollback path: `gh workflow run deploy.yml
-  # --field product=web --field image_sha=<older-sha>`.
+  # IMAGE_SHA from env to pin the image — no more TF_VAR + tofu apply
+  # round-trip. Rollback path: `gh workflow run deploy.yml --field
+  # product=web --field image_sha=<older-sha>`.
   deploy:
     needs: wait_app_state
     uses: ./.github/workflows/deploy.yml

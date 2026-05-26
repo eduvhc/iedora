@@ -1,46 +1,54 @@
 # apps/web — the Next.js shell
 
-This is the deployable Next.js instance. It mounts every iedora product
-through host-based rewrites in `src/proxy.ts` and 1-line page re-exports
-under `src/app/`.
+This is the deployable Next.js instance. It mounts every iedora surface
+(menu / core / apex landing) from one process via host-based rewrites
+in `src/proxy.ts`. Routes live HERE (`src/app/`); the slices, drizzle
+schema, and shared utilities they import live in `@iedora/product-menu`
+and other workspace packages.
 
-Repo-level conventions live in [`../../AGENTS.md`](../../AGENTS.md).
+Repo-level conventions: [`../../AGENTS.md`](../../AGENTS.md).
 
 ## What this is (and isn't)
 
 - **It is** the Next.js boot + root layout + global CSS + the host
-  dispatcher (`proxy.ts`) + the better-auth catch-all route + the
-  `/up` health check + per-product page re-exports.
-- **It is not** where product code lives. Slices, server actions,
-  domain types, and product-specific shared modules live in
-  `products/<x>/src/`. apps/web imports from `@iedora/product-{menu,core,house}`.
+  dispatcher (`proxy.ts`) + every Next.js route under `src/app/`
+  (pages, route handlers, server actions, layouts). The routes
+  compose slice barrels from `@iedora/product-menu`,
+  `@iedora/product-core`, `@iedora/auth`, etc.
+- **It is not** where slices, use-cases, ports, adapters, drizzle
+  schema, or AI prompts live. Those belong in their owning workspace
+  package (`products/menu/src/features/`, `packages/auth/src/`, …).
 
 ## Hard rules
 
-1. **No business logic here.** Every `src/app/<route>/page.tsx` must be
-   a 1-line re-export from `@iedora/product-*`. If a route file grows
-   imports, the imports belong in the product.
+1. **Routes live here, slices live in products/.** `apps/web/src/app/`
+   contains every `page.tsx`, `route.ts`, `layout.tsx`,
+   `not-found.tsx`, and `actions.ts`. Files import slice surfaces via
+   `@/features/<slice>` (the path resolves to `products/menu/src/features/<slice>`
+   through the tsconfig fallback below), and shared utilities via
+   `@/shared/...`. Adding business logic INSIDE a route file is the
+   bug — that's slice work.
 
 2. **`src/proxy.ts` owns host dispatch only.** Optimistic cookie
    checks for protected paths are fine; real auth lives in the DAL of
    the product the route belongs to.
 
 3. **`src/app/layout.tsx` + `globals.css` are the only shared chrome.**
-   Per-product layouts live in `products/<x>/src/layout.tsx` and are
-   re-exported under `src/app/<host>/layout.tsx`.
+   Per-product layouts (e.g. core's sign-in shell, dashboard chrome)
+   live at the appropriate sub-route's `layout.tsx`.
 
-4. **No `@/features/...` or `@/shared/...` imports.** apps/web has no
-   feature slices and no menu-shaped shared modules. Path aliases
-   reaching `@/...` resolve to the menu product as a fallback
-   (`tsconfig.json::paths`) — that is for the moved page re-exports to
-   keep working, not a license for apps/web to grow new local code.
+4. **tsconfig path fallback resolves `@/...` to `products/menu/`** —
+   `tsconfig.json::paths` has `"@/*": ["./src/*", "../../products/menu/src/*"]`.
+   That means a route in apps/web can write
+   `import { ... } from '@/features/auth'` and TypeScript + Turbopack
+   resolve it to `products/menu/src/features/auth`. The fallback
+   covers menu slices specifically (menu has the biggest surface);
+   core surface imports go through `@iedora/product-core`.
 
 5. **One image, three hosts.** The Docker image published as
    `ghcr.io/eduvhc/web` serves `menu.iedora.com`, `core.iedora.com`,
-   and `iedora.com` from the same node process. Adding a product = new
-   package under `products/`, a new entry to `transpilePackages` in
-   `next.config.ts`, a new host branch in `proxy.ts`, and a new
-   re-export under `src/app/<host>/page.tsx`.
+   and `iedora.com` from the same node process. Adding a new host =
+   new entry in `proxy.ts` + new sub-route under `src/app/<host>/`.
 
 ## File layout
 
@@ -48,16 +56,20 @@ Repo-level conventions live in [`../../AGENTS.md`](../../AGENTS.md).
 apps/web/
   src/
     app/
-      api/auth/[...all]/route.ts   better-auth catch-all (shell)
-      api/track/[slug]/route.ts    1-line re-export → @iedora/product-menu
-      core/**                      1-line re-exports → @iedora/product-core
-      dashboard/** + onboarding/** + r/** + q/** + showcase/**
-                                   1-line re-exports → @iedora/product-menu
-      house/page.tsx               1-line re-export → @iedora/product-house
-      up/route.ts                  health check (shell)
-      layout.tsx, globals.css      root layout + global styles
-      favicon.ico
-    proxy.ts                       host-based rewrite (menu / core / iedora.com)
+      api/auth/[...all]/route.ts   better-auth catch-all
+      api/track/[slug]/route.ts    view-counter beacon
+      core/**                      sign-in / sign-up / sign-out / admin
+                                   (imports guards from @iedora/product-core)
+      dashboard/**                 admin surface (imports menu slices via @/)
+      onboarding/**                first-org-creation flow
+      r/**                         public menu pages
+      q/**                         QR sticker entry
+      showcase/**                  public marketing surface
+      house/page.tsx               apex iedora.com landing
+      up/route.ts                  health check (imports pingDb from menu)
+      layout.tsx, globals.css      root chrome
+      _components/landing/         menu.iedora.com landing components
+    proxy.ts                       host-based rewrite
   next.config.ts                   transpilePackages, outputFileTracing*
   tsconfig.json                    paths: @/* falls back to products/menu/src
   Dockerfile, next-env.d.ts, postcss.config.mjs

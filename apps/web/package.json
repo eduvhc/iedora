@@ -16,7 +16,6 @@
     "@iedora/design-system": "workspace:*",
     "@iedora/observability": "workspace:*",
     "@iedora/product-core": "workspace:*",
-    "@iedora/product-house": "workspace:*",
     "@iedora/product-menu": "workspace:*",
     "next": "16.2.6",
     "next-intl": "^4.12.0",

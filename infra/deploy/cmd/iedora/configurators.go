@@ -57,7 +57,7 @@ var appConfigurators = []appConfigurator{
 		// drizzle-kit migrate against the `menu` postgres database
 		// (postgres database name, owned by the menu slice of the web
 		// product). SSHes to the box and `docker run`s migrate.mjs
-		// from the web image at MENU_IMAGE_SHA.
+		// from the web image at IMAGE_SHA.
 		// See infra/app-state/menu-db-migrations/.
 		name: "menu-db-migrations",
 		run:  menudbmigrations.Run,

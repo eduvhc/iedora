@@ -97,7 +97,12 @@ jobs:
         run: bin/iedora-env bin/state-bucket-bootstrap
 
       - name: tofu init
-        run: bin/iedora-env tofu -chdir=infra/iac/tofu init -input=false -upgrade
+        # -lock-timeout=5m: if the previous CI run died mid-apply and
+        # left a state lock, wait up to 5 min for it to release instead
+        # of failing immediately. The pipeline's own concurrency guard
+        # (above) prevents two infra-deploys overlapping intentionally,
+        # so any lock seen here is provably stale or natural drain time.
+        run: bin/iedora-env tofu -chdir=infra/iac/tofu init -input=false -upgrade -lock-timeout=5m
 
       - name: Write SSH key for terraform_data.iedora_sync
         # Single source of truth: the key in BWS (IAC_BOOTSTRAP_SSH_PRIVATE_KEY).
@@ -115,7 +120,7 @@ jobs:
       - name: tofu apply
         env:
           TF_CLI_ARGS_apply: "-json-into=${{ runner.temp }}/tf-apply.json"
-        run: bin/iedora-env tofu -chdir=infra/iac/tofu apply -input=false -auto-approve
+        run: bin/iedora-env tofu -chdir=infra/iac/tofu apply -input=false -auto-approve -lock-timeout=5m
 
       - name: Upload tofu apply JSON
         if: always()

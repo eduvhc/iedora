@@ -1,4 +1,5 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
+import { sql } from 'drizzle-orm'
 import postgres from 'postgres'
 import { env } from '@/shared/env'
 import * as schema from './schema'
@@ -31,6 +32,21 @@ if (env.NODE_ENV !== 'production') {
 
 export const db = drizzle(conn, { schema, casing: 'snake_case' })
 export type DB = typeof db
+
+/**
+ * Round-trip the connection with `SELECT 1`, racing against a timeout.
+ * Used by the apps/web /up health route — keeping the drizzle-orm
+ * dependency inside this package (apps/web shouldn't need to import
+ * drizzle-orm directly just to ping the DB).
+ */
+export async function pingDb(timeoutMs: number): Promise<void> {
+  await Promise.race([
+    db.execute(sql`SELECT 1`),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`db ping timed out after ${timeoutMs}ms`)), timeoutMs),
+    ),
+  ])
+}
 
 /**
  * Graceful pool drain. Called from `instrumentation.ts` on SIGTERM/SIGINT

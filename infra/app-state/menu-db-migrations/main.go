@@ -18,7 +18,7 @@
 //
 // Inputs (env):
 //
-//	MENU_IMAGE_SHA            image tag to run migrations from. Default "latest".
+//	IMAGE_SHA                 image tag to run migrations from. Default "latest".
 //	GHCR_OWNER                GHCR namespace (e.g. "eduvhc"). Default "eduvhc".
 //	IEDORA_DOCKER_NETWORK     docker network name on the box. Default "iedora".
 //	IEDORA_POSTGRES_HOST      DNS name inside the docker network. Default "infra-postgres".
@@ -77,7 +77,7 @@ func Run(ctx context.Context) error {
 }
 
 func run(ctx context.Context) error {
-	sha := envOr("MENU_IMAGE_SHA", "latest")
+	sha := envOr("IMAGE_SHA", "latest")
 	owner := envOr("GHCR_OWNER", "eduvhc")
 	network := envOr("IEDORA_DOCKER_NETWORK", "iedora")
 
