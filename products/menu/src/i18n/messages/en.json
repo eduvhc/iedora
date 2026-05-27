@@ -735,5 +735,85 @@
         }
       }
     }
+  },
+  "Imopush": {
+    "PropertyList": {
+      "title": "Properties",
+      "newProperty": "New property",
+      "emptyLabel": "No properties",
+      "emptyHint": "Add your first property above."
+    },
+    "Property": {
+      "location": "Location",
+      "data": "Details",
+      "features": "Features",
+      "description": "Description",
+      "platforms": "Platforms",
+      "statusDraft": "Draft",
+      "statusPublished": "Published",
+      "statusPublishing": "Publishing…",
+      "statusFailed": "Failed",
+      "energyCertificate": "Energy certificate",
+      "heating": "Heating",
+      "heatingIndividual": "Individual",
+      "heatingCentral": "Central",
+      "heatingNone": "No heating",
+      "yearBuilt": "Built in {year}",
+      "delete": "Delete",
+      "deleteTitle": "Delete property",
+      "deleteDescription": "This will remove the property from every platform it was published on.",
+      "viewListing": "View listing",
+      "rooms": "{count} rooms",
+      "bathrooms": "{count} bathrooms",
+      "rooms_label": "Rooms",
+      "bathrooms_label": "Bathrooms",
+      "areaLabel": "Area",
+      "usableArea": "Usable area",
+      "lotSize": "Lot size",
+      "floors": "Floors",
+      "feature": {
+        "pool": "Pool",
+        "garden": "Garden",
+        "terrace": "Terrace",
+        "balcony": "Balcony",
+        "parking": "Parking",
+        "storage": "Storage",
+        "wardrobe": "Wardrobes",
+        "airConditioning": "Air conditioning",
+        "fireplace": "Fireplace",
+        "lift": "Lift"
+      }
+    },
+    "PropertyPhotos": {
+      "noPhoto": "No photo",
+      "expandPhoto": "Expand photo",
+      "previousPhoto": "Previous photo",
+      "nextPhoto": "Next photo",
+      "closeLightbox": "Close"
+    },
+    "IdealistaPublish": {
+      "publish": "Publish on Idealista",
+      "publishing": "Publishing…",
+      "retry": "Retry"
+    },
+    "IdealistaIntegrator": {
+      "title": "Idealista",
+      "description": "Publish and manage Idealista.pt listings using the agency account.",
+      "accountLabel": "Configured account",
+      "stateLabel": "State",
+      "stateActive": "Active",
+      "note": "Publishing is driven by Chrome automation over CDP — no API key needed."
+    },
+    "Nav": {
+      "ariaLabel": "Primary navigation",
+      "properties": "Properties",
+      "integrators": "Integrators",
+      "idealista": "Idealista"
+    },
+    "Common": {
+      "edit": "Edit",
+      "delete": "Delete",
+      "cancel": "Cancel"
+    }
   }
 }

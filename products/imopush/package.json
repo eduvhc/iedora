@@ -5,7 +5,20 @@
   "type": "module",
   "description": "imopush product \u2014 TBD. Scaffold only; slices + drizzle schema land in follow-up commits. Uses RELATIVE imports internally (no @/ path mapping) so apps/web's tsconfig stays clean as products land.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./i18n/messages/*.json": "./src/i18n/messages/*.json",
+    "./features/properties": "./src/features/properties/index.ts",
+    "./features/idealista-publish": "./src/features/idealista-publish/index.ts",
+    "./features/idealista-publish/actions": "./src/features/idealista-publish/actions.ts",
+    "./features/idealista-publish/ui/publish-idealista-button": "./src/features/idealista-publish/ui/publish-idealista-button.tsx",
+    "./shared/db/client": "./src/shared/db/client.ts",
+    "./shared/db/schema": "./src/shared/db/schema.ts",
+    "./shared/types/integrator": "./src/shared/types/integrator.ts",
+    "./shared/types/unified-property": "./src/shared/types/unified-property.ts",
+    "./shared/ui/energy-badge": "./src/shared/ui/energy-badge.tsx",
+    "./shared/ui/status-chip": "./src/shared/ui/status-chip.tsx",
+    "./shared/ui/confirm-dialog": "./src/shared/ui/confirm-dialog.tsx",
+    "./shared/ui/toasts": "./src/shared/ui/toasts.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -23,6 +36,8 @@
     "@iedora/design-system": "workspace:*",
     "@iedora/observability": "workspace:*",
     "drizzle-orm": "catalog:",
+    "lucide-react": "^1.16.0",
+    "next-intl": "catalog:",
     "postgres": "^3.4.9",
     "server-only": "^0.0.1",
     "zod": "catalog:"
