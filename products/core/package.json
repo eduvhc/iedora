@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Core product — auth + admin guards consumed by apps/web's core.iedora.com routes (sign-in/up/out + sessions/audit). After Opt-B the Next.js routes themselves live in apps/web/src/app/core/; this package only exposes server-only guards (getSession, requireIedoraAdmin).",
+  "description": "Core product \u2014 auth + admin guards consumed by apps/web's core.iedora.com routes (sign-in/up/out + sessions/audit). After Opt-B the Next.js routes themselves live in apps/web/src/app/core/; this package only exposes server-only guards (getSession, requireIedoraAdmin).",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -28,12 +28,12 @@
     "@iedora/eslint-config": "workspace:*",
     "@types/node": "^22.19.19",
     "@types/react": "^19.2.6",
-    "eslint": "^9.39.4",
+    "eslint": "catalog:",
     "next": "16.2.6",
     "next-intl": "^4.12.0",
     "react": "^19.2.0",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.46.0",
-    "vitest": "^4.1.7"
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
   }
 }

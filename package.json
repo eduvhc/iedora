@@ -7,5 +7,18 @@
     "products/*",
     "apps/*"
   ],
-  "scripts": {}
+  "scripts": {
+    "typecheck": "bun run --workspaces typecheck",
+    "lint": "bun run --workspaces lint",
+    "test": "bun run --workspaces test"
+  },
+  "catalog": {
+    "drizzle-orm": "^0.45.2",
+    "drizzle-kit": "^0.31.10",
+    "zod": "^4.4.3",
+    "eslint": "^9.39.4",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.46.0",
+    "vitest": "^4.1.7"
+  }
 }

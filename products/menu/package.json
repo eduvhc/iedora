@@ -76,13 +76,13 @@
     "@iedora/observability": "workspace:*",
     "ai": "^6.0.190",
     "clsx": "^2.1.1",
-    "drizzle-orm": "^0.45.2",
+    "drizzle-orm": "catalog:",
     "pino": "^10.3.1",
     "postgres": "^3.4.9",
     "qrcode": "^1.5.4",
     "server-only": "^0.0.1",
     "tailwind-merge": "^3.6.0",
-    "zod": "^4.4.3"
+    "zod": "catalog:"
   },
   "peerDependencies": {
     "next": "^16.0.0",
@@ -103,16 +103,16 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "6.0.2",
-    "drizzle-kit": "^0.31.10",
-    "eslint": "^9.39.4",
+    "drizzle-kit": "catalog:",
+    "eslint": "catalog:",
     "next": "16.2.6",
     "next-intl": "^4.12.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "tailwindcss": "^4.3.0",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.46.0",
-    "vitest": "^4.1.7"
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
   },
   "ignoreScripts": [
     "sharp",

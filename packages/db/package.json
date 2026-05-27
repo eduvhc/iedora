@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Shared drizzle-orm + postgres-js setup. Per-product packages define their own schemas and instantiate via createDb(url, schema). PGLite test fixture lives here too — generic over schema.",
+  "description": "Shared drizzle-orm + postgres-js setup. Per-product packages define their own schemas and instantiate via createDb(url, schema). PGLite test fixture lives here too \u2014 generic over schema.",
   "exports": {
     ".": "./src/index.ts",
     "./testing": "./src/testing.ts"
@@ -15,7 +15,7 @@
     "test:watch": "vitest --passWithNoTests"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.2",
+    "drizzle-orm": "catalog:",
     "postgres": "^3.4.9",
     "server-only": "^0.0.1"
   },
@@ -31,9 +31,9 @@
     "@electric-sql/pglite": "^0.4.5",
     "@iedora/eslint-config": "workspace:*",
     "@types/node": "^22.19.19",
-    "eslint": "^9.39.4",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.46.0",
-    "vitest": "^4.1.7"
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
   }
 }

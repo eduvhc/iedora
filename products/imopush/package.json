@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "imopush product — TBD. Scaffold only; slices + drizzle schema land in follow-up commits. Uses RELATIVE imports internally (no @/ path mapping) so apps/web's tsconfig stays clean as products land.",
+  "description": "imopush product \u2014 TBD. Scaffold only; slices + drizzle schema land in follow-up commits. Uses RELATIVE imports internally (no @/ path mapping) so apps/web's tsconfig stays clean as products land.",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -22,10 +22,10 @@
     "@iedora/db": "workspace:*",
     "@iedora/design-system": "workspace:*",
     "@iedora/observability": "workspace:*",
-    "drizzle-orm": "^0.45.2",
+    "drizzle-orm": "catalog:",
     "postgres": "^3.4.9",
     "server-only": "^0.0.1",
-    "zod": "^4.4.3"
+    "zod": "catalog:"
   },
   "peerDependencies": {
     "next": "^16.0.0",
@@ -35,12 +35,12 @@
     "@iedora/eslint-config": "workspace:*",
     "@types/node": "^22.19.19",
     "@types/react": "^19.2.14",
-    "drizzle-kit": "^0.31.10",
-    "eslint": "^9.39.4",
+    "drizzle-kit": "catalog:",
+    "eslint": "catalog:",
     "next": "16.2.6",
     "react": "19.2.6",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.46.0",
-    "vitest": "^4.1.7"
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
   }
 }

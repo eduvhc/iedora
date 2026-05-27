@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Iedora OpenTelemetry surface — one call wires traces + metrics + logs for any product in the estate.",
+  "description": "Iedora OpenTelemetry surface \u2014 one call wires traces + metrics + logs for any product in the estate.",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -30,9 +30,9 @@
   "devDependencies": {
     "@iedora/eslint-config": "workspace:*",
     "@types/node": "^22.19.19",
-    "eslint": "^9.39.4",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.46.0",
-    "vitest": "^4.1.7"
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
   }
 }

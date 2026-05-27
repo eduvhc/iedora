@@ -224,27 +224,34 @@ Cost: per-workspace `dist/`, more moving pieces.
 
 Defer unless typecheck speed becomes a real annoyance.
 
-### TS-2: Per-workspace script naming inconsistency
-**size:** S · **risk:** low
+### TS-2: ~~Per-workspace script naming inconsistency~~ → resolved
+**size:** ~~S~~ · **risk:** ~~low~~
 
-Lint scripts: most workspaces use `eslint src` but `products/menu`
-and `apps/web` just use `eslint` (which picks up scope from
-`eslint.config.mjs`). Functionally identical, just style drift.
+`test` / `test:watch` scripts now consistent across all 9 workspaces:
+- Workspaces WITH tests (auth, design-system, observability, menu):
+  `vitest run` / `vitest`
+- Workspaces WITHOUT tests (db, brand, core, imopush):
+  `vitest run --passWithNoTests` / `vitest --passWithNoTests`
+- apps/web: a placeholder echo (tests live in products/packages)
 
-Test scripts: mix of `vitest run` and `vitest run --passWithNoTests`.
-The `--passWithNoTests` flag is correct for workspaces that don't
-have tests yet — but ideally a CI-level convention (workflow checks
-if test files exist before invoking).
+`lint` intentionally kept as two patterns:
+- `eslint src` for packages — avoids crawling `.next/` or generated dirs
+- `eslint` for `products/menu` + `apps/web` — their eslint config already
+  has proper ignore patterns for build output
 
-### TS-3: No root-level orchestrator scripts
-**size:** S · **risk:** low
+### TS-3: ~~No root-level orchestrator scripts~~ → resolved
+**size:** ~~S~~ · **risk:** ~~low~~
 
-`package.json` at root has an empty `"scripts": {}`. Want to typecheck
-the whole monorepo? Loop per-workspace via shell. A root `typecheck`
-script (or proper task runner like Turborepo / Nx / Bun's recent
-task primitive) would centralize "run X across every workspace".
-
-For now, CI has per-workspace jobs which serves the same goal.
+Root `package.json` now has:
+```json
+"scripts": {
+  "typecheck": "bun run --workspaces typecheck",
+  "lint": "bun run --workspaces lint",
+  "test": "bun run --workspaces test"
+}
+```
+`bun run --workspaces` iterates every workspace declared in the root
+`workspaces` field. One command to typecheck/lint/test the whole monorepo.
 
 ### TS-5: no task-graph cache — build/lint/test re-run on every workflow invocation
 **size:** L · **risk:** med
@@ -290,14 +297,27 @@ None of these match the leverage of a real task runner. Defer
 until CI cost or wall-time becomes painful — currently each run is
 ~3-10 min which is tolerable.
 
-### TS-4: drizzle-orm version pinned in 4 workspaces independently
-**size:** S · **risk:** low
+### TS-4: ~~drizzle-orm version pinned in 4 workspaces independently~~ → resolved
+**size:** ~~S~~ · **risk:** ~~low~~
 
-`packages/auth`, `packages/db`, `products/menu`, `products/imopush`
-each declare `"drizzle-orm": "^0.45.2"`. If one drifts, weird type
-mismatches. Bun's recent `catalog:` feature (or pnpm's catalog)
-would let us declare the version once at workspace root and
-reference it per-package.
+Migrated to Bun's `catalog:` feature. Root `package.json` declares 7 shared
+deps once:
+
+```json
+"catalog": {
+  "drizzle-orm": "^0.45.2",
+  "drizzle-kit": "^0.31.10",
+  "zod": "^4.4.3",
+  "eslint": "^9.39.4",
+  "typescript": "^6.0.3",
+  "typescript-eslint": "^8.46.0",
+  "vitest": "^4.1.7"
+}
+```
+
+All 9 workspaces reference `"catalog:"` instead of literal versions.
+To bump a dep: change one line in root, `bun install` updates the lockfile.
+No risk of single-workspace version drift.
 
 ---
 

@@ -249,6 +249,8 @@ jobs:
       actions: write   # dispatch app-state.yml
       contents: read
     steps:
+      - uses: actions/checkout@v6
+
       - name: Dispatch app-state.yml + follow the dispatched run
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
