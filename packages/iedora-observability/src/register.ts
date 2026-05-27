@@ -1,4 +1,6 @@
 import { OTLPHttpProtoTraceExporter, registerOTel } from "@vercel/otel";
+import { trace, metrics } from "@opentelemetry/api";
+import { logs } from "@opentelemetry/api-logs";
 import {
   AggregationTemporalityPreference,
   OTLPMetricExporter,
@@ -370,4 +372,57 @@ export function registerIedoraOtel(opts: RegisterOptions): void {
     // append PinoInstrumentation rather than replacing fetch.
     instrumentations: ["fetch", new PinoInstrumentation()],
   });
+}
+
+/**
+ * Force-flush + shut down every OTel provider registered in this process.
+ *
+ * Long-lived processes (Next.js apps, daemons) don't need this — the SDK
+ * flushes on its periodic interval and the process never exits anyway.
+ * Short-lived scripts (`packages/auth/scripts/migrate.mjs`,
+ * `products/<p>/scripts/migrate.mjs`, any one-shot CLI) do: they finish
+ * faster than the default BatchSpanProcessor / BatchLogRecordProcessor
+ * cycle (~5s) and the OTLP exporter would never see the spans / logs /
+ * metrics emitted during the run.
+ *
+ * Safe to call when no provider was ever registered — the global proxy
+ * providers' forceFlush / shutdown are no-ops in that case (or absent,
+ * hence the optional-chain calls). Idempotent: a second call after
+ * shutdown is harmless.
+ *
+ * Bounded by `timeoutMs` (default 5s) so a hung exporter can't keep a
+ * deploy job alive indefinitely. The race below treats the timeout as a
+ * successful resolution — telemetry that didn't flush in time is the
+ * lesser evil compared to a job that never exits.
+ */
+export async function shutdownIedoraOtel(
+  opts: { timeoutMs?: number } = {},
+): Promise<void> {
+  const timeoutMs = opts.timeoutMs ?? 5_000;
+
+  type Provider = {
+    forceFlush?: () => Promise<void>;
+    shutdown?: () => Promise<void>;
+  };
+  const tp = trace.getTracerProvider() as Provider;
+  const mp = metrics.getMeterProvider() as Provider;
+  const lp = logs.getLoggerProvider() as Provider;
+
+  const work = (async () => {
+    await Promise.allSettled([
+      tp.forceFlush?.(),
+      mp.forceFlush?.(),
+      lp.forceFlush?.(),
+    ]);
+    await Promise.allSettled([
+      tp.shutdown?.(),
+      mp.shutdown?.(),
+      lp.shutdown?.(),
+    ]);
+  })();
+
+  await Promise.race([
+    work,
+    new Promise<void>((res) => setTimeout(res, timeoutMs)),
+  ]);
 }

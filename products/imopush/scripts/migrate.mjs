@@ -1,8 +1,8 @@
 /**
- * Applies menu's Drizzle migrations against the `menu` Postgres database.
- * Real work lives in @iedora/db/scripts/run-migrations — this file just
- * picks the env var, computes the migrations folder path, and supplies
- * the schema + lock name.
+ * Applies imopush's Drizzle migrations against the `imopush` Postgres
+ * database. Real work lives in @iedora/db/scripts/run-migrations — this
+ * file just picks the env var, computes the migrations folder path, and
+ * supplies the schema + lock name.
  *
  * Runs in three places:
  *   1. CI — apps/web/scripts/migrate-test.mjs spawns it before e2e build.
@@ -15,9 +15,9 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { runMigrations } from '@iedora/db/scripts/run-migrations'
 
-const url = process.env.MENU_DATABASE_URL
+const url = process.env.IMOPUSH_DATABASE_URL
 if (!url) {
-  console.error('MENU_DATABASE_URL is not set')
+  console.error('IMOPUSH_DATABASE_URL is not set')
   process.exit(1)
 }
 
@@ -27,11 +27,11 @@ try {
   await runMigrations({
     databaseUrl: url,
     migrationsFolder: join(here, '..', 'drizzle'),
-    migrationsSchema: 'menu',
-    lockName: 'iedora-menu-migrate',
-    label: 'menu',
+    migrationsSchema: 'imopush',
+    lockName: 'iedora-imopush-migrate',
+    label: 'imopush',
   })
 } catch (err) {
-  console.error('[migrate:menu] failed:', err)
+  console.error('[migrate:imopush] failed:', err)
   process.exit(1)
 }

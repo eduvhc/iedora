@@ -53,7 +53,7 @@
     "test:watch": "vitest",
     "test:ai-live": "bun --env-file=.env vitest run --config vitest.config.live.ts",
     "db:generate": "bun --bun drizzle-kit generate",
-    "db:migrate": "bun --bun drizzle-kit migrate",
+    "db:migrate": "bun scripts/migrate.mjs",
     "db:push": "bun --bun drizzle-kit push",
     "db:studio": "bun --bun drizzle-kit studio"
   },

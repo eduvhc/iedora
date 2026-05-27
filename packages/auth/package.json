@@ -19,10 +19,11 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --cache --cache-location node_modules/.cache/.eslintcache",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "bun scripts/migrate.mjs",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@iedora/db": "workspace:*",
     "better-auth": "^1.6.11",
     "drizzle-orm": "catalog:",
     "postgres": "^3.4.9",

@@ -11,7 +11,11 @@
  * bridge, no-op-in-tests behaviour) is centralised here so adding
  * product N+1 is a one-line change in that product's `instrumentation.ts`.
  */
-export { registerIedoraOtel, type RegisterOptions } from "./register";
+export {
+  registerIedoraOtel,
+  shutdownIedoraOtel,
+  type RegisterOptions,
+} from "./register";
 export { tracer } from "./tracer";
 export { meter } from "./meter";
 export { logger } from "./logger";

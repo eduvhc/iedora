@@ -296,9 +296,22 @@ main() {
   compose_up "${infra[@]}"
 
   if has_profile postgres; then
-    step 2 "core migration — drizzle-kit migrate"
+    step 2 "apply DB migrations (core + per-product)"
+    # All product migration scripts share the same @iedora/db/scripts/run-migrations
+    # helper — ensureDatabase + advisory lock + programmatic migrate(). Adding a
+    # new product is one line below + a new products/<p>/scripts/migrate.mjs.
+    # `bun` runtime (not `node`) — the migrate scripts import
+    # @iedora/observability whose package exports point at TS source.
+    # bun resolves TS workspace sources natively. Prod uses a separate
+    # path (infra/migrate/Dockerfile bundles each migrate.mjs into a
+    # single self-contained ESM file via `bun build`, which the
+    # distroless runtime then executes with node).
     CORE_DATABASE_URL="postgresql://postgres:Password1!@localhost:5432/core" \
-      bun run --cwd "${REPO_ROOT}/packages/auth" db:migrate
+      bun "${REPO_ROOT}/packages/auth/scripts/migrate.mjs"
+    MENU_DATABASE_URL="postgresql://postgres:Password1!@localhost:5432/menu" \
+      bun "${REPO_ROOT}/products/menu/scripts/migrate.mjs"
+    IMOPUSH_DATABASE_URL="postgresql://postgres:Password1!@localhost:5432/imopush" \
+      bun "${REPO_ROOT}/products/imopush/scripts/migrate.mjs"
   fi
 
   step 3 "compose apps/web/.env"

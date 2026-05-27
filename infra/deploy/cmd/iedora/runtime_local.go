@@ -65,8 +65,9 @@ func writeDevEnv(envPath, envLocalPath string, s3Port int) error {
 
 		"IEDORA_BOOTSTRAP_ADMIN_EMAILS": "eduardoferdcarvalho@gmail.com",
 
-		"CORE_DATABASE_URL": "postgres://postgres:Password1!@infra-postgres:5432/core",
-		"MENU_DATABASE_URL": "postgres://postgres:Password1!@infra-postgres:5432/menu",
+		"CORE_DATABASE_URL":    "postgres://postgres:Password1!@infra-postgres:5432/core",
+		"MENU_DATABASE_URL":    "postgres://postgres:Password1!@infra-postgres:5432/menu",
+		"IMOPUSH_DATABASE_URL": "postgres://postgres:Password1!@infra-postgres:5432/imopush",
 
 		"CORE_SECRET":        coreSecret,
 		"CORE_COOKIE_DOMAIN": "localhost",

@@ -42,6 +42,7 @@
       "name": "@iedora/auth",
       "version": "0.1.0",
       "dependencies": {
+        "@iedora/db": "workspace:*",
         "better-auth": "^1.6.11",
         "drizzle-orm": "catalog:",
         "postgres": "^3.4.9",
@@ -74,6 +75,7 @@
       "name": "@iedora/db",
       "version": "0.1.0",
       "dependencies": {
+        "@iedora/observability": "workspace:*",
         "drizzle-orm": "catalog:",
         "postgres": "^3.4.9",
         "server-only": "^0.0.1",

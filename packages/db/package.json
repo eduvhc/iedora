@@ -6,7 +6,8 @@
   "description": "Shared drizzle-orm + postgres-js setup. Per-product packages define their own schemas and instantiate via createDb(url, schema). PGLite test fixture lives here too \u2014 generic over schema.",
   "exports": {
     ".": "./src/index.ts",
-    "./testing": "./src/testing.ts"
+    "./testing": "./src/testing.ts",
+    "./scripts/run-migrations": "./scripts/run-migrations.mjs"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -15,6 +16,7 @@
     "test:watch": "vitest --passWithNoTests"
   },
   "dependencies": {
+    "@iedora/observability": "workspace:*",
     "drizzle-orm": "catalog:",
     "postgres": "^3.4.9",
     "server-only": "^0.0.1"

@@ -11,7 +11,11 @@
 
 CREATE DATABASE menu;
 CREATE DATABASE core;
+CREATE DATABASE imopush;
 -- The `core` database holds the iedora auth surface (better-auth tables)
 -- under the `core` Postgres schema; the schema itself is created by the
 -- packages/auth Drizzle migration (`drizzle/0000_*.sql`). It'll grow to
 -- host audit + admin tables when the core product lands.
+--
+-- `imopush` is the real-estate dashboard product; tables live under the
+-- `imopush` Postgres schema, created by products/imopush/drizzle/.
