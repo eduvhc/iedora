@@ -48,7 +48,7 @@
   },
   "scripts": {
     "typecheck": "tsc --build && tsc -p tsconfig.tests.json --noEmit",
-    "lint": "eslint",
+    "lint": "eslint --cache --cache-location node_modules/.cache/.eslintcache",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ai-live": "bun --env-file=.env vitest run --config vitest.config.live.ts",

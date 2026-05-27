@@ -68,8 +68,10 @@ jobs:
         working-directory: products/menu
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - uses: ./.github/actions/setup
-      - run: bun run test
+      - run: bun run test -- --changed=origin/main
 
   e2e:
     name: E2E (Playwright)

@@ -9,7 +9,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src",
+    "lint": "eslint src --cache --cache-location node_modules/.cache/.eslintcache",
     "test": "vitest run --passWithNoTests"
   },
   "devDependencies": {

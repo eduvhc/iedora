@@ -67,5 +67,7 @@ jobs:
         working-directory: products/core
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - uses: ./.github/actions/setup
-      - run: bun run test
+      - run: bun run test -- --changed=origin/main
