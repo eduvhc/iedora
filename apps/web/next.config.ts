@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
     '@iedora/design-system',
     '@iedora/observability',
     '@iedora/product-core',
+    '@iedora/product-imopush',
     '@iedora/product-menu',
   ],
   // No `outputFileTracingIncludes` for migrate scripts — they're

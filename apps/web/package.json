@@ -21,6 +21,7 @@
     "@iedora/design-system": "workspace:*",
     "@iedora/observability": "workspace:*",
     "@iedora/product-core": "workspace:*",
+    "@iedora/product-imopush": "workspace:*",
     "@iedora/product-menu": "workspace:*",
     "next": "catalog:",
     "next-intl": "catalog:",
