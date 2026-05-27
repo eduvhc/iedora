@@ -118,6 +118,14 @@ jobs:
           tofu_version: '1.12.0'
           tofu_wrapper: false
 
+      - name: tofu init (backend setup for tofu output)
+        # `tofu output -raw <name>` requires the s3 backend to be
+        # initialized. infra-deploy.yml initialized state during apply,
+        # but this is a fresh runner — we need our own backend init.
+        # -lock-timeout=5m to coexist gracefully with an apply that
+        # might be in-flight on another runner.
+        run: bin/iedora-env tofu -chdir=infra/iac/tofu init -input=false -upgrade -lock-timeout=5m
+
       - name: Configure SSH (Stage 3 configurators SSH to the box)
         # SSH key comes from BWS (IAC_BOOTSTRAP_SSH_PRIVATE_KEY), hydrated
         # via bin/iedora-env. Single source of truth — not a separate GH
