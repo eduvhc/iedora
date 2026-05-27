@@ -29,6 +29,14 @@ WORKDIR /workspace
 COPY package.json bun.lock tsconfig.base.json ./
 COPY packages packages
 COPY products products
+# bun.lock includes every workspace member's deps. apps/web is in the
+# workspaces array (root package.json); without its package.json,
+# `bun install --frozen-lockfile` sees a mismatch ("lockfile had
+# changes, but lockfile is frozen") because it can't reconcile the
+# lockfile's apps/web entry with a missing manifest. We only need
+# the package.json — apps/web's source code is irrelevant to the
+# migrate bundle.
+COPY apps/web/package.json apps/web/package.json
 RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
     bun install --frozen-lockfile --ignore-scripts
 RUN mkdir -p /out/core/scripts /out/core/drizzle \
