@@ -14,6 +14,7 @@
         "@iedora/design-system": "workspace:*",
         "@iedora/observability": "workspace:*",
         "@iedora/product-core": "workspace:*",
+        "@iedora/product-imopush": "workspace:*",
         "@iedora/product-menu": "workspace:*",
         "next": "catalog:",
         "next-intl": "catalog:",
@@ -185,7 +186,7 @@
       },
       "peerDependencies": {
         "next": "^16.0.0",
-        "next-intl": "^4.0.0",
+        "next-intl": "^4.9.2",
         "react": "^19.0.0",
       },
     },
@@ -272,7 +273,7 @@
       },
       "peerDependencies": {
         "next": "^16.0.0",
-        "next-intl": "^4.0.0",
+        "next-intl": "^4.9.2",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
       },
