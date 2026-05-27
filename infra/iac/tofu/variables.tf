@@ -86,11 +86,11 @@ variable "infra_ssh_private_key" {
   sensitive   = true
 }
 
-variable "menu_public_hostname" {
-  description = "Public FQDN for the menu app — used as NEXT_PUBLIC_MENU_URL, the DNS record name, and the CF Tunnel ingress hostname."
-  type        = string
-  default     = "menu.iedora.com"
-}
+# NOTE: var.menu_public_hostname was removed in the PR4 surface
+# refactor — its consumers (tunnel ingress, DNS record, R2 CORS,
+# outputs) now derive from var.surfaces via local.surface_hostnames.
+# Adding/renaming the menu subdomain is now a topology.go edit +
+# `iedora emit-topology`.
 
 # ── Surfaces — populated from generated/topology.auto.tfvars.json ────────────
 # Sourced from the surface registry in

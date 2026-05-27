@@ -80,7 +80,10 @@ func serviceForProduct(name string) string {
 
 func runEmitTopology(_ context.Context, argv []string) error {
 	fs := flag.NewFlagSet("emit-topology", flag.ContinueOnError)
-	out := fs.String("out", "infra/iac/tofu/generated/topology.auto.tfvars.json", "path to write")
+	// .auto.tfvars.json files are auto-loaded by Tofu ONLY from the
+	// chdir root (infra/iac/tofu/), not subdirectories — that's why
+	// it lives next to variables.tf rather than under generated/.
+	out := fs.String("out", "infra/iac/tofu/topology.auto.tfvars.json", "path to write")
 	check := fs.Bool("check", false, "exit 1 if the on-disk file disagrees with the registry (CI drift guard)")
 	if err := fs.Parse(argv); err != nil {
 		return err

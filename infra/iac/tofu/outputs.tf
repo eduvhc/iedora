@@ -59,22 +59,22 @@ output "core_database_url" {
 
 output "next_public_menu_url" {
   description = "Public base URL of the menu app — inlined into the client bundle (NEXT_PUBLIC_* prefix)."
-  value       = "https://${var.menu_public_hostname}"
+  value       = local.surface_urls["menu"]
 }
 
 output "core_base_url" {
   description = "Canonical URL of the auth API. Lives on core.iedora.com — every product redirects sign-in here so cookies always issue from one origin."
-  value       = "https://core.${var.zone_name}"
+  value       = local.surface_urls["core"]
 }
 
 output "next_public_core_url" {
   description = "Same canonical URL as core_base_url, surfaced under a NEXT_PUBLIC_* name so it's inlined into the browser bundle at build time."
-  value       = "https://core.${var.zone_name}"
+  value       = local.surface_urls["core"]
 }
 
 output "core_trusted_origins" {
-  description = "Comma-separated trusted origins for CSRF (every iedora.com subdomain that calls the auth API)."
-  value       = "https://core.${var.zone_name},https://${var.menu_public_hostname},https://${var.zone_name},https://www.${var.zone_name}"
+  description = "Comma-separated trusted origins for CSRF — every public URL of every trusted surface, derived from var.surfaces."
+  value       = join(",", local.trusted_origins)
 }
 
 output "assets_s3_endpoint" {

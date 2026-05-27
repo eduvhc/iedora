@@ -21,6 +21,43 @@
 #     jq '.result[] | select(.name=="Workers R2 Storage Bucket Item Write")'
 locals {
   permission_group_r2_bucket_item_write = "2efd5506f9c8494dacb1fa10a3e7d5b6"
+
+  # ── Surface topology ────────────────────────────────────────────
+  # Derivations from var.surfaces (sourced from the Go registry via
+  # `iedora emit-topology` → generated/topology.auto.tfvars.json).
+  # Consumers in this root: outputs.tf, the R2 CORS rule below, and
+  # the DNS-record for_each further down.
+
+  # First subdomain is the surface's primary public hostname. The
+  # apex (subdomain == "") collapses to the zone.
+  surface_hostnames = {
+    for s in var.surfaces : s.name => (
+      s.subdomains[0] == "" ? var.zone_name : "${s.subdomains[0]}.${var.zone_name}"
+    )
+  }
+  surface_urls = { for n, h in local.surface_hostnames : n => "https://${h}" }
+
+  # Trusted origins for CSRF (CORE_TRUSTED_ORIGINS) — every public
+  # URL of every trusted surface, including each surface's extra
+  # subdomains (e.g. www of the apex).
+  trusted_origins = flatten([
+    for s in var.surfaces : [
+      for sub in s.subdomains : (
+        sub == "" ? "https://${var.zone_name}" : "https://${sub}.${var.zone_name}"
+      )
+    ] if s.trusted_origin
+  ])
+
+  # Flat (surface, subdomain) tuples for DNS-record for_each below.
+  # Key shape: "<name>:<subdomain-or-'apex'>" — stable across plans.
+  surface_dns_records = flatten([
+    for s in var.surfaces : [
+      for sub in s.subdomains : {
+        key  = "${s.name}:${sub == "" ? "apex" : sub}"
+        name = sub == "" ? var.zone_name : "${sub}.${var.zone_name}"
+      }
+    ]
+  ])
 }
 
 data "cloudflare_zone" "iedora" {
@@ -79,9 +116,7 @@ resource "cloudflare_r2_bucket_cors" "assets" {
   rules = [{
     allowed = {
       methods = ["PUT", "HEAD"]
-      origins = [
-        "https://${var.menu_public_hostname}",
-      ]
+      origins = [local.surface_urls["menu"]]
       headers = ["Content-Type"]
     }
     expose_headers  = ["ETag"]
@@ -113,42 +148,33 @@ locals {
   tunnel_cname = "${cloudflare_zero_trust_tunnel_cloudflared.iedora.id}.cfargotunnel.com"
 }
 
-resource "cloudflare_dns_record" "menu_iedora" {
-  zone_id = data.cloudflare_zone.iedora.zone_id
-  name    = var.menu_public_hostname
-  type    = "CNAME"
-  content = local.tunnel_cname
-  ttl     = 1 # ttl=1 = automatic when proxied=true
-  proxied = true
-  comment = "CF Tunnel → infra-web on the Hetzner box"
+resource "cloudflare_dns_record" "iedora_ingress" {
+  for_each = { for r in local.surface_dns_records : r.key => r }
+  zone_id  = data.cloudflare_zone.iedora.zone_id
+  name     = each.value.name
+  type     = "CNAME" # CF supports CNAME flattening at apex
+  content  = local.tunnel_cname
+  ttl      = 1 # ttl=1 = automatic when proxied=true
+  proxied  = true
+  comment  = "CF Tunnel ingress (${each.key}) — managed via var.surfaces"
 }
 
-resource "cloudflare_dns_record" "core_iedora" {
-  zone_id = data.cloudflare_zone.iedora.zone_id
-  name    = "core.${var.zone_name}"
-  type    = "CNAME"
-  content = local.tunnel_cname
-  ttl     = 1
-  proxied = true
-  comment = "CF Tunnel → menu container (proxy.ts rewrites core.iedora.com → /core/*)"
+# State migration — pre-PR4 these were 3 independent resources.
+# Day 0, but `moved` blocks keep `tofu plan` clean (no destroy/create
+# noise) and document the rename for blame archaeology.
+moved {
+  from = cloudflare_dns_record.menu_iedora
+  to   = cloudflare_dns_record.iedora_ingress["menu:menu"]
 }
-
-resource "cloudflare_dns_record" "iedora_apex" {
-  zone_id = data.cloudflare_zone.iedora.zone_id
-  name    = var.zone_name
-  type    = "CNAME" # CF supports CNAME flattening at apex
-  content = local.tunnel_cname
-  ttl     = 1
-  proxied = true
-  comment = "CF Tunnel → menu container (proxy.ts rewrites apex → /house/*)"
+moved {
+  from = cloudflare_dns_record.core_iedora
+  to   = cloudflare_dns_record.iedora_ingress["core:core"]
 }
-
-resource "cloudflare_dns_record" "iedora_www" {
-  zone_id = data.cloudflare_zone.iedora.zone_id
-  name    = "www.${var.zone_name}"
-  type    = "CNAME"
-  content = local.tunnel_cname
-  ttl     = 1
-  proxied = true
-  comment = "www.iedora.com → same tunnel route as the apex"
+moved {
+  from = cloudflare_dns_record.iedora_apex
+  to   = cloudflare_dns_record.iedora_ingress["house:apex"]
+}
+moved {
+  from = cloudflare_dns_record.iedora_www
+  to   = cloudflare_dns_record.iedora_ingress["house:www"]
 }
