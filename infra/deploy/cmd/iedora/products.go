@@ -62,7 +62,7 @@ var products = []product{
 			networkName:    "iedora",
 			networkAliases: []string{"infra-web"},
 			restart:        "unless-stopped",
-			cmd: []string{"node", "server.js"},
+			cmd:            []string{"node", "server.js"},
 			// Migrations are NOT here — they're a Stage 3 configurator
 			// (`infra/app-state/cmd/menu-db-migrations/`, registered in
 			// `appConfigurators`). Stage 4 hits an already-migrated DB.
@@ -77,37 +77,42 @@ var products = []product{
 			// DrainDuration left zero → defaults (60s / 500ms / 10s).
 			Healthcheck: &Healthcheck{Path: "/up", Port: 3000},
 			envStatic: map[string]string{
-				"NODE_ENV":                "production",
-				"NEXT_TELEMETRY_DISABLED": "1",
-				"S3_REGION":               "auto",
+				"NODE_ENV":                      "production",
+				"NEXT_TELEMETRY_DISABLED":       "1",
+				"S3_REGION":                     "auto",
+				"IEDORA_BOOTSTRAP_ADMIN_EMAILS": "eduardoferdcarvalho@gmail.com",
 			},
 			// App secrets the runtime mints on first deploy + writes
 			// to BWS. Tofu doesn't manage these — they have no IaC
 			// consumer.
 			appSecrets: []appSecret{
-				{bwsKey: "DEPLOY_IEDORA_CORE_SECRET", length: 48},
+				{bwsKey: "DEPLOY_CORE_SECRET", length: 48},
 			},
 			envFromBWS: map[string]string{
-				"DEPLOY_IEDORA_CORE_SECRET": "IEDORA_CORE_SECRET",
+				"DEPLOY_CORE_SECRET": "CORE_SECRET",
 			},
+			// Infra-static Tofu output mappings (databases, S3, OTel,
+			// host). Surface URL env vars + CORE_TRUSTED_ORIGINS come
+			// in via envFromTofuJSON below — Tofu's `surface_envs`
+			// output builds the map from var.surfaces, so adding a
+			// surface requires NO edit here.
 			envFromTofu: map[string]string{
 				// tofu output name → container env var name
-				"menu_database_url":           "DATABASE_URL",
-				"core_database_url":           "CORE_DATABASE_URL",
-				"menu_public_url":             "MENU_PUBLIC_URL",
-				"iedora_core_base_url":        "IEDORA_CORE_BASE_URL",
-				"iedora_core_trusted_origins": "IEDORA_CORE_TRUSTED_ORIGINS",
-				"next_public_core_url":        "NEXT_PUBLIC_CORE_URL",
-				"assets_s3_endpoint":          "S3_ENDPOINT",
-				"assets_s3_public_url":        "S3_PUBLIC_URL",
-				"assets_s3_bucket":            "S3_BUCKET",
-				"assets_s3_access_key":        "S3_ACCESS_KEY",
-				"assets_s3_secret_key":        "S3_SECRET_KEY",
-				"otel_endpoint":               "OTEL_EXPORTER_OTLP_ENDPOINT",
-				"otel_headers":                "OTEL_EXPORTER_OTLP_HEADERS",
-				"host_name":                   "HOST_NAME",
+				"menu_database_url":    "MENU_DATABASE_URL",
+				"core_database_url":    "CORE_DATABASE_URL",
+				"assets_s3_endpoint":   "S3_ENDPOINT",
+				"assets_s3_public_url": "S3_PUBLIC_URL",
+				"assets_s3_bucket":     "S3_BUCKET",
+				"assets_s3_access_key": "S3_ACCESS_KEY",
+				"assets_s3_secret_key": "S3_SECRET_KEY",
+				"otel_endpoint":        "OTEL_EXPORTER_OTLP_ENDPOINT",
+				"otel_headers":         "OTEL_EXPORTER_OTLP_HEADERS",
+				"host_name":            "HOST_NAME",
 			},
+			// surface_envs — a Tofu map output, expanded into env at
+			// resolve time. Keys: NEXT_PUBLIC_<X>_URL, CORE_BASE_URL,
+			// CORE_TRUSTED_ORIGINS, etc. Derived from var.surfaces.
+			envFromTofuJSON: []string{"surface_envs"},
 		},
 	},
 }
-

@@ -57,29 +57,20 @@ output "core_database_url" {
   sensitive   = true
 }
 
-output "next_public_menu_url" {
-  description = "Public base URL of the menu app — inlined into the client bundle (NEXT_PUBLIC_* prefix)."
-  value       = local.surface_urls["menu"]
-}
-
-output "core_base_url" {
-  description = "Canonical URL of the auth API. Lives on core.iedora.com — every product redirects sign-in here so cookies always issue from one origin."
-  value       = local.surface_urls["core"]
-}
-
-output "next_public_core_url" {
-  description = "Same canonical URL as core_base_url, surfaced under a NEXT_PUBLIC_* name so it's inlined into the browser bundle at build time."
-  value       = local.surface_urls["core"]
-}
-
-output "core_trusted_origins" {
-  description = "Comma-separated trusted origins for CSRF — every public URL of every trusted surface, derived from var.surfaces."
-  value       = join(",", local.trusted_origins)
-}
-
-output "next_public_imopush_url" {
-  description = "Public base URL of the imopush app — inlined into the client bundle (NEXT_PUBLIC_* prefix)."
-  value       = local.surface_urls["imopush"]
+# surface_envs — env vars derived from var.surfaces, keyed by their
+# container env-var name. Consumed by Stage 4 via
+# `tofu output -json surface_envs` and EXPANDED into the container
+# env in one shot (see runtime_docker.go::envFromTofuJSON). Adding a
+# surface no longer requires editing outputs.tf — append to surfaces
+# in infra/deploy/cmd/iedora/topology.go and the URL/trusted-origin
+# entries flow through automatically.
+output "surface_envs" {
+  description = "Surface-derived container env vars (NEXT_PUBLIC_<X>_URL, CORE_BASE_URL, CORE_TRUSTED_ORIGINS, ...). Keyed by env-var name. Expanded by runtime_docker.go's envFromTofuJSON path."
+  value = merge(
+    { for s in var.surfaces : s.public_url_env => local.surface_urls[s.name] if s.public_url_env != "" },
+    { for s in var.surfaces : s.next_public_env => local.surface_urls[s.name] if s.next_public_env != "" },
+    { CORE_TRUSTED_ORIGINS = join(",", local.trusted_origins) },
+  )
 }
 
 output "assets_s3_endpoint" {

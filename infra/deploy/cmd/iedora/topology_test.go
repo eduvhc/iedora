@@ -2,28 +2,6 @@ package main
 
 import "testing"
 
-func TestSurfaceTofuEnv(t *testing.T) {
-	// The current canonical mapping. Adding/removing a surface URL env
-	// flips this test deliberately — keep them in lockstep with
-	// outputs.tf.
-	want := map[string]string{
-		"next_public_menu_url":    "NEXT_PUBLIC_MENU_URL",
-		"core_base_url":           "CORE_BASE_URL",
-		"next_public_core_url":    "NEXT_PUBLIC_CORE_URL",
-		"core_trusted_origins":    "CORE_TRUSTED_ORIGINS",
-		"next_public_imopush_url": "NEXT_PUBLIC_IMOPUSH_URL",
-	}
-	got := surfaceTofuEnv()
-	if len(got) != len(want) {
-		t.Fatalf("surfaceTofuEnv len = %d, want %d (got=%v)", len(got), len(want), got)
-	}
-	for k, v := range want {
-		if got[k] != v {
-			t.Errorf("surfaceTofuEnv[%q] = %q, want %q", k, got[k], v)
-		}
-	}
-}
-
 func TestProdURL(t *testing.T) {
 	cases := map[string]string{
 		"house":   "https://iedora.com",

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"os"
@@ -42,8 +43,8 @@ type dockerOnHetzner struct {
 	// exist (declared in Tofu under docker_network.iedora).
 	networkName string
 
-	// networkAliases — extra aliases for in-network DNS. Caddy resolves
-	// menu_web by alias.
+	// networkAliases — extra aliases for in-network DNS. cloudflared
+	// resolves the upstream container by alias (e.g. `infra-web`).
 	networkAliases []string
 
 	// restart — Docker restart policy. Typically "unless-stopped".
@@ -59,6 +60,14 @@ type dockerOnHetzner struct {
 	// envFromTofu — central Tofu output name → env name. Resolved via
 	// `tofu output -raw <name>`. Empty map skips the Tofu read entirely.
 	envFromTofu map[string]string
+
+	// envFromTofuJSON — central Tofu output names whose JSON value is
+	// `map[string]string` and gets EXPANDED into env vars: every key
+	// in the map becomes an env var with the map value as content.
+	// Useful when the set of env vars is itself surface-driven (the
+	// `surface_envs` output expands NEXT_PUBLIC_<X>_URL etc. without
+	// requiring a Go-side entry per surface).
+	envFromTofuJSON []string
 
 	// cmd — the container's entry command (replaces image CMD).
 	// Migrations are NOT run here — they're a Stage 3 configurator
@@ -86,7 +95,8 @@ type dockerOnHetzner struct {
 	// deploy path (Guardrail #4). When non-nil, Deploy starts the
 	// incoming container under `<containerName>-next`, probes
 	// `Path:Port` until 200 / `"ok":true`, then atomically re-aliases
-	// the docker network so Caddy starts routing to the new container.
+	// the docker network so cloudflared starts routing to the new
+	// container.
 	// When nil, Deploy falls back to the naive `stop && rm && run`
 	// flow — preserved for future Docker products that don't want
 	// (or can't yet expose) a health endpoint.
@@ -107,7 +117,7 @@ type dockerOnHetzner struct {
 // to decide when the incoming container is ready to take traffic. The
 // probe runs inside the container (`docker exec ... wget`), so the box
 // firewall never sees the request — the network path is identical to
-// what Caddy will use once the alias swap lands.
+// what cloudflared will use once the alias swap lands.
 type Healthcheck struct {
 	// Path — HTTP path on the container (e.g. "/up"). Must return 200
 	// with a body containing `"ok":true` when healthy.
@@ -245,7 +255,7 @@ func (d *dockerOnHetzner) deployHotSwap(ctx context.Context, ssh sshExecutor, ho
 
 	// 1. Start the incoming container with ONLY the `-next` alias. The
 	//    live alias (`<containerName>`) stays bound to the old container
-	//    so Caddy keeps routing live traffic until the swap.
+	//    so cloudflared keeps routing live traffic until the swap.
 	fmt.Fprintf(stderr, "→ docker run %s (probing before swap)\n", nextName)
 	runArgs := d.runArgs(nextName, []string{nextName}, env, image)
 	if err := ssh.Exec(ctx, host, shellJoin(runArgs)); err != nil {
@@ -254,7 +264,7 @@ func (d *dockerOnHetzner) deployHotSwap(ctx context.Context, ssh sshExecutor, ho
 
 	// 2. Probe `/up` inside the new container until healthy. The probe
 	//    runs through `docker exec ... wget`, so we test the same code
-	//    path Caddy will hit (container-local DB connectivity, env
+	//    path cloudflared will hit (container-local DB connectivity, env
 	//    resolution, /up handler).
 	if err := d.probe(ctx, ssh, host, nextName); err != nil {
 		d.rollbackNext(ctx, ssh, host, nextName)
@@ -264,7 +274,7 @@ func (d *dockerOnHetzner) deployHotSwap(ctx context.Context, ssh sshExecutor, ho
 
 	// 3. Atomic cutover — single SSH command to minimise the window
 	//    where the live alias resolves to nothing. The disconnect+
-	//    connect chain is ~150ms on the box; Caddy resolves on each
+	//    connect chain is ~150ms on the box; cloudflared resolves on each
 	//    request so a request that lands mid-chain sees ECONNREFUSED.
 	//    Live traffic served by old container while this runs.
 	//
@@ -487,6 +497,22 @@ func (d *dockerOnHetzner) resolveEnv(ctx context.Context) (map[string]string, er
 			return nil, fmt.Errorf("tofu output %s: %w", tfOut, err)
 		}
 		out[envKey] = val
+	}
+	for _, tfOut := range d.envFromTofuJSON {
+		raw, err := runTofuOutput(ctx, nil, "output", "-json", tfOut)
+		if err != nil {
+			return nil, fmt.Errorf("tofu output -json %s: %w", tfOut, err)
+		}
+		var m map[string]string
+		if err := json.Unmarshal([]byte(raw), &m); err != nil {
+			return nil, fmt.Errorf("tofu output -json %s: parse map[string]string: %w", tfOut, err)
+		}
+		for envKey, val := range m {
+			if existing, dup := out[envKey]; dup {
+				return nil, fmt.Errorf("env collision: %s already set to %q, %s tried to overwrite with %q", envKey, existing, tfOut, val)
+			}
+			out[envKey] = val
+		}
 	}
 	return out, nil
 }
