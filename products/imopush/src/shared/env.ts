@@ -1,15 +1,44 @@
+/**
+ * imopush's env contract.
+ *
+ * Two operating modes (mirrors products/menu/src/shared/env.ts):
+ *  - Build (`SKIP_ENV_VALIDATION=1`): returns a stub Proxy so `next build`'s
+ *    page-data-collection phase can evaluate server modules (db client,
+ *    drizzle schema) without real secrets. Tofu wires the real env at
+ *    runtime (Stage 4).
+ *  - Runtime: parses `process.env` with Zod and crashes loud, naming the
+ *    offending keys.
+ */
 import { z } from 'zod'
 
-/**
- * imopush's env contract. Zod-validated at module load so missing keys
- * fail fast at boot, not on first request.
- *
- * Add new env vars here as imopush grows. Each goes through Tofu's
- * envFromTofu/envFromBWS in `infra/deploy/cmd/iedora/products.go`
- * (once imopush ships as a deployable).
- */
-const envSchema = z.object({
-  IMOPUSH_DATABASE_URL: z.string().url(),
+const serverSchema = z.object({
+  IMOPUSH_DATABASE_URL: z.url(),
 })
 
-export const env = envSchema.parse(process.env)
+type ServerEnv = z.infer<typeof serverSchema>
+
+const SKIP =
+  process.env.SKIP_ENV_VALIDATION === '1' ||
+  process.env.SKIP_ENV_VALIDATION === 'true'
+
+function parseEnv(): ServerEnv {
+  if (SKIP) {
+    return new Proxy({} as ServerEnv, {
+      get() {
+        return ''
+      },
+    })
+  }
+
+  const parsed = serverSchema.safeParse(process.env)
+  if (!parsed.success) {
+    console.error('Invalid imopush environment variables:')
+    for (const issue of parsed.error.issues) {
+      console.error(`  ${issue.path.join('.') || '(root)'}: ${issue.message}`)
+    }
+    throw new Error('imopush env validation failed')
+  }
+  return parsed.data
+}
+
+export const env: ServerEnv = parseEnv()

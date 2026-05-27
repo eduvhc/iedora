@@ -25,8 +25,8 @@ import {
   formatOperationPT,
   formatPrice,
   formatTypePT,
-  type Property,
-} from '@iedora/product-imopush/features/properties'
+} from '@iedora/product-imopush/features/properties/format'
+import type { Property } from '@iedora/product-imopush/features/properties/ports'
 import type {
   IntegratorKey,
   IntegratorStatus,
