@@ -35,7 +35,7 @@ export async function requireRestaurantAccess(
       })
       if (!row) {
         span.setAttribute('iedora.auth.outcome', 'forbidden')
-        redirect('/dashboard')
+        redirect('/menu/dashboard')
       }
       // Seed the ALS store for the rest of the request's async chain.
       // Every downstream span (auto-instrumented or manual) picks up

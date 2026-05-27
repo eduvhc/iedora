@@ -136,7 +136,7 @@ Each product that adds E2E needs:
 ```
 products/<product>/
 ├── playwright.config.ts        # webServer → ../../apps/web, testMatch globs, testIdAttribute
-├── .env.test                   # DATABASE_URL, CORE_DATABASE_URL, S3_* (if needed)
+├── .env.test                   # MENU_DATABASE_URL, CORE_DATABASE_URL, S3_* (if needed)
 ├── tests/e2e/
 │   ├── global-setup.ts         # Truncate the test DB before the suite
 │   ├── global-teardown.ts      # Close the DB pool
@@ -169,13 +169,15 @@ The `.env.test` file must provide every env var `apps/web` needs to build. Since
 
 ```env
 NODE_ENV=production
-DATABASE_URL=postgresql://postgres:Password1!@localhost:5432/<db_name>
+MENU_DATABASE_URL=postgresql://postgres:Password1!@localhost:5432/<db_name>
 CORE_DATABASE_URL=postgresql://postgres:Password1!@localhost:5432/core_test
-IEDORA_CORE_SECRET=test-iedora-auth-secret-do-not-use-in-prod-32chars
-IEDORA_CORE_BASE_URL=http://localhost:3000
-IEDORA_CORE_TRUSTED_ORIGINS=http://localhost:3000
-IEDORA_CORE_COOKIE_DOMAIN=localhost
+CORE_SECRET=test-iedora-auth-secret-do-not-use-in-prod-32chars
+CORE_BASE_URL=http://localhost:3000
+CORE_TRUSTED_ORIGINS=http://localhost:3000
+CORE_COOKIE_DOMAIN=localhost
 NEXT_PUBLIC_CORE_URL=http://localhost:3000/core
+NEXT_PUBLIC_MENU_URL=http://localhost:3000/menu
+NEXT_PUBLIC_IMOPUSH_URL=http://localhost:3000/imopush
 DISABLE_RATE_LIMIT=true
 # Only if needs_s3mock — kept here so the build doesn't fail on missing env
 S3_ENDPOINT=http://localhost:9090
@@ -185,7 +187,7 @@ S3_SECRET_KEY=test
 S3_BUCKET=menu-test
 ```
 
-Both menu and core use the same env template. The only difference is `DATABASE_URL` and `POSTGRES_DB` in the CI service — menu points at `menu_test`, core at `core_test`.
+Both menu and core use the same env template. The only difference is `MENU_DATABASE_URL` and `POSTGRES_DB` in the CI service — menu points at `menu_test`, core at `core_test`.
 
 ### CI workflow job
 
@@ -268,7 +270,7 @@ CI invocation: `bun run test:e2e -- --grep-invert "@flaky" --shard=N/M`
 - **`needs_s3mock: false`** — core doesn't use S3.
 - **`POSTGRES_DB: core_test`** — created by the service container.
 - **Specs location:** `src/features/admin-*/e2e/*.spec.ts` (admin slices: users, orgs, sessions). Auth flow (sign-in/sign-up) lives at `apps/web/src/app/core/` — specs that test it go in a journey or in the owning product's E2E tree.
-- **`.env.test` note:** Must include `DATABASE_URL` (pointing at `core_test`) and `S3_*` vars — even though core doesn't use them. The `apps/web` build needs all env vars to be present because it compiles every route (menu + core + house).
+- **`.env.test` note:** Must include `MENU_DATABASE_URL` (pointing at `core_test` for the core suite) and `S3_*` vars — even though core doesn't use them. The `apps/web` build needs all env vars to be present because it compiles every route (menu + core + house + imopush).
 - **Workflow:** `.github/workflows/product-core.yml`.
 - **`package.json`** only needs `test:e2e` scripts — no `db:migrate:test` needed.
 - **Fixtures:** `signIn` uses `auth.api.signUpEmail()` (server-side, no UI navigation needed) to create test users programmatically. `signedInPage` returns a page with an active `iedora-admin` session for admin slice specs.
@@ -277,7 +279,7 @@ CI invocation: `bun run test:e2e -- --grep-invert "@flaky" --shard=N/M`
 
 1. Copy the file layout from § Per-product checklist, using the product-specific notes above as a reference for which inputs to set.
 2. Create `playwright.config.ts` — point `webServer` at `../../apps/web/`, wire `testIdAttribute: 'data-test-id'`, set `testMatch` for the product's spec directories. Start from menu's `playwright.config.ts` and adjust.
-3. Create `.env.test` — use the superset template from § `.env.test`. Set `DATABASE_URL` and `POSTGRES_DB` to the product's test DB name.
+3. Create `.env.test` — use the superset template from § `.env.test`. Set `MENU_DATABASE_URL` and `POSTGRES_DB` to the product's test DB name.
 4. Add `test:e2e`, `test:e2e:ui`, `test:e2e:debug` scripts to `package.json`. Add `db:migrate:test` ONLY if the product owns Drizzle migrations.
 5. Write `tests/e2e/global-setup.ts` — truncate the product's schema. Copy from menu, change the `SCHEMA` constant in `e2e-db.ts`.
 6. Write `tests/e2e/global-teardown.ts` — close the DB pool. Copy from menu, no changes needed.

@@ -1,3 +1,3 @@
 export const planRoutes = {
-  billing: '/dashboard/billing',
+  billing: '/menu/dashboard/billing',
 } as const

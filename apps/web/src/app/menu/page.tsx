@@ -6,8 +6,8 @@ export default async function Home() {
   const session = await getSession()
   if (session) {
     const organizationId = await getEffectiveOrganizationId()
-    if (!organizationId) redirect('/onboarding')
-    redirect('/dashboard')
+    if (!organizationId) redirect('/menu/onboarding')
+    redirect('/menu/dashboard')
   }
   return <LandingPage />
 }

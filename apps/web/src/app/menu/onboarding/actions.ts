@@ -63,7 +63,7 @@ export async function completeOnboarding(
   const { restaurantName } = parsed.data
 
   const session = await getSession()
-  if (!session?.user) redirect(signInUrl(publicUrl('/onboarding').toString()))
+  if (!session?.user) redirect(signInUrl(publicUrl('/menu/onboarding').toString()))
 
   const decision = await enforceRateLimit('onboarding', `user:${session.user.id}`)
   if (!decision.ok) {
@@ -105,8 +105,8 @@ async function addRestaurantToOrg(
     return { error: 'Could not create restaurant. Please try again.' }
   }
 
-  revalidatePath('/dashboard')
-  redirect(`/onboarding/menu/${slug}`)
+  revalidatePath('/menu/dashboard')
+  redirect(`/menu/onboarding/menu/${slug}`)
 }
 
 async function createOrgAndFirstRestaurant(
@@ -154,6 +154,6 @@ async function createOrgAndFirstRestaurant(
     return { error: 'Could not create restaurant. Please try again.' }
   }
 
-  revalidatePath('/dashboard')
-  redirect(`/onboarding/menu/${slug}`)
+  revalidatePath('/menu/dashboard')
+  redirect(`/menu/onboarding/menu/${slug}`)
 }

@@ -1,4 +1,4 @@
 export const qrCodesRoutes = {
-  admin: '/dashboard/admin/qr-codes',
-  public: (code: string) => `/q/${code}`,
+  admin: '/menu/dashboard/admin/qr-codes',
+  public: (code: string) => `/menu/q/${code}`,
 } as const

@@ -38,7 +38,7 @@ export function publicUrl(
 ): URL {
   if (/^[a-z][a-z0-9+\-.]*:\/\//i.test(path) || path.startsWith('//')) {
     throw new Error(
-      `publicUrl: absolute path rejected — pass a path like "/r/<slug>". Hit: ${path}`,
+      `publicUrl: absolute path rejected — pass a path like "/menu/r/<slug>". Hit: ${path}`,
     )
   }
   const url = new URL(

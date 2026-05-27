@@ -99,3 +99,7 @@ next-env.d.ts
 # Playwright testkit handoff
 products/menu/tests/e2e/.testkit.json
 dist/
+
+# dev-stack sentinel: source fingerprint used to skip web image
+# rebuilds when nothing changed (bin/dev-stack::web_needs_rebuild).
+dev/.web-build-hash

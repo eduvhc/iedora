@@ -35,7 +35,7 @@ export function MenuOnboardingPage({
   const router = useRouter()
 
   function goToDashboard() {
-    router.push('/dashboard')
+    router.push('/menu/dashboard')
     router.refresh()
   }
 

@@ -323,7 +323,7 @@ container. Same image, same docker network, same pull dance as
 #### `menu-db-migrations` → [`infra/app-state/menu-db-migrations`](../infra/app-state/menu-db-migrations/) (in-process)
 
 drizzle-kit migrate against the `menu` postgres database. SSHes to the box,
-runs `docker run --rm --network iedora -e DATABASE_URL=...
+runs `docker run --rm --network iedora -e MENU_DATABASE_URL=...
 ghcr.io/<owner>/web:<IMAGE_SHA> node scripts/migrate.mjs`.
 
 The migrate script holds `pg_advisory_lock(727072073)` for
@@ -386,8 +386,10 @@ For Docker-runtime products that run on the shared Hetzner VPS.
    `CORE_SECRET` better-auth signs session tokens with).
 2. Resolve box IPv4 from `tofu output -raw hetzner_ipv4`.
 3. Compose env from `envStatic` + `envFromBWS` (Stage 3 outputs +
-   AUTOGEN secrets) + `envFromTofu` (DATABASE_URL, OTEL endpoint, S3
-   creds, etc. — composed values from Tofu state).
+   AUTOGEN secrets) + `envFromTofu` (MENU_DATABASE_URL,
+   CORE_DATABASE_URL, OTEL endpoint, S3 creds — composed values from
+   Tofu state) + `envFromTofuJSON: ["surface_envs"]` (the surface map
+   expanded into NEXT_PUBLIC_*_URL, CORE_BASE_URL, CORE_TRUSTED_ORIGINS).
 4. SSH to box, `docker login ghcr.io`, `docker pull <image>:<sha>`.
 5. `docker run -d --name infra-web-next --network-alias
    infra-web-next ...` — start the incoming container alongside

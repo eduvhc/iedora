@@ -18,10 +18,11 @@ Auth SDK contract: [`../../packages/auth/README.md`](../../packages/auth/README.
 
 - `apps/web/src/app/core/page.tsx` — /core landing (redirects based on session)
 - `apps/web/src/app/core/layout.tsx` — shared core chrome
-- `apps/web/src/app/core/sign-in/{page,form}.tsx`
-- `apps/web/src/app/core/sign-up/{page,form}.tsx`
-- `apps/web/src/app/core/sign-out/{page,action}.tsx`
-- `apps/web/src/app/core/admin/page.tsx` + `admin/sessions/...`
+- `apps/web/src/app/core/(auth)/layout.tsx` — centered auth-flow chrome
+- `apps/web/src/app/core/(auth)/sign-in/{page,sign-in-form}.tsx`
+- `apps/web/src/app/core/(auth)/sign-up/{page,sign-up-form}.tsx`
+- `apps/web/src/app/core/(auth)/sign-out/{page,sign-out-action}.tsx`
+- `apps/web/src/app/core/admin/{page,layout}.tsx` + `admin/{access,audit,organizations,sessions,users}/...`
 
 ## Hard rules
 

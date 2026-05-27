@@ -36,7 +36,7 @@ describe('DashboardPage', () => {
         title="QR Code"
         data-test-id="qr"
         crumbs={[
-          { label: 'Tasca do Avô', href: '/dashboard/r/tasca', testId: 'restaurant' },
+          { label: 'Tasca do Avô', href: '/menu/dashboard/r/tasca', testId: 'restaurant' },
         ]}
       >
         <div />
@@ -45,7 +45,7 @@ describe('DashboardPage', () => {
     expect(html).toContain('aria-label="Breadcrumb"')
     expect(html).toContain('data-test-id="qr-breadcrumbs"')
     expect(html).toContain('data-test-id="qr-breadcrumb-restaurant"')
-    expect(html).toContain('href="/dashboard/r/tasca"')
+    expect(html).toContain('href="/menu/dashboard/r/tasca"')
     expect(html).toContain('>Tasca do Avô</a>')
     expect(html).toContain('data-test-id="qr-breadcrumb-current"')
     expect(html).toContain('>QR Code</h1>')

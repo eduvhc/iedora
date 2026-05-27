@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PRODUCTS } from '@iedora/brand'
 import { publicUrl } from '@iedora/product-menu/shared/url'
 import { signInUrl } from '@iedora/product-core/url'
 import { surfaces, surfaceByHost } from './generated/surfaces'
 
-const protectedPrefixes = ['/dashboard', '/onboarding']
+const protectedPrefixes = ['/menu/dashboard', '/menu/onboarding']
 
 /**
  * better-auth's session cookie name. Used here only as an OPTIMISTIC
@@ -24,9 +23,9 @@ const SESSION_COOKIE = 'better-auth.session_token'
  *
  *   2. **Cross-host guard** for namespace paths. Direct visits to
  *      another surface's namespace (`menu.iedora.com/house*`,
- *      `menu.iedora.com/core/*`) 404 — except `localhost` keeps the
- *      `/core/*` path-based fallback for plain local dev without
- *      `*.localhost` gymnastics.
+ *      `menu.iedora.com/core/*`) 404 — except `localhost` where every
+ *      surface keeps its path-based fallback for plain local dev
+ *      without `*.localhost` gymnastics.
  *
  *   3. **Optimistic auth gate** for menu's protected prefixes. Real
  *      auth runs in the DAL via `verifySession()`.
@@ -47,13 +46,13 @@ export default function proxy(req: NextRequest) {
 
   // 2. Cross-host guard — visiting another surface's namespace from
   //    a host that doesn't own it. `localhost` (the dev catch-all)
-  //    keeps the path-based fallback so /core/* works without
-  //    `*.localhost` /etc/hosts gymnastics.
+  //    keeps the path-based fallback so every surface's /<name>/*
+  //    works without `*.localhost` /etc/hosts gymnastics.
   for (const s of surfaces) {
     if (!s.rewritePath) continue
     if (here && here.name === s.name) continue
     if (path !== s.rewritePath && !path.startsWith(`${s.rewritePath}/`)) continue
-    if (s.name === PRODUCTS.core && host === 'localhost') continue
+    if (host === 'localhost') continue
     return new NextResponse('Not Found', { status: 404 })
   }
 
@@ -73,5 +72,8 @@ export default function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|.*\\.png$).*)'],
+  // `up` is excluded alongside `api` — both serve every host without
+  // rewrite (infra plumbing: better-auth catch-all + container
+  // healthcheck). Routes for them live at apps/web/src/app/{api,up}/.
+  matcher: ['/((?!api|up|_next/static|_next/image|.*\\.png$).*)'],
 }

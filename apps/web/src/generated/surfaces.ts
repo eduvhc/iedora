@@ -20,7 +20,7 @@ export const surfaces: ReadonlyArray<Surface> = [
   {
     name: PRODUCTS.menu,
     hosts: [`menu.${BRAND_DOMAIN}`, "menu.localhost"],
-    rewritePath: "",
+    rewritePath: "/menu",
   },
   {
     name: PRODUCTS.core,

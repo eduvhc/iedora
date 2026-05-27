@@ -1,3 +1,3 @@
 export const metricsRoutes = {
-  analytics: '/dashboard/analytics',
+  analytics: '/menu/dashboard/analytics',
 } as const

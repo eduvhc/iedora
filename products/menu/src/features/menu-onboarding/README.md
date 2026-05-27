@@ -7,16 +7,16 @@ composition with a clear "Skip — add manually" escape hatch.
 ## Public surface
 
 - `MenuOnboardingPage` — client composition. Hosts `<MenuImportWizard>`
-  for the AI flow and an `<a href="/dashboard">` skip control. Owns the
+  for the AI flow and an `<a href="/menu/dashboard">` skip control. Owns the
   page-level eyebrow + heading + subtitle; no chrome (no sidebar — the
   onboarding flow lives outside the dashboard shell).
 
 ## Composition
 
 ```
-/onboarding              (existing)     name → submit → /onboarding/menu/<slug>
-/onboarding/menu/<slug>  (new route)    AI photo upload → preview → /dashboard
-                                        OR skip → /dashboard
+/menu/onboarding              (existing)     name → submit → /menu/onboarding/menu/<slug>
+/menu/onboarding/menu/<slug>  (new route)    AI photo upload → preview → /menu/dashboard
+                                        OR skip → /menu/dashboard
 ```
 
 The route file in `src/app/onboarding/menu/[slug]/page.tsx` is the

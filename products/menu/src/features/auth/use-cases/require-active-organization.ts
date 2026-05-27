@@ -14,6 +14,6 @@ import { verifySession } from './verify-session'
 export async function requireActiveOrganization(auth: AuthGateway) {
   const session = await verifySession(auth)
   const organizationId = session.session.activeOrganizationId
-  if (!organizationId) redirect('/onboarding')
+  if (!organizationId) redirect('/menu/onboarding')
   return { session, organizationId }
 }

@@ -360,7 +360,7 @@ function LandingNav({ c, lang, setLang }: { c: Copy; lang: LangCode; setLang: (l
           {c.nav.signin}
         </Link>
         <Link
-          href={SIGN_IN_HREF}
+          href={SIGN_UP_HREF}
           className="nav-cta"
           data-test-id="landing-cta"
         >
@@ -547,7 +547,7 @@ function Hero({
             <div className="hero-ctas">
               <Link
                 className="btn btn-primary"
-                href={SIGN_IN_HREF}
+                href={SIGN_UP_HREF}
                 data-test-id="landing-hero-cta"
               >
                 {c.hero.ctaPrimary}
@@ -589,7 +589,7 @@ function Pricing({ c }: { c: Copy }) {
               {c.pricing.free.feats.map((f, i) => <li key={i}>{f}</li>)}
             </ul>
             <div className="menu-card-foot">
-              <Link className="btn btn-ghost" href={SIGN_IN_HREF} data-test-id="landing-pricing-free-cta">
+              <Link className="btn btn-ghost" href={SIGN_UP_HREF} data-test-id="landing-pricing-free-cta">
                 {c.pricing.free.cta}
               </Link>
             </div>
@@ -611,7 +611,7 @@ function Pricing({ c }: { c: Copy }) {
               {c.pricing.pro.feats.map((f, i) => <li key={i}>{f}</li>)}
             </ul>
             <div className="menu-card-foot">
-              <Link className="btn btn-primary" href={SIGN_IN_HREF} data-test-id="landing-pricing-pro-cta">
+              <Link className="btn btn-primary" href={SIGN_UP_HREF} data-test-id="landing-pricing-pro-cta">
                 {c.pricing.pro.cta}
               </Link>
             </div>
@@ -633,7 +633,7 @@ function Closing({ c }: { c: Copy }) {
           <span className="eyebrow">{c.closing.eyebrow}</span>
           <h2>{c.closing.h}</h2>
           <div className="hero-ctas" style={{ justifyContent: "center" }}>
-            <Link className="btn btn-primary" href={SIGN_IN_HREF} data-test-id="landing-closing-cta">
+            <Link className="btn btn-primary" href={SIGN_UP_HREF} data-test-id="landing-closing-cta">
               {c.closing.ctaPrimary}
             </Link>
           </div>

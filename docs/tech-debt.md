@@ -338,12 +338,14 @@ product task, not architecture; tracked as code, not on a backlog.
   empty directory (git can't track dirs natively). Standard, not a hack.
 - **`*.tsbuildinfo` in `.gitignore`** — tsc incremental output;
   excluding from source control is correct.
-- **`menu_database_url` / `menu_public_url` in Tofu outputs** —
-  describe the resource (postgres DB named `menu`, URL
-  `menu.iedora.com`), not the consumer. Renaming would be wrong.
-- **Per-product `MENU_PUBLIC_URL` env var in web container** — the
-  menu-subdomain URL is genuinely menu-specific even though it's
-  read by the unified `web` container.
+- **`menu_database_url` / `core_database_url` in Tofu outputs** —
+  describe the resource (postgres DB named `menu` / `core`), not the
+  consumer. Renaming would be wrong.
+- **Per-surface `NEXT_PUBLIC_<X>_URL` env vars** — each surface's
+  public URL is genuinely surface-specific even though they're all
+  read by the unified `web` container. Derived from `var.surfaces`
+  in Tofu (`surface_envs` map output) and from `surfaces` in Go
+  (`infra/deploy/cmd/iedora/topology.go`).
 - **`products/menu/tsconfig.tests.json` non-composite** — tests +
   configs include files outside `src/` (drizzle.config, vitest.config,
   instrumentation.ts) that composite mode would refuse. Non-composite

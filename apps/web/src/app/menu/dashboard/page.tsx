@@ -87,7 +87,7 @@ export default async function DashboardPage() {
         <>
           {' '}
           <Link
-            href="/dashboard/billing"
+            href="/menu/dashboard/billing"
             data-test-id="dashboard-views-upgrade-nudge"
             className="font-medium text-[var(--ink)] underline-offset-4 hover:underline"
           >
@@ -100,7 +100,7 @@ export default async function DashboardPage() {
 
   const actions = gate.ok ? (
     <Link
-      href="/onboarding"
+      href="/menu/onboarding"
       data-test-id="dashboard-new-restaurant"
       className="inline-flex items-center border border-[var(--ink)] bg-[var(--ink)] px-3.5 py-2 text-[13px] font-medium text-[var(--paper)] no-underline transition-colors hover:bg-[var(--paper)] hover:text-[var(--ink)]"
     >
@@ -108,7 +108,7 @@ export default async function DashboardPage() {
     </Link>
   ) : (
     <Link
-      href="/dashboard/billing"
+      href="/menu/dashboard/billing"
       data-test-id="dashboard-upgrade-cta"
       className="inline-flex items-center border border-[var(--ink)] px-3.5 py-2 text-[13px] font-medium text-[var(--ink)] no-underline transition-colors hover:bg-[var(--ink)] hover:text-[var(--paper)]"
     >

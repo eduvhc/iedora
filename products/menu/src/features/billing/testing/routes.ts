@@ -1,3 +1,3 @@
 export const billingRoutes = {
-  index: '/dashboard/billing',
+  index: '/menu/dashboard/billing',
 } as const

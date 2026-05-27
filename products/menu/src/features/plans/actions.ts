@@ -17,7 +17,7 @@ export async function setOrganizationPlan(target: PlanCode) {
   if ('error' in result) {
     return { error: 'Unknown plan' as const }
   }
-  revalidatePath('/dashboard')
-  revalidatePath('/dashboard/billing')
+  revalidatePath('/menu/dashboard')
+  revalidatePath('/menu/dashboard/billing')
   return { ok: true as const, plan: result.plan }
 }

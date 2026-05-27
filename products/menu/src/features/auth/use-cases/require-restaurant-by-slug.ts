@@ -29,7 +29,7 @@ export async function requireRestaurantBySlug(
         })
         if (!row) {
           span.setAttribute('iedora.auth.outcome', 'forbidden')
-          redirect('/dashboard')
+          redirect('/menu/dashboard')
         }
         tenantContext.enterWith({
           restaurantId: row.id,

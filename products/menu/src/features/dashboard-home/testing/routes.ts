@@ -1,3 +1,3 @@
 export const dashboardRoutes = {
-  home: '/dashboard',
+  home: '/menu/dashboard',
 } as const

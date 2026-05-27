@@ -29,7 +29,7 @@ deps_of() {
     postgres)    ;;
     s3mock)      ;;
     openobserve) printf '%s' "s3mock" ;;
-    menu)        printf '%s' "postgres s3mock openobserve" ;;
+    web)         printf '%s' "postgres s3mock openobserve" ;;
     *)           return 1 ;;
   esac
 }
@@ -38,7 +38,7 @@ deps_of() {
 # Returns 0 if name is a recognised service.
 service_known() {
   case "$1" in
-    postgres|s3mock|openobserve|menu) return 0 ;;
+    postgres|s3mock|openobserve|web) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -138,7 +138,7 @@ resolve_profiles() {
   elif [[ -n "${except}" ]]; then
     local old_ifs="${IFS}"; IFS=',' read -ra skip <<< "${except}"; IFS="${old_ifs}"
     local s x keep
-    for s in postgres s3mock openobserve menu; do
+    for s in postgres s3mock openobserve web; do
       keep=1
       for x in "${skip[@]}"; do
         [[ "$(printf '%s' "${x}" | trim)" == "${s}" ]] && keep=0
@@ -146,7 +146,7 @@ resolve_profiles() {
       if (( keep )); then PROFILE_NAMES+=("${s}"); fi
     done
   else
-    PROFILE_NAMES=(postgres s3mock openobserve menu)
+    PROFILE_NAMES=(postgres s3mock openobserve web)
   fi
 }
 
@@ -157,6 +157,69 @@ compose_up() {
   local args=()
   for p in "${profiles[@]}"; do args+=(--profile "${p}"); done
   docker compose "${args[@]}" -f "${COMPOSE_FILE}" up -d --wait
+}
+
+# compose_up_build — `compose up --build` for the given profiles.
+# Forces BuildKit to (re)build any service with a `build:` block
+# (today only `web`). Use this when source changed; for the no-op path
+# prefer plain compose_up so the running container isn't recreated.
+#
+# apps/web/.env is in the build context (the global `**/.env*`
+# exclusion in .dockerignore is overridden by a targeted
+# `!apps/web/.env` line) so Next inlines its NEXT_PUBLIC_* values
+# into the client bundle automatically — no build args, no shell
+# sourcing needed here.
+compose_up_build() {
+  local profiles=("$@")
+  local args=()
+  for p in "${profiles[@]}"; do args+=(--profile "${p}"); done
+  docker compose "${args[@]}" -f "${COMPOSE_FILE}" up -d --wait --build
+}
+
+# ── web source fingerprint ─────────────────────────────────────────────
+# Idempotency lever for step 4. `docker compose up --build` always
+# recreates the container (BuildKit re-emits the image manifest even
+# when every layer is a cache hit), so calling it unconditionally turns
+# a no-op run into a ~9s recreate cycle. Instead, fingerprint the inputs
+# that actually flow into the web image (tracked + untracked-not-ignored
+# files under apps/web, packages, products, plus bun.lock) and only
+# rebuild when the fingerprint changes; otherwise plain compose up is a
+# true no-op against an already-healthy container.
+#
+# Sentinel lives under dev/ (gitignored). Hash uses git ls-files so the
+# file set matches what the Docker build context will see (.dockerignore
+# and .gitignore intersect closely enough for dev purposes; missing the
+# odd untracked file means at worst one extra rebuild).
+WEB_HASH_FILE="${REPO_ROOT}/dev/.web-build-hash"
+
+web_sources_hash() {
+  (
+    cd "${REPO_ROOT}"
+    git ls-files apps/web packages products bun.lock
+    git ls-files --others --exclude-standard apps/web packages products
+  ) \
+    | grep -v -E '(^|/)\.env(\..*)?$' \
+    | LC_ALL=C sort -u \
+    | xargs -I{} shasum -a 256 "{}" | shasum -a 256 | awk '{print $1}'
+}
+
+# web_needs_rebuild — 0 (true) if the fingerprint differs from the
+# stored sentinel, 1 (false) otherwise. Always rebuild if the image
+# doesn't exist yet.
+web_needs_rebuild() {
+  if ! docker image inspect iedora-web:local >/dev/null 2>&1; then
+    return 0
+  fi
+  [[ ! -f "${WEB_HASH_FILE}" ]] && return 0
+  local now stored
+  now="$(web_sources_hash)"
+  stored="$(cat "${WEB_HASH_FILE}")"
+  [[ "${now}" != "${stored}" ]]
+}
+
+web_record_hash() {
+  mkdir -p "$(dirname "${WEB_HASH_FILE}")"
+  web_sources_hash > "${WEB_HASH_FILE}"
 }
 
 # ── compose .env ───────────────────────────────────────────────────────
@@ -176,10 +239,10 @@ compose_env_file() {
 
 print_done() {
   printf '\n[dev] ✓ local stack ready\n'
-  if has_profile menu; then
-    printf '  → menu     http://localhost:3000\n'
+  if has_profile web; then
+    printf '  → web      http://localhost:3000\n'
   else
-    printf '  → menu     not in selection (HMR path: cd apps/web && bun run dev)\n'
+    printf '  → web      not in selection (HMR path: cd apps/web && bun run dev)\n'
   fi
   has_profile openobserve \
     && printf '  → o2       http://localhost:5080  (dev@iedora.local / Password1!)\n'
@@ -223,10 +286,10 @@ main() {
   resolve_profiles "${ONLY:-}" "${EXCEPT:-}"
   printf '[dev] selection: %s\n' "${PROFILE_NAMES[*]}"
 
-  # infra = everything except menu
+  # infra = everything except web
   local infra=() p
   for p in "${PROFILE_NAMES[@]}"; do
-    [[ "${p}" != "menu" ]] && infra+=("${p}")
+    [[ "${p}" != "web" ]] && infra+=("${p}")
   done
 
   step 1 "docker compose up — infra services"
@@ -241,13 +304,19 @@ main() {
   step 3 "compose apps/web/.env"
   compose_env_file
 
-  if has_profile menu; then
-    step 4 "docker compose up — menu"
+  if has_profile web; then
     # All profiles in scope so the `depends_on: postgres` chain
     # resolves (compose errors when a depended-on service is filtered
     # out of the active profile selection, even if it's already
     # running). Infra services are idempotent — no-op since step 1.
-    compose_up "${PROFILE_NAMES[@]}"
+    if web_needs_rebuild; then
+      step 4 "docker compose up — web (source changed, rebuilding)"
+      compose_up_build "${PROFILE_NAMES[@]}"
+      web_record_hash
+    else
+      step 4 "docker compose up — web (source unchanged, skip build)"
+      compose_up "${PROFILE_NAMES[@]}"
+    fi
   fi
 
   print_done

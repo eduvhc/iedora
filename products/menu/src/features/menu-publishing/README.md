@@ -19,7 +19,7 @@ Renders the public menu page and feeds the same data to the admin view.
 ## Cache strategy
 
 `unstable_cache` + per-slug tag. Mutations always call `revalidateRestaurant(slug)`
-which uses `updateTag` for read-your-writes. **Never** `revalidatePath('/r/${slug}')`
+which uses `updateTag` for read-your-writes. **Never** `revalidatePath('/menu/r/${slug}')`
 from a mutation — AGENTS.md hard rule #12.
 
 ## Notes

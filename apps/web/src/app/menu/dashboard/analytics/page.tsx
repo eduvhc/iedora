@@ -23,7 +23,7 @@ export default async function AnalyticsPage({
 
   // Free plans hit billing — analytics is the headline upgrade hook for Casa,
   // so funneling there is the right next step rather than a half-empty page.
-  if (!planHas(plan, 'analytics')) redirect('/dashboard/billing')
+  if (!planHas(plan, 'analytics')) redirect('/menu/dashboard/billing')
 
   const sp = await searchParams
   const t = await getTranslations('Analytics')

@@ -18,11 +18,10 @@ import {
  * Items are either links or section labels. Mix freely:
  *
  *   const items = [
- *     { href: '/dashboard', label: 'Home', matchPrefix: false },
- *     { href: '/dashboard/billing', label: 'Billing' },
+ *     { href: '/menu/dashboard', label: 'Home', matchPrefix: false },
+ *     { href: '/menu/dashboard/billing', label: 'Billing' },
  *     { kind: 'section', label: 'Admin' },
- *     { href: '/dashboard/admin/qr-codes', label: 'QR Codes' },
- *     { href: '/dashboard/admin/sessions', label: 'Sessions' },
+ *     { href: '/menu/dashboard/admin/qr-codes', label: 'QR Codes' },
  *   ]
  *
  * Active matching for links:

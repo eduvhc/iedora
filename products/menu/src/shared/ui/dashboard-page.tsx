@@ -31,7 +31,7 @@ import {
  *
  *     <DashboardPage
  *       title="Sessions (admin)"
- *       crumbs={[{ label: 'Admin', href: '/dashboard/admin/qr-codes' }]}
+ *       crumbs={[{ label: 'Admin', href: '/menu/dashboard/admin/qr-codes' }]}
  *       data-test-id="sessions-admin"
  *     >
  *     ↓  ADMIN / *Sessions (admin)*       [actions]

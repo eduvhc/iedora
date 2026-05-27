@@ -22,7 +22,7 @@ admin can bind any code to any restaurant across orgs.
 
 ## Server actions (`./actions.ts`)
 
-All wrapped in `requireIedoraAdmin` + `revalidatePath('/dashboard/admin/qr-codes')`:
+All wrapped in `requireIedoraAdmin` + `revalidatePath('/menu/dashboard/admin/qr-codes')`:
 
 - `createCodeAction({ code?, restaurantId?, label? })` — admin-supplied
   custom code OR auto-generated if `code` omitted. Optional bind on create.

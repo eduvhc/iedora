@@ -119,7 +119,7 @@ LLMs produce HCL that parses far more often than HCL that applies. Apply these t
 3. **Every input variable has a `validation` block.** Cheapest pre-`apply` gate. Pair with `nullable = false` when required.
 4. **`locals` blocks are short, self-documenting, named as nouns.** `local.tunnel_cname` is unambiguous; `local.tmp` is not.
 5. **Every sensitive output gets `sensitive = true`.** Prevents accidental log leaks.
-6. **Resource naming.** `<provider>_<noun>.<role>_<qualifier>`. Examples: `cloudflare_dns_record.menu_iedora`, `cloudflare_r2_bucket.assets`.
+6. **Resource naming.** `<provider>_<noun>.<role>_<qualifier>`. Examples: `cloudflare_dns_record.iedora_ingress` (for_each-driven from `var.surfaces`), `cloudflare_r2_bucket.assets`.
 
 ### Removing resources without destroying them
 

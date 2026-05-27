@@ -15,8 +15,7 @@
     "account": "Account",
     "misc": "Misc",
     "admin": "Admin",
-    "qrCodes": "QR Codes",
-    "sessions": "Sessions"
+    "qrCodes": "QR Codes"
   },
   "Auth": {
     "signupEyebrow": "at the table",

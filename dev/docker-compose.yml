@@ -109,23 +109,23 @@ services:
       driver: json-file
       options: { max-size: 10m }
 
-  # ── menu (Next.js, built locally) ────────────────────────────────────
+  # ── web (Next.js, built locally) ─────────────────────────────────────
   # Env comes from `apps/web/.env` + optional `.env.local`. The
   # dev orchestrator runs the @iedora/auth migrations against the `core`
   # DB after postgres is healthy, then starts this container.
-  menu:
-    image: iedora-menu:local
+  web:
+    image: iedora-web:local
     build:
       context: ..
       dockerfile: apps/web/Dockerfile
-    container_name: infra-menu
-    profiles: [menu]
+    container_name: infra-web
+    profiles: [web]
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       iedora:
-        aliases: [menu, infra-menu]
+        aliases: [web, infra-web]
     env_file:
       - path: ../apps/web/.env
         required: false

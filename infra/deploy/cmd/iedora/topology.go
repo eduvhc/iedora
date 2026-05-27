@@ -6,12 +6,6 @@ package main
 // global derivation, not a property of a single surface.
 const trustedOriginsEnv = "CORE_TRUSTED_ORIGINS"
 
-// rootSurface — the name of the surface that owns the URL root in
-// the Next.js app (no rewrite applied). Today `menu` mounts at /
-// and every other surface lives under /<name>/*. Encoded here so
-// proxy.ts and the TS generator don't have to special-case it.
-const rootSurface = "menu"
-
 // surface is a logical product surface — a hostname-keyed fachada
 // served by the web container. Distinct from `product` (a deploy
 // artifact, see products.go): three surfaces (menu, core, house)
@@ -82,9 +76,9 @@ var surfaces = []surface{
 		subdomain: "",
 		serves:    "web",
 		// No localHostnames — in dev the apex landing has no
-		// dedicated host. `localhost:3000` belongs to the root
-		// surface (menu); the apex routes are reachable via the
-		// /house path-based fallback when needed.
+		// dedicated host. Reachable via the `localhost:3000/house`
+		// path-based fallback (every surface lives under /<name>
+		// on dev; none owns the URL root anymore).
 		trustedOrigin:  true,
 		localHostnames: nil,
 	},
@@ -194,12 +188,9 @@ func trustedOriginsLocal(port int) string {
 }
 
 // rewritePath returns the URL prefix proxy.ts rewrites this
-// surface's traffic under. "" means no rewrite (the root surface
-// owns the URL root directly).
+// surface's traffic under. Every surface lives under /<name> —
+// no surface owns the URL root.
 func (s surface) rewritePath() string {
-	if s.name == rootSurface {
-		return ""
-	}
 	return "/" + s.name
 }
 

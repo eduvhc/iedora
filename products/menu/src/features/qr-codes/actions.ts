@@ -23,7 +23,7 @@ import { updateLabel as runUpdateLabel } from './use-cases/update-label'
  * isn't cached — no public revalidation needed.
  */
 
-const ADMIN_PATH = '/dashboard/admin/qr-codes'
+const ADMIN_PATH = '/menu/dashboard/admin/qr-codes'
 
 type ActionResult<T = undefined> =
   | (T extends undefined ? { ok: true } : { ok: true; data: T })

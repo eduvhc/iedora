@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"os"
@@ -18,32 +17,39 @@ import (
 // The surface URL env-var NAMES (CORE_BASE_URL, NEXT_PUBLIC_MENU_URL,
 // CORE_TRUSTED_ORIGINS, etc.) come from topology.go::surfaces — same
 // source of truth the live runtime + tunnel.tf consume. The VALUES
-// today all collapse to http://localhost:3000 because Playwright +
-// the existing dev workflow assume that one origin; the *.localhost
-// host-based dispatch path is opt-in and lives behind a future PR
-// that also updates playwright.config.ts and proxy.ts's path-based
-// fallback.
+// today all collapse to http://localhost:3000 (+ a /<name> suffix on
+// the NEXT_PUBLIC_* entries) because Playwright + the existing dev
+// workflow assume that one origin; the *.localhost host-based
+// dispatch path is opt-in and lives behind a future PR that also
+// updates playwright.config.ts and proxy.ts's path-based fallback.
 //
 // Non-surface entries (database URLs, S3, OTel, CORE_SECRET, etc.)
 // stay hand-written here — they're infra plumbing, not topology.
 
 const (
 	devLocalBaseURL = "http://localhost:3000"
-	devCoreSecretLen = 48
+
+	// devCoreSecret — fixed 48-byte base64 value used as CORE_SECRET in
+	// local dev. Treating it as configuration (not random session
+	// state) keeps `apps/web/.env` byte-for-byte stable across runs,
+	// which keeps `docker compose up` a true no-op against an already-
+	// healthy `infra-web`. Not a real secret — it only signs cookies
+	// against a localhost-only better-auth instance with a dummy DB.
+	// Operators who want a unique secret can drop one into
+	// apps/web/.env.local; that value wins (see resolveCoreSecret).
+	devCoreSecret = "dev-only-CORE_SECRET-deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 )
 
-// writeDevEnv (re)generates apps/web/.env. Idempotent — safe to call
-// every dev-stack invocation. Reads CORE_SECRET from .env.local if
-// the operator has copied it there for session persistence (see
-// docs/dev.md § Environment files); otherwise mints a fresh one.
+// writeDevEnv (re)generates apps/web/.env. Idempotent and byte-stable
+// across runs — safe to call every dev-stack invocation without
+// triggering a `docker compose up` container recreate. CORE_SECRET
+// resolves via resolveCoreSecret (.env.local override → devCoreSecret
+// fallback); see that function and devCoreSecret for the rationale.
 //
 // envPath / envLocalPath are absolute. s3Port matches the host port
 // of dev/docker-compose.yml's s3mock service.
 func writeDevEnv(envPath, envLocalPath string, s3Port int) error {
-	coreSecret, err := readOrMintCoreSecret(envLocalPath)
-	if err != nil {
-		return fmt.Errorf("core_secret: %w", err)
-	}
+	coreSecret := resolveCoreSecret(envLocalPath)
 
 	s3Endpoint := fmt.Sprintf("http://infra-s3mock:%d", s3Port)
 	s3PublicURL := fmt.Sprintf("http://localhost:%d/iedora-assets", s3Port)
@@ -78,19 +84,36 @@ func writeDevEnv(envPath, envLocalPath string, s3Port int) error {
 	}
 
 	// Surface URL envs — names from topology, values are local.
-	// NEXT_PUBLIC_CORE_URL keeps a /core path suffix so the
-	// path-based fallback in apps/web/src/proxy.ts works while
-	// every surface still binds to localhost:3000.
-	for _, s := range surfaces {
-		if s.publicURLEnv != "" {
-			env[s.publicURLEnv] = devLocalBaseURL
-		}
-		if s.nextPublicEnv != "" {
-			env[s.nextPublicEnv] = devLocalBaseURL
-		}
+	//
+	// Default: a surface's URL is the bare origin + its rewrite prefix
+	// (`http://localhost:3000/menu`, `…/core`, `…/imopush`). This is
+	// the user-facing URL of the surface — the same shape as prod where
+	// each surface gets a subdomain (`menu.iedora.com`, etc.) but
+	// path-based in dev because everything binds to one origin.
+	//
+	// Exception: `CORE_BASE_URL` is better-auth's `baseURL` and points
+	// at the BARE ORIGIN, not at `/core`. Better-auth uses it to build
+	// callback URLs like `${baseURL}/api/auth/callback/...`; the
+	// `/api/auth/*` route is excluded from proxy.ts's rewrite matcher
+	// and lives at the top-level route tree, so prefixing baseURL with
+	// `/core` would point better-auth at `/core/api/auth/...` which
+	// doesn't exist.
+	urlEnvAtRootOrigin := map[string]bool{
+		"CORE_BASE_URL": true,
 	}
-	if _, ok := env["NEXT_PUBLIC_CORE_URL"]; ok {
-		env["NEXT_PUBLIC_CORE_URL"] = devLocalBaseURL + "/core"
+	for _, s := range surfaces {
+		set := func(name string) {
+			if name == "" {
+				return
+			}
+			if urlEnvAtRootOrigin[name] {
+				env[name] = devLocalBaseURL
+			} else {
+				env[name] = devLocalBaseURL + s.rewritePath()
+			}
+		}
+		set(s.publicURLEnv)
+		set(s.nextPublicEnv)
 	}
 	env[trustedOriginsEnv] = devLocalBaseURL
 
@@ -120,24 +143,23 @@ func writeEnvFile(path string, env map[string]string) error {
 	return os.WriteFile(path, []byte(b.String()), 0o644)
 }
 
-// readOrMintCoreSecret looks for a CORE_SECRET line in .env.local and
-// returns its value if present; otherwise mints a fresh 48-byte
-// base64 secret. .env.local is owned by the operator — we never
-// write to it.
-func readOrMintCoreSecret(envLocalPath string) (string, error) {
-	if data, err := os.ReadFile(envLocalPath); err == nil {
-		for _, line := range strings.Split(string(data), "\n") {
-			if v, ok := strings.CutPrefix(line, "CORE_SECRET="); ok {
-				v = strings.TrimSpace(v)
-				if v != "" {
-					return v, nil
-				}
-			}
+// resolveCoreSecret returns the operator override from .env.local if
+// present, otherwise the fixed devCoreSecret constant. No random
+// minting — see devCoreSecret's doc for why.
+func resolveCoreSecret(envLocalPath string) string {
+	data, err := os.ReadFile(envLocalPath)
+	if err != nil {
+		return devCoreSecret
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		v, ok := strings.CutPrefix(line, "CORE_SECRET=")
+		if !ok {
+			continue
+		}
+		v = strings.TrimSpace(v)
+		if v != "" {
+			return v
 		}
 	}
-	buf := make([]byte, devCoreSecretLen)
-	if _, err := rand.Read(buf); err != nil {
-		return "", err
-	}
-	return base64.StdEncoding.EncodeToString(buf), nil
+	return devCoreSecret
 }

@@ -4,7 +4,7 @@ import { updateTag } from 'next/cache'
 /**
  * The single chokepoint for invalidating any view that reads from the public
  * snapshot or the admin menus snapshot for a given restaurant. AGENTS.md hard
- * rule #12: never `revalidatePath('/r/${slug}')` from a mutation — the tag is
+ * rule #12: never `revalidatePath('/menu/r/${slug}')` from a mutation — the tag is
  * what matters.
  */
 

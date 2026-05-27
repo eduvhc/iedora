@@ -15,8 +15,7 @@
     "account": "Conta",
     "misc": "Outros",
     "admin": "Admin",
-    "qrCodes": "Códigos QR",
-    "sessions": "Sessões"
+    "qrCodes": "Códigos QR"
   },
   "Auth": {
     "signupEyebrow": "à mesa",

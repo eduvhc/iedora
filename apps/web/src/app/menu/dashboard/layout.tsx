@@ -46,13 +46,13 @@ export default async function DashboardLayout({
     ? await listRestaurantsWithCounts(organizationId)
     : []
   const showAnalyticsLink = plan ? planHas(plan, 'analytics') : false
-  // Both staff-only links — QR codes admin is cross-tenant
-  // (`requireScope` in `products/menu/src/features/qr-codes/`)
-  // and the sessions surface is the same. Anyone whose `user.role` is
-  // `iedora-admin` sees them.
+  // QR codes admin is cross-tenant (`requireScope` in
+  // `products/menu/src/features/qr-codes/`). Anyone whose `user.role`
+  // is `iedora-admin` sees it. Sessions / users admin live under the
+  // `core` surface — see products/core/src/url.ts and
+  // apps/web/src/app/core/admin/.
   const isStaffAdmin = session?.user.role === IEDORA_ADMIN_ROLE
   const showAdminLink = isStaffAdmin
-  const showSessionsLink = isStaffAdmin
 
   const t = await getTranslations('AppHeader')
   const nav = await getTranslations('DashboardNav')
@@ -69,31 +69,30 @@ export default async function DashboardLayout({
   //   ── Account ──                ← billing + AI usage live under here
   //   Billing / Misc
   //   ── Admin ──                  ← only for cross-tenant tools
-  //   QR Codes / Sessions
+  //   QR Codes                       (sessions / users live under core)
   //
   // No "Home" entry — the wordmark in the sidebar header already routes
   // to /dashboard and the dashboard's own role is now the org overview,
   // not a sibling of Restaurants. Restaurant links use prefix matching
   // so the current restaurant stays highlighted while the operator is
   // deep in its menus / theme / QR / billing pages.
-  const hasAdminGroup = showAdminLink || showSessionsLink
+  const hasAdminGroup = showAdminLink
   const hasRestaurants = restaurants.length > 0
   const candidates: ReadonlyArray<ActiveSidebarItem | false> = [
     hasRestaurants
       ? { kind: 'section', label: nav('restaurants'), testId: 'dashboard-nav-restaurants-section' }
-      : { href: '/dashboard', label: nav('restaurants'), testId: 'dashboard-nav-restaurants-empty', matchPrefix: false },
+      : { href: '/menu/dashboard', label: nav('restaurants'), testId: 'dashboard-nav-restaurants-empty', matchPrefix: false },
     ...restaurants.map((r) => ({
-      href: `/dashboard/r/${r.slug}`,
+      href: `/menu/dashboard/r/${r.slug}`,
       label: r.name,
       testId: `dashboard-nav-restaurant-${r.slug}`,
     })),
-    showAnalyticsLink && { href: '/dashboard/analytics', label: nav('analytics'), testId: 'dashboard-nav-analytics' },
+    showAnalyticsLink && { href: '/menu/dashboard/analytics', label: nav('analytics'), testId: 'dashboard-nav-analytics' },
     { kind: 'section', label: nav('account'), testId: 'dashboard-nav-account-section' },
-    { href: '/dashboard/billing', label: nav('billing'), testId: 'dashboard-nav-billing' },
-    { href: '/dashboard/misc', label: nav('misc'), testId: 'dashboard-nav-misc' },
+    { href: '/menu/dashboard/billing', label: nav('billing'), testId: 'dashboard-nav-billing' },
+    { href: '/menu/dashboard/misc', label: nav('misc'), testId: 'dashboard-nav-misc' },
     hasAdminGroup && { kind: 'section', label: nav('admin'), testId: 'dashboard-nav-admin-section' },
-    showAdminLink && { href: '/dashboard/admin/qr-codes', label: nav('qrCodes'), testId: 'dashboard-nav-admin' },
-    showSessionsLink && { href: '/dashboard/admin/sessions', label: nav('sessions'), testId: 'dashboard-nav-sessions' },
+    showAdminLink && { href: '/menu/dashboard/admin/qr-codes', label: nav('qrCodes'), testId: 'dashboard-nav-admin' },
   ]
   const navItems = candidates.filter((x): x is ActiveSidebarItem => Boolean(x))
 
@@ -115,7 +114,7 @@ export default async function DashboardLayout({
           />
           <SidebarBrand>
             <Link
-              href="/dashboard"
+              href="/menu/dashboard"
               className="brand"
               aria-label={t('brandHome')}
               data-test-id="dashboard-home-link"

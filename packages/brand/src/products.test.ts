@@ -59,11 +59,11 @@ describe('productUrl()', () => {
   })
 
   it('returns the env var when set', () => {
-    process.env.NEXT_PUBLIC_MENU_URL = 'http://localhost:3000'
+    process.env.NEXT_PUBLIC_MENU_URL = 'http://localhost:3000/menu'
     process.env.NEXT_PUBLIC_CORE_URL = 'http://localhost:3000/core'
     process.env.NEXT_PUBLIC_IMOPUSH_URL = 'http://localhost:3000/imopush'
 
-    expect(productUrl(PRODUCTS.menu)).toBe('http://localhost:3000')
+    expect(productUrl(PRODUCTS.menu)).toBe('http://localhost:3000/menu')
     expect(productUrl(PRODUCTS.core)).toBe('http://localhost:3000/core')
     expect(productUrl(PRODUCTS.imopush)).toBe(
       'http://localhost:3000/imopush',

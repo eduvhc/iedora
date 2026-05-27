@@ -8,7 +8,7 @@ import { OnboardingForm } from './onboarding-form'
 
 export default async function OnboardingPage() {
   const session = await getSession()
-  if (!session?.user) redirect(signInUrl(publicUrl('/onboarding').toString()))
+  if (!session?.user) redirect(signInUrl(publicUrl('/menu/onboarding').toString()))
 
   // No org-existence gate here: /onboarding doubles as the "add another
   // restaurant" form for existing users. The action (`completeOnboarding`)
@@ -27,7 +27,7 @@ export default async function OnboardingPage() {
           <span aria-hidden="true">·</span>
           <span>Menu · Onboarding</span>
         </div>
-        <Link href="/dashboard" className="no-underline">
+        <Link href="/menu/dashboard" className="no-underline">
           Dashboard
         </Link>
       </div>
