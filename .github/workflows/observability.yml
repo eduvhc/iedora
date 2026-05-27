@@ -69,4 +69,7 @@ jobs:
         with:
           fetch-depth: 0
       - uses: ./.github/actions/setup
-      - run: bun run test -- --changed=origin/main
+      - if: github.event_name == 'pull_request'
+        run: bun run test -- --changed=origin/main
+      - if: github.event_name != 'pull_request'
+        run: bun run test
