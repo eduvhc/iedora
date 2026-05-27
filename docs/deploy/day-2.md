@@ -30,7 +30,7 @@ ssh -L 5080:localhost:5080 root@$HOST   # then open http://localhost:5080
 |-------------|---------------|
 | `IAC_BOOTSTRAP_*` (HCLOUD, CF, GH, GHCR, etc.) | Regenerate at the source provider, then `bws secret edit <id>` with the new value. |
 | `IAC_*` (Tofu-minted) | `bin/iedora-env --stage iac -- tofu -chdir=infra/iac/tofu\1apply -replace=random_password.<name>`. The `terraform_data.bws_sync_autogen` write-through pushes the new value to BWS automatically. |
-| `DEPLOY_MENU_IEDORA_CORE_SECRET` | `bws secret delete <id>`, then `bin/iedora-env bin/iedora deploy menu`. `dockerOnHetzner.appSecrets` re-mints. All active better-auth sessions invalidate (users re-authenticate). |
+| `DEPLOY_MENU_CORE_SECRET` | `bws secret delete <id>`, then `bin/iedora-env bin/iedora deploy menu`. `dockerOnHetzner.appSecrets` re-mints. All active better-auth sessions invalidate (users re-authenticate). |
 
 ### Auth re-bootstrap (drop + rebuild the `core` schema)
 
@@ -42,7 +42,7 @@ sanitise) and a clean better-auth schema is wanted without touching
 HOST=$(bin/iedora-env tofu -chdir=infra/iac/tofu output -raw hetzner_ipv4)
 ssh -t root@$HOST docker exec -it infra-postgres psql -U postgres -c 'DROP DATABASE core;'
 bin/iedora-env bin/iedora app apply   # core-db-migrations re-creates from drizzle/
-bin/iedora-env bin/iedora deploy menu  # re-mints DEPLOY_MENU_IEDORA_CORE_SECRET on next sign-in
+bin/iedora-env bin/iedora deploy menu  # re-mints DEPLOY_MENU_CORE_SECRET on next sign-in
 ```
 
 `menu` rows referencing the wiped `core` org-ids become orphan FKs (text

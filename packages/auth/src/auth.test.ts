@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 beforeEach(() => {
   vi.resetModules()
-  delete process.env.IEDORA_CORE_BASE_URL
-  delete process.env.IEDORA_CORE_SECRET
+  delete process.env.CORE_BASE_URL
+  delete process.env.CORE_SECRET
 })
 
 describe('auth module — Vercel lazy import pattern', () => {
@@ -23,7 +23,7 @@ describe('auth module — Vercel lazy import pattern', () => {
   it('getAuth() throws with clear message when env vars missing', async () => {
     const { getAuth } = await import('./auth')
     expect(() => getAuth()).toThrow(
-      '[iedora/auth] IEDORA_CORE_BASE_URL and IEDORA_CORE_SECRET must be set.',
+      '[iedora/auth] CORE_BASE_URL and CORE_SECRET must be set.',
     )
   })
 

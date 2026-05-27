@@ -17,8 +17,8 @@
  */
 process.env.DATABASE_URL ||= 'postgres://test:test@localhost/test'
 process.env.CORE_DATABASE_URL ||= 'postgres://test:test@localhost/core_test'
-process.env.IEDORA_CORE_SECRET ||= 'a'.repeat(48)
-process.env.IEDORA_CORE_BASE_URL ||= 'http://localhost:3000'
+process.env.CORE_SECRET ||= 'a'.repeat(48)
+process.env.CORE_BASE_URL ||= 'http://localhost:3000'
 process.env.NEXT_PUBLIC_CORE_URL ||= 'http://localhost:3000/core'
 process.env.MENU_PUBLIC_URL ||= 'http://localhost:3000'
 process.env.S3_ENDPOINT ||= 'http://localhost:9090'

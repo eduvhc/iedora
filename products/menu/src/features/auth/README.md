@@ -50,7 +50,7 @@ access-control engine in `@iedora/auth` actually checks.
 Sessions are owned by better-auth (`core.session` table). The
 `better-auth.session_token` cookie is scoped on `.iedora.com` so SSO
 works across iedora products (menu today, `core` tomorrow). Cookie
-domain is configured via `IEDORA_CORE_COOKIE_DOMAIN` (parent domain in
+domain is configured via `CORE_COOKIE_DOMAIN` (parent domain in
 prod; `localhost` in dev).
 
 Revocation: better-auth supports `auth.api.revokeSession({ token })`

@@ -66,15 +66,15 @@ The menu container reads it via `env_file:` in docker-compose. `bun run dev` als
 
 ### `.env.local` — your overrides
 
-Created manually by you. Higher precedence than `.env`. The orchestrator only READS it (pulls `IEDORA_CORE_SECRET` to keep sessions alive) — never writes to it.
+Created manually by you. Higher precedence than `.env`. The orchestrator only READS it (pulls `CORE_SECRET` to keep sessions alive) — never writes to it.
 
 Three use cases:
 
-**1. Session persistence.** Without `.env.local`, every `bin/dev-stack` run mints a fresh `IEDORA_CORE_SECRET` and all sign-in sessions are invalidated. Copy the secret from `.env` into `.env.local` once and sessions survive restarts.
+**1. Session persistence.** Without `.env.local`, every `bin/dev-stack` run mints a fresh `CORE_SECRET` and all sign-in sessions are invalidated. Copy the secret from `.env` into `.env.local` once and sessions survive restarts.
 
 ```bash
 # After first run:
-grep IEDORA_CORE_SECRET apps/web/.env >> apps/web/.env.local
+grep CORE_SECRET apps/web/.env >> apps/web/.env.local
 ```
 
 **2. Remote services.** Override any key to point at real infrastructure:
@@ -96,7 +96,7 @@ CORE_DATABASE_URL=postgresql://postgres:Password1!@localhost:5432/core
 
 ```
 First run:   bin/dev-stack → mints secret → writes .env → you sign in
-             you copy IEDORA_CORE_SECRET=… into .env.local
+             you copy CORE_SECRET=… into .env.local
 
 Warm runs:   bin/dev-stack → reads secret from .env.local → writes .env
              sessions survive ✓

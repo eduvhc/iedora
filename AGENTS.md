@@ -179,7 +179,7 @@ One workflow per workspace. Each is self-contained: own `paths:` trigger, own en
 1. **`paths:` filter per workflow** — a workflow only wakes when its workspace (or workspace deps, or root files like `bun.lock`) changes.
 2. **Composite action for setup** — `actions/setup` runs `oven-sh/setup-bun@v2` + `bun install --frozen-lockfile` at the root. Every job that needs deps is `uses: ./.github/actions/setup`.
 
-**Env:** Non-secret CI fixture literals (`DATABASE_URL`, `CORE_DATABASE_URL`, `S3_*`, `IEDORA_CORE_SECRET=test...`) live at job-level. No CI-side secrets — production auth values are TF-minted at apply time and written to BWS.
+**Env:** Non-secret CI fixture literals (`DATABASE_URL`, `CORE_DATABASE_URL`, `S3_*`, `CORE_SECRET=test...`) live at job-level. No CI-side secrets — production auth values are TF-minted at apply time and written to BWS.
 
 **Branch protection: deliberately off** — solo, AI-driven; CI itself is the signal.
 

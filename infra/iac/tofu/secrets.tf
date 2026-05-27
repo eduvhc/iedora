@@ -25,7 +25,7 @@ resource "random_password" "openobserve_password" {
   special = false # carries through to HTTP Basic-auth, keep ASCII safe
 }
 
-# NOTE: better-auth's session signing secret (`IEDORA_CORE_SECRET`) is
+# NOTE: better-auth's session signing secret (`CORE_SECRET`) is
 # NOT minted here. It's an app secret — consumed only by the product
 # containers, never by an IaC-managed service — so Stage 4
 # (`iedora deploy <product>`) mints + upserts it to BWS via the

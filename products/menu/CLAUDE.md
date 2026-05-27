@@ -110,7 +110,7 @@ apps/web/
   .env.local                         User-owned, gitignored. Your overrides.
                                      Higher precedence than .env.
                                      The orchestrator only READS it (looks for
-                                     IEDORA_CORE_SECRET) — never writes to it.
+                                     CORE_SECRET) — never writes to it.
                                      Use it for: session persistence (copy the
                                      secret here), remote services (real S3,
                                      hosted DB), HMR DB URLs (localhost instead
