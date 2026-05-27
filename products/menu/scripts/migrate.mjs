@@ -19,6 +19,8 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 
 const url = process.env.DATABASE_URL
 if (!url) {
@@ -65,8 +67,14 @@ try {
   // any future product sharing the database would write into the same
   // `drizzle.__drizzle_migrations` and shadow each other (the migrator
   // only applies entries newer than max(created_at)).
+  // Resolve drizzle/ relative to the SCRIPT, not cwd. In Docker we run
+  // `node /app/migrate/menu/scripts/migrate.mjs` from WORKDIR
+  // /app/apps/web — `./drizzle` would resolve to the wrong place.
+  // Bundle output preserves the scripts/ + drizzle/ sibling layout
+  // expected by `../drizzle` (matches packages/auth/scripts/migrate.mjs).
+  const here = dirname(fileURLToPath(import.meta.url))
   await migrate(db, {
-    migrationsFolder: './drizzle',
+    migrationsFolder: join(here, '..', 'drizzle'),
     migrationsTable: '__drizzle_migrations',
     migrationsSchema: 'menu',
   })
