@@ -16,6 +16,10 @@ export {
   shutdownIedoraOtel,
   type RegisterOptions,
 } from "./register";
+export {
+  registerIedoraOtelNode,
+  type RegisterNodeOptions,
+} from "./register-node";
 export { tracer } from "./tracer";
 export { meter } from "./meter";
 export { logger } from "./logger";
@@ -39,5 +43,14 @@ export type {
   Tracer,
   UpDownCounter,
 } from "@opentelemetry/api";
+
+/**
+ * Re-export the runtime values from `@opentelemetry/api` that callers
+ * commonly need. Consumers should import everything OTel-related through
+ * `@iedora/observability` so per-product `package.json` files only need
+ * one dep — and so `bun build` can resolve the import graph from a single
+ * workspace root (e.g. inside the migrate container Dockerfile).
+ */
+export { context, propagation, SpanStatusCode, SpanKind } from "@opentelemetry/api";
 export type { Logger, LogRecord } from "@opentelemetry/api-logs";
 export { SeverityNumber } from "@opentelemetry/api-logs";

@@ -304,7 +304,7 @@ main() {
     # the product list lives in infra/deploy/cmd/iedora/local_migrate.go
     # (localMigrators slice); adding a new product is one entry there
     # + the usual products/<p>/scripts/migrate.mjs.
-    "${REPO_ROOT}/bin/iedora" local migrate --repo "${REPO_ROOT}"
+    "${REPO_ROOT}/bin/iedora" migrate --repo "${REPO_ROOT}"
   fi
 
   step 3 "compose apps/web/.env"

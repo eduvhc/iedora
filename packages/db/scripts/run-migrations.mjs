@@ -9,43 +9,62 @@
  *     corrupt `__drizzle_migrations` without one (drizzle-orm#874).
  *   - It runs as a subprocess, so observability + logging are surface-level.
  *
- * This helper:
- *   1. Ensures the target database exists (CREATE DATABASE IF NOT EXISTS
- *      via the postgres admin DB). Idempotent.
+ * Behaviour:
+ *   1. Ensures the target database exists (CREATE DATABASE IF NOT EXISTS).
  *   2. Pre-creates the target pg-schema (CREATE SCHEMA IF NOT EXISTS).
- *      This sidesteps the drizzle-kit 0.31+ behaviour where the
- *      migration's `CREATE SCHEMA <name>` clashes with the schema
- *      drizzle-kit pre-creates for its own `__drizzle_migrations` table.
  *   3. Acquires a `pg_advisory_lock` keyed on a crc32 of `lockName`.
- *      Two concurrent migrate runs on different replicas wait on the
- *      lock instead of corrupting state.
- *   4. Runs drizzle's programmatic `migrate()` with the supplied folder.
+ *   4. Runs drizzle's programmatic `migrate()`.
  *   5. Releases the lock + closes the connection.
+ *   6. Flushes OTel + shuts down providers (bounded at 5s).
  *
- * Throws (rejects) on any failure with the original error preserved —
- * callers should let the rejection propagate so the process exits 1
- * with a useful stack trace. Never swallow.
+ * Observability (emitted when OTEL_EXPORTER_OTLP_ENDPOINT is set):
  *
- * Observability: this helper deliberately stays @iedora/observability-free.
- * @vercel/otel's `registerOTel` doesn't bundle cleanly into a standalone
- * distroless-node script via `bun build` (TDZ violation on BasicTracer
- * init, seen in dev). The migrate container's stdout is captured by the
- * runtime collector (fluentbit → OpenObserve) so log lines already land
- * in OO; the missing piece — spans + duration metrics around each
- * `docker run` — belongs in the parent orchestrator (`iedora local
- * migrate` / Stage 3 configurators) where the @opentelemetry/sdk-node
- * setup is unconstrained by the migrate image's distroless runtime.
+ *   Spans (scope `iedora`, child of orchestrator's TRACEPARENT env):
+ *     migrate.run                — root, attrs db.name + db.schema + lock.name
+ *       migrate.ensure_db
+ *       migrate.ensure_schema
+ *       migrate.acquire_lock
+ *       migrate.apply
+ *
+ *   Metrics (scope `iedora`):
+ *     iedora.migrations_total{schema, outcome=ok|fail}  Counter
+ *     iedora.migration_duration_ms{schema}              Histogram
+ *
+ * Plus structured stdout `[migrate:<label>] ...` log lines for every
+ * phase — the container's runtime collector (fluentbit on Hetzner,
+ * GH Actions log driver in CI) ships them to OpenObserve too. Logs +
+ * traces + metrics correlate via the W3C trace context env vars.
+ *
+ * Throws on failure with the original error preserved — let it
+ * propagate so the process exits non-zero with a useful stack.
  */
 
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
+import {
+  context,
+  propagation,
+  SpanStatusCode,
+  registerIedoraOtelNode,
+  shutdownIedoraOtel,
+  tracer,
+  meter,
+} from '@iedora/observability'
 
-/**
- * crc32 of an ASCII string. Tiny implementation to avoid a runtime
- * dependency on Node 22.5+'s `zlib.crc32`. Result is an unsigned 32-bit
- * integer used directly as a Postgres advisory-lock key.
- */
+// Idempotent — the package's globalThis flag makes a second call a
+// no-op. We register at module init so the instruments below
+// (counter, histogram) bind to the real provider.
+registerIedoraOtelNode({ serviceName: 'iedora-migrate' })
+
+const migrationsCounter = meter.createCounter('iedora.migrations_total', {
+  description: 'Total Drizzle migration runs, by schema and outcome.',
+})
+const migrationDuration = meter.createHistogram('iedora.migration_duration_ms', {
+  description: 'Wall-clock duration of a Drizzle migration run, by schema.',
+  unit: 'ms',
+})
+
 function crc32(str) {
   let crc = 0xffffffff
   for (let i = 0; i < str.length; i++) {
@@ -91,14 +110,31 @@ async function ensureSchema(sql, schemaName, log) {
   log(`ensured schema "${schemaName}"`)
 }
 
+async function withSpan(name, attrs, fn) {
+  return tracer.startActiveSpan(name, { attributes: attrs }, async (span) => {
+    try {
+      return await fn()
+    } catch (err) {
+      span.recordException(err)
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: err?.message ?? String(err),
+      })
+      throw err
+    } finally {
+      span.end()
+    }
+  })
+}
+
 /**
  * @param {object} opts
- * @param {string} opts.databaseUrl     - Postgres connection string. Must include a DB name in the path.
- * @param {string} opts.migrationsFolder - Absolute path to the drizzle/ folder.
- * @param {string} opts.migrationsSchema - pg-schema where `__drizzle_migrations` lives. Usually the product's schema.
- * @param {string} opts.lockName         - Stable identifier used to derive the advisory-lock key. Convention: `iedora-<product>-migrate`.
- * @param {string} [opts.migrationsTable] - Defaults to `__drizzle_migrations`.
- * @param {string} [opts.label]          - Prefix used for stdout log lines. Defaults to migrationsSchema.
+ * @param {string} opts.databaseUrl
+ * @param {string} opts.migrationsFolder
+ * @param {string} opts.migrationsSchema
+ * @param {string} opts.lockName
+ * @param {string} [opts.migrationsTable]
+ * @param {string} [opts.label]
  */
 export async function runMigrations({
   databaseUrl,
@@ -115,38 +151,103 @@ export async function runMigrations({
 
   const lockKey = crc32(lockName)
   const log = (msg) => console.log(`[migrate:${label}] ${msg}`)
+  const dbName = dbNameFromUrl(databaseUrl)
   const startedAt = Date.now()
 
-  log(`target database "${dbNameFromUrl(databaseUrl)}"`)
+  // Extract parent trace context from TRACEPARENT env, if the
+  // orchestrator (iedora migrate, Stage 3 configurators) set it. No-op
+  // otherwise — the migrate.run span just becomes its own root.
+  const parentCtx = propagation.extract(context.active(), process.env)
 
-  await ensureDatabase(databaseUrl, log)
+  log(`target database "${dbName}"`)
 
-  const sql = postgres(databaseUrl, { max: 1, onnotice: () => {} })
-  const db = drizzle(sql)
-
-  let locked = false
+  let outcome = 'ok'
   try {
-    await ensureSchema(sql, migrationsSchema, log)
+    await context.with(parentCtx, () =>
+      tracer.startActiveSpan(
+        'migrate.run',
+        {
+          attributes: {
+            'db.name': dbName,
+            'db.schema': migrationsSchema,
+            'migrate.lock_name': lockName,
+          },
+        },
+        async (rootSpan) => {
+          try {
+            await withSpan('migrate.ensure_db', { 'db.name': dbName }, () =>
+              ensureDatabase(databaseUrl, log),
+            )
 
-    await sql`SELECT pg_advisory_lock(${lockKey})`
-    locked = true
-    log(`acquired advisory lock (key=${lockKey}, name="${lockName}")`)
+            const sql = postgres(databaseUrl, { max: 1, onnotice: () => {} })
+            const db = drizzle(sql)
+            let locked = false
+            try {
+              await withSpan(
+                'migrate.ensure_schema',
+                { 'db.schema': migrationsSchema },
+                () => ensureSchema(sql, migrationsSchema, log),
+              )
 
-    await migrate(db, {
-      migrationsFolder,
-      migrationsTable,
-      migrationsSchema,
-    })
-    const elapsed = Date.now() - startedAt
-    log(`migrations applied (${elapsed}ms)`)
+              await withSpan(
+                'migrate.acquire_lock',
+                {
+                  'migrate.lock_key': lockKey,
+                  'migrate.lock_name': lockName,
+                },
+                async () => {
+                  await sql`SELECT pg_advisory_lock(${lockKey})`
+                  locked = true
+                  log(`acquired advisory lock (key=${lockKey}, name="${lockName}")`)
+                },
+              )
+
+              await withSpan(
+                'migrate.apply',
+                {
+                  'db.schema': migrationsSchema,
+                  'migrate.folder': migrationsFolder,
+                },
+                async () => {
+                  await migrate(db, {
+                    migrationsFolder,
+                    migrationsTable,
+                    migrationsSchema,
+                  })
+                  log('migrations applied')
+                },
+              )
+            } finally {
+              if (locked) {
+                try {
+                  await sql`SELECT pg_advisory_unlock(${lockKey})`
+                } catch (err) {
+                  log(`warning: unlock failed: ${err?.message ?? err}`)
+                }
+              }
+              await sql.end()
+            }
+          } catch (err) {
+            rootSpan.recordException(err)
+            rootSpan.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: err?.message ?? String(err),
+            })
+            throw err
+          } finally {
+            rootSpan.end()
+          }
+        },
+      ),
+    )
+  } catch (err) {
+    outcome = 'fail'
+    throw err
   } finally {
-    if (locked) {
-      try {
-        await sql`SELECT pg_advisory_unlock(${lockKey})`
-      } catch (err) {
-        log(`warning: unlock failed: ${err?.message ?? err}`)
-      }
-    }
-    await sql.end()
+    const elapsed = Date.now() - startedAt
+    migrationsCounter.add(1, { schema: migrationsSchema, outcome })
+    migrationDuration.record(elapsed, { schema: migrationsSchema })
+    log(`done (${elapsed}ms, outcome=${outcome})`)
+    await shutdownIedoraOtel({ timeoutMs: 5_000 })
   }
 }

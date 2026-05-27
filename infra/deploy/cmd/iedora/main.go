@@ -53,6 +53,8 @@ func main() {
 		err = runDoctor(ctx, os.Args[2:])
 	case "local":
 		err = runLocal(ctx, os.Args[2:])
+	case "migrate":
+		err = runMigrate(ctx, os.Args[2:])
 	case "emit-topology":
 		err = runEmitTopology(ctx, os.Args[2:])
 	case "-h", "--help", "help":
@@ -91,6 +93,9 @@ Stage subcommands:
   destroy [products…]   Tear down product artifacts. Empty list = all.
   doctor                Diagnose deploy-readiness on the operator's machine.
   local env             Write apps/web/.env from topology. Called by bin/dev-stack.
+  migrate               Apply every product's Drizzle migrations via the
+                        dedicated migrate image. Same path for dev / CI / prod —
+                        --network + --pg-host + --pg-password override per env.
   emit-topology         Write infra/iac/tofu/generated/topology.auto.tfvars.json.
 
 Flags for app apply:
