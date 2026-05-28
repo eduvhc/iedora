@@ -96,9 +96,10 @@ echo "✓ homelab-core-infra up."
 if [ -n "$HOST" ]; then
   REGISTRY_LAN="${REGISTRY_LAN:-192.168.50.53:3030}"
   KAMAL_VERSION="${KAMAL_VERSION:-2.11.0}"
+  BWS_VERSION="${BWS_VERSION:-0.5.0}"
   SSH_TARGET="${HOST#ssh://}"
-  echo "→ Setup Beelink para Kamal local (registry $REGISTRY_LAN, Kamal $KAMAL_VERSION)"
-  ssh "$SSH_TARGET" REGISTRY_LAN="$REGISTRY_LAN" KAMAL_VERSION="$KAMAL_VERSION" bash <<'REMOTE'
+  echo "→ Setup Beelink (registry $REGISTRY_LAN, Kamal $KAMAL_VERSION, BWS $BWS_VERSION)"
+  ssh "$SSH_TARGET" REGISTRY_LAN="$REGISTRY_LAN" KAMAL_VERSION="$KAMAL_VERSION" BWS_VERSION="$BWS_VERSION" bash <<'REMOTE'
 set -euo pipefail
 
 # 1. Docker daemon — insecure-registries
@@ -132,6 +133,20 @@ else
   echo "  ✓ kamal $KAMAL_VERSION já instalado"
 fi
 kamal version | sed 's/^/  /'
+
+# 3.5. BWS CLI — Kamal usa para o `kamal secrets fetch --adapter
+#      bitwarden-sm` (lê secrets de produção em runtime).
+if ! command -v bws >/dev/null || ! bws --version 2>&1 | grep -q "$BWS_VERSION"; then
+  echo "  → install bws CLI $BWS_VERSION"
+  apt-get install -y -qq --no-install-recommends unzip curl
+  curl -fsSL "https://github.com/bitwarden/sdk-sm/releases/download/bws-v${BWS_VERSION}/bws-x86_64-unknown-linux-gnu-${BWS_VERSION}.zip" -o /tmp/bws.zip
+  unzip -q -o /tmp/bws.zip -d /tmp/bws
+  install -m 0755 /tmp/bws/bws /usr/local/bin/bws
+  rm -rf /tmp/bws /tmp/bws.zip
+else
+  echo "  ✓ bws CLI $BWS_VERSION já instalado"
+fi
+bws --version 2>&1 | sed 's/^/  /'
 
 # 4. /opt/iedora — destino do rsync da source code
 mkdir -p /opt/iedora
