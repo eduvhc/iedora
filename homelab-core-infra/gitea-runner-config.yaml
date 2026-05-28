@@ -45,5 +45,8 @@ container:
     - /var/cache/bun
     - /var/cache/audit-tools
     - /data/cache
+    # SSH key do host para o `deploy` job fazer rsync + ssh trigger ao
+    # próprio Beelink (runner está no mesmo box; sem fetch do BWS).
+    - /root/.ssh/ci_ed25519
 
 host: {}

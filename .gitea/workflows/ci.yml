@@ -206,55 +206,45 @@ jobs:
       cancel-in-progress: false   # mid-deploy abort would leave inconsistent state
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    container:
+      # SSH key bind-mounted directamente do host (runner está no
+      # Beelink, key já vive em /root/.ssh/ci_ed25519). Sem fetch do
+      # BWS no runner = sem bws install, sem jq, sem python3. Path
+      # whitelistado em homelab-core-infra/gitea-runner-config.yaml.
+      image: debian:bookworm-slim
+      volumes:
+        - /root/.ssh/ci_ed25519:/root/.ssh/ci_ed25519:ro
     steps:
       - uses: actions/checkout@v4
 
-      - name: Bootstrap SSH key from BWS
-        # SSH key + project ID. Tudo o resto (Kamal, ruby, buildx) vive
-        # no Beelink — runner só precisa de chegar lá.
-        shell: bash
-        env:
-          BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
-        run: |
-          set -e
-          BWS_VER="${BWS_VER:-0.5.0}"
-          curl -fsSL "https://github.com/bitwarden/sdk-sm/releases/download/bws-v${BWS_VER}/bws-x86_64-unknown-linux-gnu-${BWS_VER}.zip" -o /tmp/bws.zip
-          unzip -q /tmp/bws.zip -d /tmp/bws
-          install -m 0755 /tmp/bws/bws /usr/local/bin/bws
-
-          PROJECT_ID=$(bws project list -o json | jq -r '.[0].id')
-          echo "KAMAL_BWS_PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
-          mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          bws secret list "$PROJECT_ID" -o json \
-            | python3 -c 'import sys,json; [print(s["value"]) for s in json.loads(sys.stdin.read(), strict=False) if s["key"]=="HOMELAB_SSH_PRIVATE_KEY"]' \
-            > ~/.ssh/ci_ed25519
-          chmod 600 ~/.ssh/ci_ed25519
-          ssh-keyscan -H 192.168.50.53 >> ~/.ssh/known_hosts 2>/dev/null
-
       - name: rsync source + trigger Kamal on Beelink
-        # rsync excluindo .git (não precisamos do histórico em /opt/iedora,
-        # só do snapshot deste commit). --delete remove ficheiros que já
-        # não existem na source. ssh trigger passa env vars in-line para
-        # o shell remoto consumir. `kamal lock release || true` é
-        # idempotent — recupera de runs cancelados.
+        # 1. apt: rsync + ssh client (debian:bookworm-slim é minimal)
+        # 2. rsync source para /opt/iedora — Beelink tem Kamal local
+        # 3. ssh trigger `kamal deploy` no Beelink, env vars in-line.
+        #    BWS_ACCESS_TOKEN é passado ao Kamal para o `secrets fetch`.
+        #    KAMAL_BWS_PROJECT_ID está hardcoded em .kamal/secrets.production.
         shell: bash
         env:
           BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
           KAMAL_REGISTRY_PASSWORD: ${{ secrets.KAMAL_REGISTRY_PASSWORD }}
         run: |
           set -e
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends rsync openssh-client ca-certificates
+
+          SSH_OPTS=(-i /root/.ssh/ci_ed25519 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/tmp/known_hosts)
+
           rsync -azP --delete --exclude='.git' --exclude='node_modules' \
-            -e 'ssh -i ~/.ssh/ci_ed25519' \
+            -e "ssh ${SSH_OPTS[*]}" \
             ./ root@192.168.50.53:/opt/iedora/
 
           # shellcheck disable=SC2087  # intentional: env vars expanded
           # client-side, send resolved values to SSH (server doesn't have them).
-          ssh -i ~/.ssh/ci_ed25519 root@192.168.50.53 bash <<EOF
+          ssh "${SSH_OPTS[@]}" root@192.168.50.53 bash <<EOF
           set -e
           cd /opt/iedora
           export BWS_ACCESS_TOKEN='$BWS_ACCESS_TOKEN'
           export KAMAL_REGISTRY_PASSWORD='$KAMAL_REGISTRY_PASSWORD'
-          export KAMAL_BWS_PROJECT_ID='$KAMAL_BWS_PROJECT_ID'
           kamal lock release -d production || true
           kamal deploy -d production
           EOF
