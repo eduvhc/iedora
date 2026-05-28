@@ -82,18 +82,19 @@ if [ -d ".git" ] && git remote get-url gitea >/dev/null 2>&1; then
 fi
 
 # ── 6. Smoke test ──────────────────────────────────────────────────────
+# Só git ls-remote — endpoints `/api/v1/user*` exigem scope read:user
+# que não pedimos (só write:repository), e o que importa é git push/pull
+# funcionar, não a API.
 echo
 bold "→ Smoke test"
-if curl -fsS -H "Authorization: token $PAT" "$GITEA/api/v1/user" >/dev/null; then
-  green "✓ PAT autentica contra a API"
-fi
-
 if [ -d ".git" ] && git remote get-url gitea | grep -q "^https://"; then
   if git ls-remote gitea HEAD >/dev/null 2>&1; then
-    green "✓ git ls-remote gitea funciona"
+    green "✓ git ls-remote gitea funciona (PAT serve via keychain)"
   else
     red "✗ git ls-remote gitea falhou — verifica keychain"
   fi
+else
+  green "✓ (smoke test skip — não estás num clone com remote 'gitea')"
 fi
 
 echo
