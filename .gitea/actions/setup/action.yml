@@ -25,8 +25,11 @@ runs:
     - name: Cache Bun install dir
       uses: actions/cache@v4
       with:
+        # Bun's GLOBAL cache, not node_modules — smaller, shared across
+        # workspaces. Gitea's runner cache server (ACTIONS_CACHE_URL)
+        # is local-disk per-runner. Key on bun.lock content.
         path: ~/.bun/install/cache
-        key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+        key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock', '**/bun.lockb') }}
         restore-keys: |
           bun-${{ runner.os }}-
 

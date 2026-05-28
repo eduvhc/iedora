@@ -23,6 +23,12 @@ concurrency:
   group: deploy-production
   cancel-in-progress: false   # mid-deploy abort would leave inconsistent state
 
+# Build cache para `kamal deploy` (remote builder) é gerido pelo
+# buildkit do builder (na própria Beelink). Não usa actions/cache aqui
+# porque o build acontece via docker buildx --builder remote, fora do
+# job container. O kamal-remote-ssh--... buildkit container preserva
+# cache em volumes Docker entre deploys.
+
 jobs:
   kamal:
     runs-on: ubuntu-latest

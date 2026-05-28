@@ -111,7 +111,12 @@ services:
       GITEA_RUNNER_REGISTRATION_TOKEN: ${GITEA_RUNNER_TOKEN}
       GITEA_RUNNER_NAME: beelink-runner
       GITEA_RUNNER_LABELS: "ubuntu-latest:docker://node:24-bookworm,bun-debian:docker://oven/bun:1.3-debian"
+      CONFIG_FILE: /config/config.yaml
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - gitea_runner_data:/data
+      - ./gitea-runner-config.yaml:/config/config.yaml:ro
+      # Buildx local cache — workflows mountam aqui via `volumes:` block
+      # (whitelisted em runner config valid_volumes).
+      - /var/cache/buildx:/var/cache/buildx
     logging: { driver: json-file, options: { max-size: 10m } }

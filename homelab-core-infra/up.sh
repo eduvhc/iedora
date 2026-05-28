@@ -64,9 +64,10 @@ else
   SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10)
   [ -n "$SSH_KEY" ] && SSH_OPTS+=(-i "$SSH_KEY")
   REMOTE_DIR="/root/homelab-core-infra"
-  echo "→ remote ($HOST): push compose + materializar .env + docker compose up -d --profile extras"
-  ssh "${SSH_OPTS[@]}" "$HOST" "mkdir -p $REMOTE_DIR"
+  echo "→ remote ($HOST): push compose + config + materializar .env + docker compose up -d --profile extras"
+  ssh "${SSH_OPTS[@]}" "$HOST" "mkdir -p $REMOTE_DIR && mkdir -p /var/cache/buildx"
   scp "${SSH_OPTS[@]}" "$HERE/docker-compose.yml" "$HOST:$REMOTE_DIR/docker-compose.yml" >/dev/null
+  scp "${SSH_OPTS[@]}" "$HERE/gitea-runner-config.yaml" "$HOST:$REMOTE_DIR/gitea-runner-config.yaml" >/dev/null
   ssh "${SSH_OPTS[@]}" "$HOST" "umask 077 && cat > $REMOTE_DIR/.env" <<<"$ENV_CONTENT"
   ssh "${SSH_OPTS[@]}" "$HOST" "cd $REMOTE_DIR && docker compose --profile extras up -d"
 fi
