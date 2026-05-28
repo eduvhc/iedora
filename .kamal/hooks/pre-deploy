@@ -17,6 +17,13 @@ set -euo pipefail
 [[ "${KAMAL_DESTINATION:-}" != "production" ]] && exit 0
 
 echo "[pre-deploy] migrating DBs against version $KAMAL_VERSION..."
+
+# Garante que o env file local existe (gerado lazily pelo Kamal).
+# 1º deploy: .kamal/apps/<svc>-<dest>/env/roles/web.env ainda não existe,
+# `kamal app exec` falha com "no such file or directory" no docker run.
+# `kamal env push` regenera locally a partir do deploy.yml + secrets.
+kamal env push --destination="$KAMAL_DESTINATION" >/dev/null
+
 # Single ephemeral container, três migrations em cadeia. Wrap em `sh -c`
 # explícito — `kamal app exec` passa a string como `docker run image CMD`
 # sem auto-wrap, então `&&` precisa de shell que o entenda.
