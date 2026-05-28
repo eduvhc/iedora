@@ -114,18 +114,20 @@ jobs:
   # ─────────────────────────────────────────────────────────────────
   # Deploy gate: kamal deploy para produção. Só corre se ci+audit OK.
   #
-  # Flow:
-  #   1. actions/checkout
-  #   2. apt deps (ruby + ruby-dev + build-essential para gem ed25519
-  #      compilar a extensão nativa) + docker.io + jq/python3/unzip
-  #   3. gem install kamal -v 2.11.0
-  #   4. BWS CLI + bootstrap SSH key via BWS_ACCESS_TOKEN (única Gitea
-  #      secret — restantes credenciais vivem em BWS)
-  #   5. kamal deploy -d production:
-  #        - builds amd64 nativamente na Beelink (remote builder)
-  #        - push para Gitea OCI registry
-  #        - .kamal/hooks/pre-deploy aplica migrations
-  #        - blue-green swap só se hook + healthcheck passarem
+  # Setup deps não-óbvias:
+  #   - `ruby-dev` + `build-essential` — gem ed25519 (dep do Kamal)
+  #     compila extensão C nativa
+  #   - Docker buildx plugin — `docker.io` apt não traz buildx, Kamal
+  #     exige-o para o remote builder
+  #   - BWS CLI + SSH key bootstrap — BWS_ACCESS_TOKEN é a única Gitea
+  #     secret; restantes credenciais vivem em Bitwarden Secrets
+  #
+  # `kamal deploy`:
+  #   - builds amd64 nativamente na Beelink (remote builder via SSH)
+  #   - push para Gitea OCI registry
+  #   - .kamal/hooks/pre-deploy aplica migrations
+  #   - blue-green swap só se hook + healthcheck passarem; se falhar,
+  #     versão antiga continua a servir (kamal-proxy não promove)
   #
   # Build cache (`kamal deploy` remote builder) é gerido pelo buildkit
   # da Beelink. Não usa actions/cache aqui — o build acontece via
@@ -200,59 +202,13 @@ jobs:
           BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
         run: kamal lock release -d production || true
 
-      - name: Capture current version (for rollback)
-        # `kamal rollback` exige a versão como argumento (não tem
-        # `--previous`). Capturamos a versão actualmente em produção
-        # antes do deploy. No primeiro deploy `kamal app version`
-        # devolve nada — o step de rollback faz skip via `if:`.
-        id: prev
-        shell: bash
-        env:
-          BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
-        run: |
-          PREV=$(kamal app version -d production 2>&1 | grep -Eo '[a-f0-9]{40}' | head -1 || true)
-          echo "version=${PREV}" >> "$GITHUB_OUTPUT"
-          if [ -n "$PREV" ]; then
-            echo "Prev version: $PREV"
-          else
-            echo "Sem versão anterior (1º deploy ou erro) — rollback skipped em failure"
-          fi
-
       - name: Kamal deploy
-        id: deploy
+        # Blue-green via kamal-proxy: se healthcheck falhar, NÃO faz
+        # swap — versão antiga continua a servir. `kamal deploy`
+        # retorna non-zero mas o estado é estável. Não há
+        # auto-rollback no CI por isso — operador investiga o erro e
+        # re-deploya quando estiver corrigido.
         shell: bash
         env:
           BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
         run: kamal deploy -d production
-
-      - name: Auto-rollback on failed deploy
-        # Disparado quando healthcheck do kamal-proxy não passa em N
-        # tentativas e o kamal deploy retorna non-zero. Reverte para a
-        # versão capturada em `prev` — atómico, ~5s. Skip se não há
-        # versão anterior (1º deploy). Smoke test fica skipped (corre
-        # só em success).
-        if: failure() && steps.deploy.outcome == 'failure' && steps.prev.outputs.version != ''
-        shell: bash
-        env:
-          BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
-        run: kamal rollback "${{ steps.prev.outputs.version }}" -d production
-
-      - name: Post-deploy smoke test (público via Cloudflare)
-        # Healthcheck do kamal-proxy é interno (Beelink LAN). Este
-        # curl valida que o Cloudflare Tunnel também está OK. Se
-        # falhar com kamal deploy verde, problema é tunnel/DNS, não
-        # app — não vale rollback. CI fica red para alertar operador.
-        if: steps.deploy.outcome == 'success'
-        shell: bash
-        run: |
-          URL="${SMOKE_URL:-https://iedora.com/up}"
-          for i in 1 2 3 4 5 6 7 8 9 10; do
-            if curl -fsS --max-time 5 "$URL" >/dev/null; then
-              echo "✓ ($i) $URL"
-              exit 0
-            fi
-            echo "… ($i/10) $URL"
-            sleep 3
-          done
-          echo "::error::smoke test falhou após 10 tentativas em $URL"
-          exit 1
