@@ -38,6 +38,7 @@ container:
   options: "--cpus=2 --memory=2g"
   valid_volumes:
     - /var/cache/buildx
+    - /var/cache/bun
     - /data/cache
 
 host: {}
