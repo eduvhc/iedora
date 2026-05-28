@@ -117,21 +117,32 @@ curl -sI https://iedora.com            # → 200
 7. Boot iedora-web na porta 3000
 8. Healthcheck `/up`
 
-Kamal corre o builder remoto por SSH (`ssh://root@192.168.50.53`) com
-arquitetura `amd64` (o Beelink é x86_64).
+Kamal **corre directamente no Beelink** (instalado via gem por
+`./homelab-core-infra/up.sh --host ssh://root@192.168.50.53`). O CI
+faz `rsync` da source para `/opt/iedora` no Beelink + `ssh` para
+chamar `kamal deploy`. Sem builder remoto, sem buildkit container —
+docker driver local respeita o `insecure-registries` do daemon.json
+e o push é localhost-to-localhost.
 
 ## Day 2 — Deploys incrementais
 
+Em CI: push a `main` (ou `workflow_dispatch`) → workflow `Pipeline`
+job `deploy` faz rsync + ssh trigger Kamal.
+
+Localmente do Mac (mesmo path):
+
 ```bash
-kamal deploy -d production
+export KAMAL_REGISTRY_PASSWORD='<PAT scope write:package>'
+export BWS_ACCESS_TOKEN='…'
+./bin/deploy
 ```
 
 Hot-swap zero-downtime: Kamal sobe o novo container ao lado do atual,
 espera o healthcheck, faz swap de tráfego, derruba o antigo.
 
-Rollback:
+Rollback (do Mac ou via SSH):
 ```bash
-kamal rollback -d production
+ssh root@192.168.50.53 'cd /opt/iedora && kamal rollback <version> -d production'
 ```
 
 ## Day 2 — Operações correntes

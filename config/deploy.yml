@@ -14,12 +14,11 @@ ssh:
   keys:
     - ~/.ssh/ci_ed25519
 
-# Registry LAN-direct (não passa por CF tunnel). Mesmo host que o
-# Gitea (192.168.50.53:3030) → push do builder remoto fica
-# localhost-to-localhost, evita o limite de 100MB de upload do CF
-# free e o round-trip Beelink→edge→Beelink. Setup do
-# `insecure-registries` + `buildkitd.toml` é declarativo em
-# `homelab-core-infra/up.sh` (corre a cada `up.sh --host`).
+# Registry LAN-direct. Mesmo host que o Gitea (192.168.50.53:3030).
+# Como o Kamal corre no Beelink (ver `builder:` abaixo), o push é
+# localhost-to-localhost via docker daemon — sem CF tunnel, sem
+# limite de 100MB, sem TLS. Setup do `insecure-registries` em
+# /etc/docker/daemon.json é idempotent via `up.sh --host`.
 registry:
   server: 192.168.50.53:3030
   username: eduvhc
@@ -27,8 +26,15 @@ registry:
     - KAMAL_REGISTRY_PASSWORD
 
 builder:
+  # NÃO há `remote:` aqui — o `kamal deploy` corre directamente no
+  # Beelink (CI faz `ssh root@host kamal deploy`, e o wrapper
+  # `bin/deploy` no Mac faz o mesmo). Sem `remote:`, Kamal usa o
+  # default `docker` buildx driver (não docker-container/buildkit
+  # remoto) — o que importa porque o buildkit container não respeita
+  # o `insecure-registries` do daemon.json (basecamp/kamal#937).
+  # O docker daemon do Beelink respeita, logo push para 192.168.50.53:3030
+  # funciona localhost-to-localhost sem TLS hacks.
   arch: amd64
-  remote: ssh://root@192.168.50.53
   context: .
   dockerfile: apps/web/Dockerfile
   # Cache image co-located com a imagem (Gitea OCI registry).

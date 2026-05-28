@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Local deploy do Mac (path simétrico ao CI). rsync da source ao
+# Beelink + ssh trigger ao Kamal local. Sem Kamal no Mac, sem builder
+# remoto SSH, sem buildkit no meio.
+#
+# Pré-requisitos (one-time):
+#   - `./homelab-core-infra/up.sh --host ssh://root@192.168.50.53` —
+#     instalou Ruby + Kamal no Beelink + insecure-registries
+#   - SSH key autorizada em root@homelab (~/.ssh/iedora-homelab-*)
+#   - KAMAL_REGISTRY_PASSWORD exportado (PAT do Gitea; gera 1 em
+#     git.iedora.com/user/settings/applications scope write:package,
+#     ou pega o do Beelink: `ssh root@192.168.50.53 'docker exec -e
+#     GITEA_ADMIN_TOKEN gitea ...'`)
+#   - BWS_ACCESS_TOKEN exportado (para `bws project list`)
+#
+# Uso:
+#   export KAMAL_REGISTRY_PASSWORD='<PAT>'
+#   export BWS_ACCESS_TOKEN='<token>'
+#   ./bin/deploy
+
+set -euo pipefail
+
+HOST="${KAMAL_HOST:-192.168.50.53}"
+SSH_KEY="${HOMELAB_SSH_KEY:-$HOME/.ssh/iedora-homelab-$(scutil --get LocalHostName 2>/dev/null || hostname -s)}"
+
+: "${KAMAL_REGISTRY_PASSWORD:?export-o-PAT-do-Gitea-com-scope-write:package}"
+: "${BWS_ACCESS_TOKEN:?export-o-BWS_ACCESS_TOKEN}"
+
+[ -f "$SSH_KEY" ] || { echo "✗ SSH key não encontrada: $SSH_KEY"; exit 1; }
+command -v bws >/dev/null || { echo "✗ bws CLI não instalada"; exit 1; }
+command -v rsync >/dev/null || { echo "✗ rsync não instalado"; exit 1; }
+
+PROJECT_ID=$(bws project list -o json | jq -r '.[0].id')
+[ -n "$PROJECT_ID" ] && [ "$PROJECT_ID" != "null" ] || { echo "✗ BWS project ID vazio"; exit 1; }
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+echo "→ rsync $REPO_ROOT/ → root@$HOST:/opt/iedora/"
+rsync -azP --delete --exclude='.git' --exclude='node_modules' \
+  -e "ssh -i $SSH_KEY" \
+  "$REPO_ROOT/" "root@$HOST:/opt/iedora/"
+
+echo "→ ssh root@$HOST kamal deploy -d production"
+ssh -i "$SSH_KEY" "root@$HOST" bash <<EOF
+set -e
+cd /opt/iedora
+export BWS_ACCESS_TOKEN='$BWS_ACCESS_TOKEN'
+export KAMAL_REGISTRY_PASSWORD='$KAMAL_REGISTRY_PASSWORD'
+export KAMAL_BWS_PROJECT_ID='$PROJECT_ID'
+kamal lock release -d production || true
+kamal deploy -d production
+EOF

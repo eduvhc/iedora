@@ -178,27 +178,25 @@ jobs:
         run: /opt/audit-bin/osv-scanner --lockfile=bun.lock --format gh-annotations
 
   # ─────────────────────────────────────────────────────────────────
-  # Deploy gate: kamal deploy para produção. Só corre se ci+audit OK.
+  # Deploy gate: dispara Kamal NO Beelink via SSH. Não há Kamal,
+  # buildx ou ruby a correr no CI runner — só `rsync` e `ssh`.
   #
-  # Setup deps não-óbvias:
-  #   - `ruby-dev` + `build-essential` — gem ed25519 (dep do Kamal)
-  #     compila extensão C nativa
-  #   - Docker buildx plugin — `docker.io` apt não traz buildx, Kamal
-  #     exige-o para o remote builder
-  #   - BWS CLI + SSH key bootstrap — BWS_ACCESS_TOKEN é a única Gitea
-  #     secret; restantes credenciais vivem em Bitwarden Secrets
+  # Razão: o gitea-runner corre fisicamente no Beelink, e o build/push
+  # do Kamal entre runner-container e buildkit-container ignora o
+  # insecure-registries do daemon.json (basecamp/kamal#937). Em vez de
+  # layeran workarounds (buildkitd.toml + pre-create builder, etc),
+  # corremos Kamal no host directamente — usa o default `docker`
+  # buildx driver (= daemon do host) que respeita o daemon.json.
   #
-  # `kamal deploy`:
-  #   - builds amd64 nativamente na Beelink (remote builder via SSH)
-  #   - push para Gitea OCI registry
+  # Setup do Beelink (Ruby + Kamal gem + /opt/iedora) é feito 1x via
+  # `./homelab-core-infra/up.sh --host ssh://root@192.168.50.53`
+  # (idempotent).
+  #
+  # `kamal deploy` no Beelink:
+  #   - build local (single arch amd64 = host arch, sem emulação)
+  #   - push 192.168.50.53:3030 = localhost-to-localhost (insecure OK)
   #   - .kamal/hooks/pre-deploy aplica migrations
-  #   - blue-green swap só se hook + healthcheck passarem; se falhar,
-  #     versão antiga continua a servir (kamal-proxy não promove)
-  #
-  # Build cache (`kamal deploy` remote builder) é gerido pelo buildkit
-  # da Beelink. Não usa actions/cache aqui — o build acontece via
-  # docker buildx --builder remote, fora do job container. O container
-  # kamal-remote-ssh--... preserva cache em volumes Docker entre runs.
+  #   - blue-green swap; healthcheck fail → versão antiga continua
   # ─────────────────────────────────────────────────────────────────
   deploy:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.deploy == 'true')
@@ -208,42 +206,22 @@ jobs:
       cancel-in-progress: false   # mid-deploy abort would leave inconsistent state
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    container:
-      image: node:24-bookworm
-      # Bind-mount /var/cache/deploy-tools (binários + gem home)
-      # cacheia entre runs. Whitelistado em homelab-core-infra/
-      # gitea-runner-config.yaml valid_volumes.
-      volumes:
-        - /var/cache/deploy-tools:/opt/deploy-bin
     steps:
       - uses: actions/checkout@v4
 
-      - name: Restore or install deploy tools
-        # Idempotent: apt deps (ruby+dev/build-essential/docker.io)
-        # corre cold cada run; buildx + bws + kamal gem são reutilizados
-        # do volume. Cold ~60s, steady-state ~30s. Pattern espelha
-        # `.gitea/audit/install-tools.sh`.
-        shell: bash
-        env:
-          KAMAL_VERSION: "2.11.0"
-          BUILDX_VERSION: "0.34.1"
-          BWS_VERSION: "0.5.0"
-        run: .gitea/deploy/install-tools.sh
-
-      - name: Bootstrap SSH from BWS
-        # Exporta KAMAL_BWS_PROJECT_ID para steps seguintes (via
-        # $GITHUB_ENV). `.kamal/secrets.production` usa-o no `kamal
-        # secrets fetch --adapter bitwarden-sm "$KAMAL_BWS_PROJECT_ID/
-        # all"` — sem prefix o `bws secret list` lista tudo o que o
-        # token vê (sem ordem garantida).
-        #
-        # KAMAL_REGISTRY_PASSWORD não vem por aqui — é Actions secret
-        # publicada pelo `up.sh --bootstrap-ci` (registry auth é
-        # interno ao homelab, não pertence ao BWS).
+      - name: Bootstrap SSH key from BWS
+        # SSH key + project ID. Tudo o resto (Kamal, ruby, buildx) vive
+        # no Beelink — runner só precisa de chegar lá.
         shell: bash
         env:
           BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
         run: |
+          set -e
+          BWS_VER="${BWS_VER:-0.5.0}"
+          curl -fsSL "https://github.com/bitwarden/sdk-sm/releases/download/bws-v${BWS_VER}/bws-x86_64-unknown-linux-gnu-${BWS_VER}.zip" -o /tmp/bws.zip
+          unzip -q /tmp/bws.zip -d /tmp/bws
+          install -m 0755 /tmp/bws/bws /usr/local/bin/bws
+
           PROJECT_ID=$(bws project list -o json | jq -r '.[0].id')
           echo "KAMAL_BWS_PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
@@ -253,51 +231,30 @@ jobs:
           chmod 600 ~/.ssh/ci_ed25519
           ssh-keyscan -H 192.168.50.53 >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Pre-create Kamal builder with insecure LAN registry config
-        # Kamal cria o buildx builder remoto sem passar
-        # `--buildkitd-config`, e o buildkit container ignora o
-        # `insecure-registries` do daemon.json — precisa do seu próprio
-        # `buildkitd.toml`. Kamal não expõe esta config (issue #937).
-        # Pré-criamos o builder com o nome canónico que o Kamal espera
-        # — quando `kamal deploy` corre, vê builder existente e reusa.
+      - name: rsync source + trigger Kamal on Beelink
+        # rsync excluindo .git (não precisamos do histórico em /opt/iedora,
+        # só do snapshot deste commit). --delete remove ficheiros que já
+        # não existem na source. ssh trigger passa env vars in-line para
+        # o shell remoto consumir. `kamal lock release || true` é
+        # idempotent — recupera de runs cancelados.
         shell: bash
+        env:
+          BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
+          KAMAL_REGISTRY_PASSWORD: ${{ secrets.KAMAL_REGISTRY_PASSWORD }}
         run: |
           set -e
-          cat > /tmp/buildkitd.toml <<EOF
-          [registry."192.168.50.53:3030"]
-            http = true
-            insecure = true
+          rsync -azP --delete --exclude='.git' --exclude='node_modules' \
+            -e 'ssh -i ~/.ssh/ci_ed25519' \
+            ./ root@192.168.50.53:/opt/iedora/
+
+          # shellcheck disable=SC2087  # intentional: env vars expanded
+          # client-side, send resolved values to SSH (server doesn't have them).
+          ssh -i ~/.ssh/ci_ed25519 root@192.168.50.53 bash <<EOF
+          set -e
+          cd /opt/iedora
+          export BWS_ACCESS_TOKEN='$BWS_ACCESS_TOKEN'
+          export KAMAL_REGISTRY_PASSWORD='$KAMAL_REGISTRY_PASSWORD'
+          export KAMAL_BWS_PROJECT_ID='$KAMAL_BWS_PROJECT_ID'
+          kamal lock release -d production || true
+          kamal deploy -d production
           EOF
-
-          # Naming convention do Kamal: ssh://user@host → builder name
-          # `kamal-remote-<scheme>---<user>-<host>` (dots → dashes).
-          BUILDER=kamal-remote-ssh---root-192-168-50-53
-          docker buildx rm "$BUILDER" 2>/dev/null || true
-          docker buildx create \
-            --name "$BUILDER" \
-            --driver docker-container \
-            --buildkitd-config /tmp/buildkitd.toml \
-            ssh://root@192.168.50.53
-          docker buildx inspect "$BUILDER" --bootstrap | head -10
-
-      - name: Release stale Kamal lock
-        # Idempotent. Se um deploy anterior foi cancelado/crashou, o
-        # lock fica no host e bloqueia o próximo. `|| true` cobre o
-        # caso comum "não há lock para libertar".
-        shell: bash
-        env:
-          BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
-          KAMAL_REGISTRY_PASSWORD: ${{ secrets.KAMAL_REGISTRY_PASSWORD }}
-        run: kamal lock release -d production || true
-
-      - name: Kamal deploy
-        # Blue-green via kamal-proxy: se healthcheck falhar, NÃO faz
-        # swap — versão antiga continua a servir. `kamal deploy`
-        # retorna non-zero mas o estado é estável. Não há
-        # auto-rollback no CI por isso — operador investiga o erro e
-        # re-deploya quando estiver corrigido.
-        shell: bash
-        env:
-          BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
-          KAMAL_REGISTRY_PASSWORD: ${{ secrets.KAMAL_REGISTRY_PASSWORD }}
-        run: kamal deploy -d production

@@ -76,62 +76,70 @@ docker compose "${COMPOSE_ARGS[@]}" up -d
 
 echo "✓ homelab-core-infra up."
 
-# ── Configure LAN-direct registry (intra-homelab, bypass CF tunnel) ─────
-# Kamal builder remoto + deploy do mesmo Beelink falam ao Gitea OCI
-# registry em `192.168.50.53:3030` (LAN direct). Isto evita o 100MB
-# upload limit do CF free e o round-trip Beelink→edge→Beelink quando
-# tudo está no mesmo host.
+# ── Beelink-side setup para Kamal correr localmente ─────────────────────
+# Por simetria com o Mac (Eduardo deploya em segundos do Mac com Kamal
+# local + builder remoto), o CI faz `ssh root@beelink kamal deploy` em
+# vez de instalar Kamal no runner + buildkit container remoto. Kamal no
+# Beelink usa o default `docker` buildx driver (= daemon do host) que
+# respeita o `insecure-registries` do daemon.json. Push para
+# 192.168.50.53:3030 fica localhost-to-localhost.
 #
-# Idempotent: aplica só se daemon.json ou buildkitd.toml ainda não
-# têm a entry. Restart do Docker daemon é fail-safe (~10s downtime
-# dos containers) apenas quando daemon.json muda.
+# Idempotent:
+#   1. /etc/docker/daemon.json: insecure-registries += 192.168.50.53:3030
+#      (restart docker apenas se mudou)
+#   2. ruby + build toolchain (gem ed25519 tem extensão C nativa)
+#   3. kamal gem 2.11.0 (skip se já instalado)
+#   4. /opt/iedora directory (CI vai rsync source para aí)
 if [ -n "$HOST" ]; then
   REGISTRY_LAN="${REGISTRY_LAN:-192.168.50.53:3030}"
+  KAMAL_VERSION="${KAMAL_VERSION:-2.11.0}"
   SSH_TARGET="${HOST#ssh://}"
-  echo "→ Configurar insecure registry $REGISTRY_LAN no homelab"
-  ssh "$SSH_TARGET" REGISTRY_LAN="$REGISTRY_LAN" bash <<'REMOTE'
+  echo "→ Setup Beelink para Kamal local (registry $REGISTRY_LAN, Kamal $KAMAL_VERSION)"
+  ssh "$SSH_TARGET" REGISTRY_LAN="$REGISTRY_LAN" KAMAL_VERSION="$KAMAL_VERSION" bash <<'REMOTE'
 set -euo pipefail
-NEEDS_RESTART=0
 
-# 1. Docker daemon — insecure-registries (necessário para o `docker pull`
-#    durante kamal deploy + auto registry login)
+# 1. Docker daemon — insecure-registries
 DAEMON=/etc/docker/daemon.json
 [ -f "$DAEMON" ] || echo '{}' > "$DAEMON"
 if ! jq -e --arg r "$REGISTRY_LAN" '(."insecure-registries" // []) | index($r)' "$DAEMON" >/dev/null; then
   jq --arg r "$REGISTRY_LAN" '."insecure-registries" = ((."insecure-registries" // []) + [$r] | unique)' "$DAEMON" > "${DAEMON}.new"
   mv "${DAEMON}.new" "$DAEMON"
-  echo "  + daemon.json: insecure-registries += $REGISTRY_LAN"
-  NEEDS_RESTART=1
+  echo "  + daemon.json: insecure-registries += $REGISTRY_LAN — systemctl restart docker"
+  systemctl restart docker
+  sleep 3
 else
   echo "  ✓ daemon.json já contém $REGISTRY_LAN"
 fi
 
-# 2. Buildkit config (lido por `docker buildx create` na criação do
-#    builder remoto do Kamal — o buildkit container faz os pushes
-#    directos, não via daemon)
-BX=/root/.docker/buildx/buildkitd.toml
-mkdir -p "$(dirname "$BX")"
-if ! grep -qF "registry.\"$REGISTRY_LAN\"" "$BX" 2>/dev/null; then
-  cat >> "$BX" <<EOF
-[registry."$REGISTRY_LAN"]
-  http = true
-  insecure = true
-EOF
-  echo "  + buildkitd.toml: registry $REGISTRY_LAN (http+insecure)"
-  # Remove builder existente do Kamal — recreate na próxima deploy com config novo
-  docker buildx ls 2>/dev/null | awk '/^kamal-/{print $1}' | xargs -r -n1 docker buildx rm 2>/dev/null || true
+# 2. Ruby + build toolchain (necessário para o gem ed25519 compilar)
+if ! command -v gem >/dev/null || ! command -v gcc >/dev/null; then
+  echo "  → apt install ruby + build toolchain"
+  apt-get update -qq
+  apt-get install -y -qq --no-install-recommends \
+    ca-certificates ruby ruby-dev build-essential
 else
-  echo "  ✓ buildkitd.toml já contém $REGISTRY_LAN"
+  echo "  ✓ ruby + build toolchain presentes"
 fi
 
-# 3. Restart Docker daemon (insecure-registries não é hot-reloadable)
-if [ "$NEEDS_RESTART" = "1" ]; then
-  echo "  → systemctl restart docker (todos os containers param ~10s)"
-  systemctl restart docker
-  sleep 3
+# 3. Kamal gem (scope global, root user)
+if ! gem list -i kamal -v "$KAMAL_VERSION" >/dev/null 2>&1; then
+  echo "  → gem install kamal -v $KAMAL_VERSION"
+  gem install --no-document kamal -v "$KAMAL_VERSION"
+else
+  echo "  ✓ kamal $KAMAL_VERSION já instalado"
 fi
+kamal version | sed 's/^/  /'
+
+# 4. /opt/iedora — destino do rsync da source code
+mkdir -p /opt/iedora
+chmod 700 /opt/iedora
+
+# 5. Cleanup: builder buildx do método antigo já não é usado
+docker buildx ls 2>/dev/null | awk '/^kamal-/{print $1}' | xargs -r -n1 docker buildx rm 2>/dev/null || true
+# E o ficheiro buildkitd.toml também (ficou stale)
+rm -f /root/.docker/buildx/buildkitd.toml
 REMOTE
-  echo "✓ LAN registry configured"
+  echo "✓ Beelink ready (Kamal local + /opt/iedora)"
 fi
 
 # ── Optional: bootstrap CI registry PAT + Actions secret ────────────────

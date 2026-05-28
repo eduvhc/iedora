@@ -44,7 +44,6 @@ container:
     - /var/cache/buildx
     - /var/cache/bun
     - /var/cache/audit-tools
-    - /var/cache/deploy-tools
     - /data/cache
 
 host: {}
