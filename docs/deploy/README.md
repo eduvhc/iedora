@@ -239,8 +239,5 @@ dev/
 
 ## Ver também
 
-- `docs/deploy/day-0.md` — bootstrap detalhado
-- `docs/deploy/day-1.md` — primeiro deploy
-- `docs/deploy/day-2.md` — operações
 - `docs/deploy/troubleshooting.md` — modos de falha
 - `docs/dev.md` — dev local

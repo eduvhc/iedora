@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# infra-bootstrap/cloudflare-tunnel.sh — DAY 0
+# home-infra/my-services/iedora/scripts/cf-tunnel.sh
 #
-# Procedimento day-0 para um homelab novo (Beelink, Mac mini, NUC, etc.):
+# Procedimento day-0 para um homelab novo:
 #
 #   1. No homelab novo:
 #        - Docker instalado, SSH key do operador autorizada

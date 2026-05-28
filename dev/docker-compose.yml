@@ -1,8 +1,8 @@
 # Iedora-specific dev infra — Postgres + s3mock.
 # Next.js corre no host (não no Docker) via `bun run dev`.
 #
-# OpenObserve vive em `homelab-core-infra/docker-compose.yml` (shared,
-# vai mudar para repo dedicado), não aqui.
+# OpenObserve vive em `home-infra/openobserve/docker-compose.yml`
+# (shared, vai mudar para repo dedicado), não aqui.
 #
 # Boot:     bun run dev:up
 # Logs:     bun run dev:logs

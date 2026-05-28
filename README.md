@@ -7,7 +7,7 @@ host-based rewrites.
 - **Core** (`core.iedora.com`) — better-auth sign-in via `@iedora/auth`
 - **House** (`iedora.com`) — brand landing
 
-Deploy: **Kamal** + **infra-bootstrap**. Ver `docs/deploy/`.
+Deploy: **Kamal** + **`home-infra/`**. Ver `home-infra/README.md` e `docs/deploy/`.
 
 ## Quick start
 

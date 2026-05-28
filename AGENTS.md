@@ -13,7 +13,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 > `packages/design-system/`, `packages/iedora-observability/`).
 > `bun install` runs ONCE at the repo root and resolves every workspace.
 >
-> Deploy: **Kamal** + **infra-bootstrap**.
+> Deploy: **Kamal** + **`home-infra/`**.
 > CI pipeline legada (Go + Tofu) ainda existe nos workflows mas foi
 > removida do disco. Ver `docs/deploy/README.md` e `docs/tech-debt.md`.
 
@@ -65,13 +65,13 @@ iedora/
                                          Registry password vem do env
                                          (Actions secret em CI).
 
-  infra-bootstrap/
-    cloudflare-tunnel.sh                 Day 0 — cria/reutiliza CF Tunnel + DNS + BWS
-    r2-bucket.sh                         Day 0 — cria R2 bucket + S3 creds + BWS
-
-  homelab-core-infra/
-    docker-compose.yml                   OpenObserve (observability backend)
-    up.sh                                Boot com secrets de BWS
+  home-infra/                            Genérico — sem hardcodes de app
+    scripts/
+      bootstrap.sh                       Server-side prereqs + boot services
+      install-kamal.sh                   apt + ruby + kamal + bws + ssh-loopback
+    openobserve/ + gitea/                Services partilhados (bin.sh + compose)
+    my-services/iedora/                  App-specific (cf-tunnel, r2, setup-repo)
+      scripts/bootstrap.sh               1 cmd: cf-tunnel + r2 + setup-repo
 
   dev/
     docker-compose.yml                   Postgres + s3mock (local dev)
@@ -98,9 +98,9 @@ iedora/
 ### Day 0 — Bootstrap
 
 ```bash
-./infra-bootstrap/cloudflare-tunnel.sh    # CF Tunnel + DNS
-./infra-bootstrap/r2-bucket.sh            # R2 bucket + S3 creds
-./homelab-core-infra/up.sh --host ssh://root@192.168.50.53
+export BWS_ACCESS_TOKEN='...' HOMELAB_HOST='ssh://root@<ip>'
+./home-infra/scripts/bootstrap.sh                       # install-kamal + boot services
+./home-infra/my-services/iedora/scripts/bootstrap.sh    # cf-tunnel + r2 + setup-repo
 ```
 
 ### Day 1+ — Kamal

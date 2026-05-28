@@ -16,7 +16,7 @@ ssh:
 
 # Gitea OCI registry via Caddy local TLS termination.
 #
-# Caddy (homelab-core-infra/caddy) escuta em :4443 do host com cert
+# Caddy (home-infra/gitea/caddy) escuta em :4443 do host com cert
 # Let's Encrypt válido para git.iedora.com (DNS-01 via CF API token).
 # /etc/hosts no Beelink resolve `git.iedora.com → 127.0.0.1` para o
 # builder/docker daemon ir directo a Caddy local (sem CF round-trip).
@@ -108,7 +108,7 @@ env:
     NEXT_PUBLIC_IMOPUSH_URL: https://imopush.iedora.com
     IEDORA_BOOTSTRAP_ADMIN_EMAILS: eduardoferdcarvalho@gmail.com
     LOG_LEVEL: info
-    # OpenObserve corre em homelab-core-infra (rede separada). App
+    # OpenObserve corre em home-infra/openobserve (rede separada). App
     # chega lá via host.docker.internal — habilitado em options.add-host.
     # OTel: app envia para o collector (mesma rede kamal, resolução
     # por hostname). Collector adiciona auth de OO no egress. App

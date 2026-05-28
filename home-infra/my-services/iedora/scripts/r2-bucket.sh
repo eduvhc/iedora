@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# infra-bootstrap/r2-bucket.sh — DAY 0
+# home-infra/my-services/iedora/scripts/r2-bucket.sh
 #
 # Provisiona o R2 bucket `iedora-assets` (uploads do menu: logos, banners,
 # QR stickers) + cria token S3-compat scoped + grava as credenciais em BWS.

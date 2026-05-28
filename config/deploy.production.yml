@@ -1,6 +1,5 @@
 # Production overlay. Merged sobre config/deploy.yml.
-# Preenche <<<HETZNER_IPV4>>> com:
-#   tofu -chdir=infra/iac/tofu output -raw hetzner_ipv4
+# Preenche HETZNER_IPV4 com o IP correspondente.
 
 servers:
   web:

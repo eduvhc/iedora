@@ -77,9 +77,6 @@ yarn-debug.log*
 # em runtime) e estão tracked para o CI poder fazer `kamal deploy`.
 /.kamal/secrets
 
-# homelab-core-infra .env (provider-side secrets for shared infra).
-/homelab-core-infra/.env
-
 # home-infra/*/.env é COMMITTED — só config non-secret (ex: email,
 # domain). Secrets ficam em BWS, injectados em runtime via `bws run`.
 

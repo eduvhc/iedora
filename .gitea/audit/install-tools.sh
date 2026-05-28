@@ -4,7 +4,7 @@
 # Idempotente: cada tool só descarrega se a versão actual no cache diferir
 # da pinned. Cache persiste entre runs via bind-mount /var/cache/audit-tools
 # → /opt/audit-bin no container (declarado no workflow caller, whitelistado
-# em homelab-core-infra/gitea-runner-config.yaml valid_volumes).
+# em home-infra/gitea/runner-config.yaml valid_volumes).
 #
 # Re-runs típicos (cache hot) saltam os 3 curls + o apt install do curl.
 # Cold start instala git + curl + binários: ~15-20s. Steady-state: ~1-2s.

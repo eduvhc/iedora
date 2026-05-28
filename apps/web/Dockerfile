@@ -73,7 +73,7 @@ ENV NODE_ENV=production
 
 # SKIP_ENV_VALIDATION=1 returns a build-time stub Proxy from src/shared/env.ts
 # so Next can collect page data without real env. Runtime env is injected
-# by the repo-root Tofu container resource (TF-minted OIDC + session secrets).
+# by the runtime container environment (OIDC + session secrets).
 ENV SKIP_ENV_VALIDATION=1
 
 # Version skew protection — embedded as deploymentId in next.config.ts.
@@ -92,7 +92,7 @@ ENV DEPLOYMENT_VERSION=${DEPLOYMENT_VERSION}
 #
 # Prod CI: no .env present → productUrl()'s `??` fallback returns the
 # canonical `https://<id>.iedora.com` URL.
-# Dev: bin/dev-stack writes the localhost values → bundle ships them.
+# Dev: Local environment writes the localhost values → bundle ships them.
 RUN --mount=type=cache,target=/workspace/apps/web/.next/cache,sharing=locked \
     node --run build
 

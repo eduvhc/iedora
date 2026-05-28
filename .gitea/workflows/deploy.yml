@@ -7,7 +7,7 @@
 #
 # Paths que NÃO accionam (audit/ci tratam):
 #   docs/**, *.md, AGENTS.md, .gitleaks-baseline.json, .gitignore,
-#   .gitea/workflows/**, .gitea/audit/**, homelab-core-infra/**,
+#   .gitea/workflows/**, .gitea/audit/**, home-infra/**,
 #   tsconfig*, vitest.config*, eslint.config* (são CI-only)
 #
 # Não há gating por ci/audit — workflow standalone, corre independente.
@@ -51,7 +51,7 @@ jobs:
   # respeita o daemon.json.
   #
   # Setup do Beelink (Ruby + Kamal gem + /opt/iedora) é 1x via
-  # `./homelab-core-infra/up.sh --host ssh://root@192.168.50.53`.
+  # `./home-infra/scripts/bootstrap.sh` (+ my-services/iedora/scripts/bootstrap.sh).
   #
   # `kamal deploy` no Beelink:
   #   - build local (docker driver, amd64 nativo do Beelink)

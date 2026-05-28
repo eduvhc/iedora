@@ -8,14 +8,20 @@ arranca em cima destes services.
 
 ```
 home-infra/
-  scripts/              # setup one-time (server novo / substituição)
-    bootstrap.sh        # 1 comando — server-side prereqs + boot services
+  scripts/              # setup genérico one-time (server novo)
+    bootstrap.sh        # install-kamal + boot services
     install-kamal.sh    # SSH: apt + ruby + kamal + bws + ssh-loopback key
-  <service>/            # services do dia-a-dia
+  <service>/            # services partilhados (openobserve, gitea)
     bin.sh              # idempotent, zero flags
     .env                # COMMITTED, config hardcoded non-secret
     docker-compose.yml
     scripts/            # utils per-service (idempotent, genéricos)
+  my-services/          # apps consumers (iedora, ...)
+    <app>/
+      README.md
+      scripts/
+        bootstrap.sh    # app-specific setup (idempotent)
+        ...
 ```
 
 ## 1 comando para server novo
