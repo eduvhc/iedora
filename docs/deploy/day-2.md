@@ -2,9 +2,22 @@
 
 ## Deploy
 
+Em CI: push a `main` dispara `.gitea/workflows/ci.yml` → job `deploy`
+corre `kamal deploy -d production` (depois de `ci` + `audit` verdes).
+Path normal.
+
+Local (emergência / debug):
+
 ```bash
+# Uma vez por shell: exportar credenciais. O KAMAL_REGISTRY_PASSWORD
+# é um PAT scope write:package — gera 1 directamente em
+# https://git.iedora.com/user/settings/applications (não toques no
+# usado pelo CI; usa nome diferente, ex.: kamal-local).
+export KAMAL_REGISTRY_PASSWORD='<PAT do operador>'
+export KAMAL_BWS_PROJECT_ID=$(bws project list -o json | jq -r '.[0].id')
+
 kamal deploy -d production        # hot-swap zero-downtime
-kamal rollback -d production      # volta à versão anterior
+kamal rollback <version> -d production  # versão = SHA-40 do git
 kamal details -d production       # status de tudo
 ```
 
@@ -58,14 +71,14 @@ Para re-boot do OO:
 
 | Secret | Como rodar |
 |--------|------------|
-| Gitea registry token | Gitea → Settings → Applications → generate token → `bws secret edit GITEA_REGISTRY_TOKEN --value <novo>` |
+| Gitea registry PAT (`eduvhc/kamal-ci-*`) | `./homelab-core-infra/up.sh --host ssh://root@192.168.50.53 --bootstrap-ci` (rotação atómica: revoga + cria + publica) |
 | Postgres password | `bws secret edit IEDORA_POSTGRES_PASSWORD --value <novo>` → `kamal setup -d production` recria postgres |
 | Auth secret | `bws secret edit IEDORA_AUTH_SECRET --value <novo>` → `kamal deploy -d production` |
 | CF tunnel token | `./infra-bootstrap/cloudflare-tunnel.sh` (idempotente) |
 | S3 creds | `./infra-bootstrap/r2-bucket.sh` (idempotente) |
 
-Rodar `GITEA_REGISTRY_TOKEN` invalida o deploy em curso — próximo
-`kamal deploy` precisa do novo token.
+Rodar o PAT do `iedora-ci` invalida o deploy em curso — próximo
+`kamal deploy` precisa do novo PAT.
 
 ## Backup / restore
 

@@ -6,7 +6,7 @@
 |---------|-------|----------|
 | `kamal setup` / `deploy` falha com `SSH connection refused` | Beelink down ou IP mudou | Verificar `config/deploy.production.yml` + `ssh root@192.168.50.53` |
 | `Access denied for 'root'` no build remoto | `ci_ed25519` key não autorizada | `ssh-copy-id -i ~/.ssh/ci_ed25519 root@192.168.50.53` |
-| `unauthorized: Your request could not be authenticated by the registry` | Gitea registry token expirado | Regenerar no Gitea, `bws secret edit GITEA_REGISTRY_TOKEN` |
+| `unauthorized: Your request could not be authenticated by the registry` | PAT `eduvhc/kamal-ci-*` expirou/foi revogado | `./homelab-core-infra/up.sh --host ssh://root@192.168.50.53 --bootstrap-ci` (revoga PATs antigos com prefix `kamal-ci-` + cria novo + publica como Actions secret) |
 | `kamal setup` cria container mas site dá 502 | cloudflared sem token | `./infra-bootstrap/cloudflare-tunnel.sh` re-grava o token, depois `kamal accessory reboot cloudflared -d production` |
 | App crasha em boot | Migration falhou ou env em falta | `ssh docker logs iedora-web --tail 100` |
 | Hot-swap falha | Healthcheck não passa | `kamal deploy` não mata o container atual. `ssh docker logs iedora-web --tail 50` para ver o erro |

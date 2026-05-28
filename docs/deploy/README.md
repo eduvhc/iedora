@@ -16,8 +16,8 @@
 │   Kamal                      │  Day 1+ — deploys incrementais
 │   config/deploy.yml          │  Serviço: iedora-web (Next.js)
 │   config/deploy.production.yml│  Server: 192.168.50.53 (Beelink)
-│   .kamal/secrets-common      │  Gitea registry token (BWS)
-│   .kamal/secrets.production  │  DB URLs, S3, tunnel, OTel (BWS)
+│   .kamal/secrets.production  │  DB URLs, S3, tunnel, OTel (BWS).
+│                              │  Registry password vem do env.
 └──────────────────────────────┘
          │
          ▼
@@ -159,7 +159,7 @@ ssh root@$HOST docker ps
 | Secret | Como rodar |
 |--------|------------|
 | BWS token | Regenerar no Bitwarden UI, atualizar `~/.secrets` |
-| Gitea registry token | Regenerar no Gitea, `bws secret edit GITEA_REGISTRY_TOKEN --value <novo>` |
+| Gitea registry PAT (`eduvhc/kamal-ci-*`) | `./homelab-core-infra/up.sh --host ssh://root@192.168.50.53 --bootstrap-ci` |
 | DB passwords | `bws secret edit IEDORA_POSTGRES_PASSWORD --value <novo>`, `kamal setup -d production` recria o postgres |
 | CF tunnel token | `./infra-bootstrap/cloudflare-tunnel.sh` re-grava |
 
@@ -184,9 +184,14 @@ Ver `docs/ci/README.md`.
 
 ## BWS keys usadas
 
+BWS guarda secrets que cruzam boundary externo (DB, S3, OO, CF). O
+registry OCI do Gitea autentica-se internamente — esse token é
+gerado por `./homelab-core-infra/up.sh --bootstrap-ci` (revoga PATs
+antigos do prefix `kamal-ci-` + cria novo + publica como Actions
+secret `KAMAL_REGISTRY_PASSWORD` na repo `eduvhc/iedora`).
+
 | Key | Onde é criada | Onde é lida |
 |-----|--------------|-------------|
-| `GITEA_REGISTRY_TOKEN` | Operador (Bitwarden UI) | `.kamal/secrets-common` |
 | `IEDORA_TUNNEL_TOKEN` | `cloudflare-tunnel.sh` | `.kamal/secrets.production` |
 | `IEDORA_S3_ACCESS_KEY_ID` | `r2-bucket.sh` | `.kamal/secrets.production` |
 | `IEDORA_S3_SECRET_ACCESS_KEY` | `r2-bucket.sh` | `.kamal/secrets.production` |
@@ -204,8 +209,9 @@ config/
   deploy.production.yml     Production overlay (servers, add-host)
 
 .kamal/
-  secrets-common            Gitea registry token (shared entre destinations)
-  secrets.production        DB URLs, S3, tunnel, OTel
+  secrets.production        DB URLs, S3, tunnel, OTel (fetch via BWS).
+                            KAMAL_REGISTRY_PASSWORD vem do environment
+                            (Actions secret em CI, export local).
 
 infra-bootstrap/
   cloudflare-tunnel.sh      Day 0 — CF Tunnel + DNS

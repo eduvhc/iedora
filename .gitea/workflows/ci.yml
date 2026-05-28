@@ -181,11 +181,21 @@ jobs:
           install -m 0755 /tmp/bws/bws /usr/local/bin/bws
 
       - name: Bootstrap SSH from BWS
+        # Exporta KAMAL_BWS_PROJECT_ID para steps seguintes (via
+        # $GITHUB_ENV). `.kamal/secrets.production` usa-o no `kamal
+        # secrets fetch --adapter bitwarden-sm "$KAMAL_BWS_PROJECT_ID/
+        # all"` — sem prefix o `bws secret list` lista tudo o que o
+        # token vê (sem ordem garantida).
+        #
+        # KAMAL_REGISTRY_PASSWORD não vem por aqui — é Actions secret
+        # publicada pelo `up.sh --bootstrap-ci` (registry auth é
+        # interno ao homelab, não pertence ao BWS).
         shell: bash
         env:
           BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
         run: |
           PROJECT_ID=$(bws project list -o json | jq -r '.[0].id')
+          echo "KAMAL_BWS_PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           bws secret list "$PROJECT_ID" -o json \
             | python3 -c 'import sys,json; [print(s["value"]) for s in json.loads(sys.stdin.read(), strict=False) if s["key"]=="HOMELAB_SSH_PRIVATE_KEY"]' \
@@ -200,6 +210,7 @@ jobs:
         shell: bash
         env:
           BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
+          KAMAL_REGISTRY_PASSWORD: ${{ secrets.KAMAL_REGISTRY_PASSWORD }}
         run: kamal lock release -d production || true
 
       - name: Kamal deploy
@@ -211,4 +222,5 @@ jobs:
         shell: bash
         env:
           BWS_ACCESS_TOKEN: ${{ secrets.BWS_ACCESS_TOKEN }}
+          KAMAL_REGISTRY_PASSWORD: ${{ secrets.KAMAL_REGISTRY_PASSWORD }}
         run: kamal deploy -d production

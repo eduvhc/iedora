@@ -46,10 +46,15 @@ Boot OpenObserve no homelab. Credenciais admin de BWS.
 bws secret list "$(bws project list -o json | jq -r '.[0].id')" -o json | jq -r '.[].key' | sort
 ```
 
-Devem existir: `GITEA_REGISTRY_TOKEN`, `IEDORA_TUNNEL_TOKEN`,
-`IEDORA_S3_ACCESS_KEY_ID`, `IEDORA_S3_SECRET_ACCESS_KEY`,
-`IEDORA_POSTGRES_PASSWORD`, `IEDORA_AUTH_SECRET`,
-`CLOUDFLARE_API_TOKEN`, `OPENOBSERVE_ADMIN_PASSWORD`.
+Devem existir: `IEDORA_TUNNEL_TOKEN`, `IEDORA_S3_ACCESS_KEY_ID`,
+`IEDORA_S3_SECRET_ACCESS_KEY`, `IEDORA_POSTGRES_PASSWORD`,
+`IEDORA_AUTH_SECRET`, `CLOUDFLARE_API_TOKEN`,
+`OPENOBSERVE_ADMIN_PASSWORD`.
+
+(O `KAMAL_REGISTRY_PASSWORD` para `docker login git.iedora.com` é
+gerado automaticamente pelo `gitea-ci-*-init` no
+`homelab-core-infra/docker-compose.yml` e publicado como Actions
+secret. Não vive no BWS.)
 
 ## Seguinte
 

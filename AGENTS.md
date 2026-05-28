@@ -61,8 +61,9 @@ iedora/
     deploy.production.yml                Production overlay (servers, add-host)
     postgres/init.sql                    CREATE DATABASE menu / core / imopush
   .kamal/
-    secrets-common                       Gitea registry token (BWS)
-    secrets.production                   DB URLs, S3, tunnel token, OTel (BWS)
+    secrets.production                   DB URLs, S3, tunnel token, OTel (BWS).
+                                         Registry password vem do env
+                                         (Actions secret em CI).
 
   infra-bootstrap/
     cloudflare-tunnel.sh                 Day 0 — cria/reutiliza CF Tunnel + DNS + BWS
