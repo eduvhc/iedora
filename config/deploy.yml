@@ -31,15 +31,17 @@ registry:
     - KAMAL_REGISTRY_PASSWORD
 
 builder:
-  # NÃO há `remote:` nem `cache:` aqui — Kamal corre no Beelink, o
-  # docker daemon do host já cacheia layers nativamente (single-host
-  # setup, sem benefício de cache de registry partilhada). Sem
-  # cache.type/options, Kamal usa o default `docker` buildx driver
-  # (não docker-container/buildkit) — o que importa porque o buildkit
-  # container ignora o `insecure-registries` do daemon.json
-  # (basecamp/kamal#937). Docker daemon respeita, push para
-  # 192.168.50.53:3030 = localhost-to-localhost sem TLS hacks.
+  # `multiarch: false` é necessário para forçar o docker driver
+  # (= daemon do host, respeita /etc/hosts). Sem isto, Kamal cria
+  # um docker-container buildkit que tem o seu próprio /etc/hosts
+  # e ignora o override `127.0.0.1 git.iedora.com` no Beelink —
+  # buildkit tentaria resolver via DNS público (CF) e fazer push
+  # para a edge CF (com 4443 não exposto = timeout).
+  #
+  # Com docker driver: push usa o HTTP client do daemon do host
+  # que respeita /etc/hosts → Caddy local → Gitea.
   arch: amd64
+  multiarch: false
   context: .
   dockerfile: apps/web/Dockerfile
 
