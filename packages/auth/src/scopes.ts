@@ -62,11 +62,44 @@ export const SCOPES = {
         read: 'staff:core:admin:read',
       },
     },
+    /**
+     * Cross-tenant concerns that aren't product-specific (a tenant's
+     * own member management + its billing + tenant lifecycle). Lives
+     * under `core` because core owns the tenant + billing schemas.
+     */
+    tenant: {
+      members: {
+        read:   'tenant:core:members:read',
+        invite: 'tenant:core:members:invite',
+        remove: 'tenant:core:members:remove',
+        // Edit another member's scopes (delegating authority within
+        // the tenant). Owner-ish scope by default.
+        grant:  'tenant:core:members:grant',
+      },
+      billing: {
+        read:        'tenant:core:billing:read',
+        // Granular billing verbs — split on blast radius. Today only
+        // these three exist; add specific verbs (e.g. `cancel`) when
+        // a surface needs them gated independently.
+        changePlan:  'tenant:core:billing:change-plan',
+        updatePayment: 'tenant:core:billing:update-payment',
+      },
+      tenant: {
+        // Delete the whole tenant. Owner-only by convention.
+        delete: 'tenant:core:tenant:delete',
+      },
+    },
   },
 
   // ── menu: restaurant SaaS ──────────────────────────────────────
   menu: {
     tenant: {
+      restaurants: {
+        read:   'tenant:menu:restaurants:read',
+        create: 'tenant:menu:restaurants:create',
+        update: 'tenant:menu:restaurants:update',
+        delete: 'tenant:menu:restaurants:delete',
+      },
       qrCodes: {
         read:   'tenant:menu:qr-codes:read',
         create: 'tenant:menu:qr-codes:create',
@@ -76,8 +109,23 @@ export const SCOPES = {
     },
   },
 
-  // Future products land here as siblings:
-  //   imopush: { tenant: { listings: { ... } }, staff: { ... } }
+  // ── imopush: realestate listings + portal distribution ─────────
+  imopush: {
+    tenant: {
+      properties: {
+        read:   'tenant:imopush:properties:read',
+        create: 'tenant:imopush:properties:create',
+        update: 'tenant:imopush:properties:update',
+        delete: 'tenant:imopush:properties:delete',
+      },
+      idealista: {
+        // Publish a property to Idealista. Standalone verb so an
+        // operator like Mario can be granted publish-to-idealista
+        // without write access to property data itself.
+        publish: 'tenant:imopush:idealista:publish',
+      },
+    },
+  },
 } as const
 
 /**
