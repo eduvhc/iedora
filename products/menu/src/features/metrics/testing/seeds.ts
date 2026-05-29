@@ -7,7 +7,7 @@ import { testDb } from '../../../shared/testing/e2e-db'
  * happy-path beacon coverage use `@/shared/testing/e2e-beacon`.
  */
 export async function seedDailyView(input: {
-  organizationId: string
+  tenantId: string
   restaurantId: string
   day: string // YYYY-MM-DD
   language?: string
@@ -15,9 +15,9 @@ export async function seedDailyView(input: {
 }): Promise<void> {
   const sql = testDb()
   await sql`
-    INSERT INTO "menu"."daily_view" (organization_id, restaurant_id, day, language, count)
+    INSERT INTO "menu"."daily_view" (tenant_id, restaurant_id, day, language, count)
     VALUES (
-      ${input.organizationId},
+      ${input.tenantId},
       ${input.restaurantId},
       ${input.day},
       ${input.language ?? 'en'},

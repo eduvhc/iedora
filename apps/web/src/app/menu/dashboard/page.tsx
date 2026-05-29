@@ -16,16 +16,16 @@ import {
 const VIEW_NUDGE_RATIO = 0.8
 
 export default async function DashboardPage() {
-  const { organizationId } = await requireActiveOrganization()
+  const { tenantId } = await requireActiveOrganization()
   const t = await getTranslations('Dashboard')
   const tBilling = await getTranslations('Billing')
   const locale = await getLocale()
 
   const [restaurants, gate, plan, viewCount] = await Promise.all([
-    listRestaurantsWithCounts(organizationId),
-    canAddRestaurant(organizationId),
-    getOrganizationPlan(organizationId),
-    getOrganizationMonthlyViews(organizationId),
+    listRestaurantsWithCounts(tenantId),
+    canAddRestaurant(tenantId),
+    getOrganizationPlan(tenantId),
+    getOrganizationMonthlyViews(tenantId),
   ])
 
   const viewLimit = plan.limits.monthlyViews

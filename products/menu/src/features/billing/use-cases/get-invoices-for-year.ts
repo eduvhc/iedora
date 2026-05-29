@@ -8,8 +8,8 @@ import type { Invoice } from '../types'
  */
 export async function getInvoicesForYear(
   billing: BillingReadPort,
-  organizationId: string,
+  tenantId: string,
   year: number,
 ): Promise<Invoice[]> {
-  return billing.listInvoicesForYear(organizationId, year)
+  return billing.listInvoicesForYear(tenantId, year)
 }

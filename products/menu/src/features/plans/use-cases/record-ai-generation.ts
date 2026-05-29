@@ -9,7 +9,7 @@ import type { PlansGateway } from '../ports'
  */
 export async function recordAiGeneration(
   plans: PlansGateway,
-  organizationId: string,
+  tenantId: string,
 ): Promise<void> {
-  await plans.recordAiGeneration(organizationId)
+  await plans.recordAiGeneration(tenantId)
 }

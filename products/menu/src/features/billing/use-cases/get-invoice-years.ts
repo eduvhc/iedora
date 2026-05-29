@@ -8,7 +8,7 @@ import type { BillingReadPort } from '../ports'
  */
 export async function getInvoiceYears(
   billing: BillingReadPort,
-  organizationId: string,
+  tenantId: string,
 ): Promise<number[]> {
-  return billing.listInvoiceYears(organizationId)
+  return billing.listInvoiceYears(tenantId)
 }

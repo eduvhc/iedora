@@ -17,12 +17,12 @@ import type { MetricsGateway } from '../ports'
  * conflict path is the hot path.
  */
 export const drizzleMetrics: MetricsGateway = {
-  async incrementDailyView({ restaurantId, organizationId, day, language }) {
+  async incrementDailyView({ restaurantId, tenantId, day, language }) {
     await db
       .insert(dailyView)
       .values({
         restaurantId,
-        organizationId,
+        tenantId,
         day,
         language,
         count: 1,
@@ -33,7 +33,7 @@ export const drizzleMetrics: MetricsGateway = {
       })
   },
 
-  async sumScans(organizationId, start, end) {
+  async sumScans(tenantId, start, end) {
     const rows = await db
       .select({
         total: sql<number>`coalesce(sum(${dailyView.count}), 0)::int`,
@@ -41,7 +41,7 @@ export const drizzleMetrics: MetricsGateway = {
       .from(dailyView)
       .where(
         and(
-          eq(dailyView.organizationId, organizationId),
+          eq(dailyView.tenantId, tenantId),
           gte(dailyView.day, start),
           lte(dailyView.day, end),
         ),
@@ -49,7 +49,7 @@ export const drizzleMetrics: MetricsGateway = {
     return Number(rows[0]?.total ?? 0)
   },
 
-  async dailyBreakdown(organizationId, start, end) {
+  async dailyBreakdown(tenantId, start, end) {
     return db
       .select({
         day: dailyView.day,
@@ -58,7 +58,7 @@ export const drizzleMetrics: MetricsGateway = {
       .from(dailyView)
       .where(
         and(
-          eq(dailyView.organizationId, organizationId),
+          eq(dailyView.tenantId, tenantId),
           gte(dailyView.day, start),
           lte(dailyView.day, end),
         ),
@@ -66,13 +66,13 @@ export const drizzleMetrics: MetricsGateway = {
       .groupBy(dailyView.day)
   },
 
-  async getOrgContent(organizationId) {
+  async getOrgContent(tenantId) {
     const [menuRows, dishRow, restaurants] = await Promise.all([
       db
         .select({ active: menu.active, n: count() })
         .from(menu)
         .innerJoin(restaurant, eq(restaurant.id, menu.restaurantId))
-        .where(eq(restaurant.organizationId, organizationId))
+        .where(eq(restaurant.tenantId, tenantId))
         .groupBy(menu.active),
       db
         .select({
@@ -81,11 +81,11 @@ export const drizzleMetrics: MetricsGateway = {
         })
         .from(item)
         .innerJoin(restaurant, eq(restaurant.id, item.restaurantId))
-        .where(eq(restaurant.organizationId, organizationId)),
+        .where(eq(restaurant.tenantId, tenantId)),
       db
         .select({ supportedLanguages: restaurant.supportedLanguages })
         .from(restaurant)
-        .where(eq(restaurant.organizationId, organizationId)),
+        .where(eq(restaurant.tenantId, tenantId)),
     ])
 
     return {

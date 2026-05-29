@@ -44,14 +44,14 @@ afterEach(async () => {
 })
 
 async function seedMenu(): Promise<{ menuId: string; restaurantId: string }> {
-  // `organizationId` is a plain UUID handed back by Genkan in real life —
+  // `tenantId` is a plain UUID handed back by Genkan in real life —
   // no FK to anything menu-local, so we can seed an arbitrary string.
-  const orgId = 'o-1'
+  const tenantId = 'o-1'
   const restaurantId = 'r-1'
   const menuId = 'm-1'
   await t.db.insert(restaurant).values({
     id: restaurantId,
-    organizationId: orgId,
+    tenantId: tenantId,
     name: 'Place',
     slug: 'place',
   })
@@ -162,11 +162,11 @@ describe('drizzleMenuWrite — batched reorder', () => {
 
 describe('drizzleMenuWrite.seedSampleMenu — variants persistence', () => {
   it('writes variants on items that have them, leaves null otherwise', async () => {
-    const orgId = 'o-seed'
+    const tenantId = 'o-seed'
     const restaurantId = 'r-seed'
     await t.db.insert(restaurant).values({
       id: restaurantId,
-      organizationId: orgId,
+      tenantId: tenantId,
       name: 'Place',
       slug: 'place-seed',
     })
@@ -218,11 +218,11 @@ describe('drizzleMenuWrite.seedSampleMenu — variants persistence', () => {
   })
 
   it('writes null when the variants array is present but empty', async () => {
-    const orgId = 'o-empty'
+    const tenantId = 'o-empty'
     const restaurantId = 'r-empty'
     await t.db.insert(restaurant).values({
       id: restaurantId,
-      organizationId: orgId,
+      tenantId: tenantId,
       name: 'Place',
       slug: 'place-empty',
     })

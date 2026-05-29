@@ -156,7 +156,7 @@ function makeGateway(testDb: TestDb): QrCodesGateway {
 async function seedRestaurant(t: TestDb, id = 'r1', slug = 'sushi') {
   await t.db.insert(schema.restaurant).values({
     id,
-    organizationId: 'o1',
+    tenantId: 'o1',
     name: slug,
     slug,
   })

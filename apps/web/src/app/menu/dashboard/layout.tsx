@@ -43,8 +43,8 @@ export default async function DashboardLayout({
   if (!session?.user) {
     redirect(signInUrl(publicUrl('/menu/dashboard').toString()))
   }
-  const organizationId = await getEffectiveOrganizationId()
-  if (!organizationId) {
+  const tenantId = await getEffectiveOrganizationId()
+  if (!tenantId) {
     redirect('/menu/onboarding')
   }
   // Sidebar restaurants section. Lists every restaurant in the active org
@@ -52,8 +52,8 @@ export default async function DashboardLayout({
   // Empty when the org has no restaurants yet — the section header is
   // suppressed in that case (see candidates below).
   const [plan, restaurants] = await Promise.all([
-    getOrganizationPlan(organizationId),
-    listRestaurantsWithCounts(organizationId),
+    getOrganizationPlan(tenantId),
+    listRestaurantsWithCounts(tenantId),
   ])
   const showAnalyticsLink = planHas(plan, 'analytics')
   // QR codes admin is cross-tenant (`requireScope` in

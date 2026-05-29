@@ -3,7 +3,7 @@ import { testDb } from '../../../shared/testing/e2e-db'
 import type { PlanCode } from '../../plans'
 
 export type SeedInvoiceInput = {
-  organizationId: string
+  tenantId: string
   plan: PlanCode
   amountCents: number
   currency?: string
@@ -14,7 +14,7 @@ export type SeedInvoiceInput = {
 
 export type SeededInvoice = {
   invoiceId: string
-  organizationId: string
+  tenantId: string
   amountCents: number
 }
 
@@ -24,12 +24,12 @@ export async function seedInvoice(input: SeedInvoiceInput): Promise<SeededInvoic
   const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
   const [row] = await sql<{ id: string }[]>`
     INSERT INTO "menu"."invoice" (
-      id, organization_id, plan, period_start, period_end,
+      id, tenant_id, plan, period_start, period_end,
       amount_cents, currency, status, issued_at,
       paid_at
     ) VALUES (
       gen_random_uuid()::text,
-      ${input.organizationId},
+      ${input.tenantId},
       ${input.plan},
       ${input.periodStart ?? monthAgo},
       ${input.periodEnd ?? now},
@@ -43,7 +43,7 @@ export async function seedInvoice(input: SeedInvoiceInput): Promise<SeededInvoic
   `
   return {
     invoiceId: row!.id,
-    organizationId: input.organizationId,
+    tenantId: input.tenantId,
     amountCents: input.amountCents,
   }
 }

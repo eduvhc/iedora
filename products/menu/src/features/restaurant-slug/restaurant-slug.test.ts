@@ -211,7 +211,7 @@ function pgliteRegistry(testDb: TestDb): SlugRegistry {
 async function seedRestaurant(testDb: TestDb, slug: string): Promise<string> {
   const [row] = await testDb.db
     .insert(schema.restaurant)
-    .values({ organizationId: `org-${slug}`, name: slug, slug })
+    .values({ tenantId: `org-${slug}`, name: slug, slug })
     .returning({ id: schema.restaurant.id })
   if (!row) throw new Error('seed failed')
   return row.id

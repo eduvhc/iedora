@@ -59,7 +59,7 @@ afterEach(async () => {
 /** Sets up a PT-default restaurant with EN translations on every
  *  translatable surface. Returns the IDs the test will assert on. */
 async function seedRestaurantWithTranslations() {
-  const orgId = 'o-1'
+  const tenantId = 'o-1'
   const restaurantId = 'r-1'
   const menuId = 'm-1'
   const catId = 'c-1'
@@ -67,7 +67,7 @@ async function seedRestaurantWithTranslations() {
 
   await t.db.insert(restaurant).values({
     id: restaurantId,
-    organizationId: orgId,
+    tenantId: tenantId,
     name: 'O Bom Garfo',
     slug: 'o-bom-garfo',
     defaultLanguage: 'pt',
@@ -212,14 +212,14 @@ describe('drizzleIdentityWrite.updateLanguageSettings — promote-on-switch', ()
   })
 
   it('counts rows needing attention when translations are missing', async () => {
-    const orgId = 'o-2'
+    const tenantId = 'o-2'
     const restaurantId = 'r-2'
     const menuId = 'm-2'
     const catId = 'c-2'
     const itemId = 'i-2'
     await t.db.insert(restaurant).values({
       id: restaurantId,
-      organizationId: orgId,
+      tenantId: tenantId,
       name: 'Sem traduções',
       slug: 'sem-traducoes',
       defaultLanguage: 'pt',
@@ -301,7 +301,7 @@ describe('drizzleIdentityWrite.updateLanguageSettings — promote-on-switch', ()
     const it2 = 'i-other'
     await t.db.insert(restaurant).values({
       id: r2,
-      organizationId: 'o-other',
+      tenantId: 'o-other',
       name: 'Outra casa',
       slug: 'outra',
       defaultLanguage: 'pt',

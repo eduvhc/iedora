@@ -20,7 +20,7 @@ import type { PublicMenuData } from './types'
  */
 
 export type PublicMenuLoaded = PublicMenuData & {
-  organizationId: string
+  tenantId: string
   theme: ResolvedTheme
   defaultLanguage: LanguageCode
   supportedLanguages: LanguageCode[]
@@ -58,7 +58,7 @@ export async function loadPublicMenu(
       logoUrl: snap.logoUrl,
       bannerUrl: snap.bannerUrl,
     },
-    organizationId: snap.organizationId,
+    tenantId: snap.tenantId,
     menus,
     theme: resolveTheme(snap.theme),
     defaultLanguage: snap.defaultLanguage,

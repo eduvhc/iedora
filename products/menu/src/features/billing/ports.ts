@@ -14,14 +14,14 @@ export interface BillingReadPort {
    * invoice. Drives the year filter chips on the billing page — never
    * hardcode the current year, the UI follows what's actually billed.
    */
-  listInvoiceYears(organizationId: string): Promise<number[]>
+  listInvoiceYears(tenantId: string): Promise<number[]>
 
   /**
    * Invoices issued within the given calendar year, newest first. The year is
    * interpreted in UTC so the range matches the DB's `timestamp` columns.
    */
   listInvoicesForYear(
-    organizationId: string,
+    tenantId: string,
     year: number,
   ): Promise<Invoice[]>
 }

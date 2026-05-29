@@ -15,11 +15,11 @@ export type SetOrganizationPlanResult =
  */
 export async function setOrganizationPlan(
   plans: PlansGateway,
-  organizationId: string,
+  tenantId: string,
   target: string,
 ): Promise<SetOrganizationPlanResult> {
   if (!isPlanCode(target)) return { error: 'unknown-plan' }
-  const ok = await plans.updateOrgPlan(organizationId, target)
+  const ok = await plans.updateOrgPlan(tenantId, target)
   if (!ok) return { error: 'not-found' }
   return { ok: true, plan: target }
 }

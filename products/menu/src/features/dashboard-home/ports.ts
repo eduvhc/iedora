@@ -37,7 +37,7 @@ export interface DashboardReadPort {
    * (e.g. via `requireActiveOrganization`).
    */
   listRestaurantsWithCounts(
-    organizationId: string,
+    tenantId: string,
   ): Promise<RestaurantWithCounts[]>
 
   /**

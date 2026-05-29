@@ -8,10 +8,10 @@ import { requireActiveOrganization } from './require-active-organization'
  * Tenant-scoped guard: verifies the caller has a session, belongs to an
  * org on Genkan, and that org owns the given restaurant. Redirects to
  * /dashboard when the restaurant doesn't belong to one of the caller's
- * orgs. Returns the session, organizationId, and restaurantId for
+ * orgs. Returns the session, tenantId, and restaurantId for
  * downstream queries.
  *
- * Seeds `tenantContext` with the resolved (restaurantId, organizationId)
+ * Seeds `tenantContext` with the resolved (restaurantId, tenantId)
  * via `enterWith`. The store persists through the remainder of the
  * request's async chain — every span started downstream (Drizzle
  * adapters, S3 calls, fetch instrumentations) gets stamped with the
@@ -28,10 +28,10 @@ export async function requireRestaurantAccess(
   return tracer.startActiveSpan('auth.require-restaurant-access', async (span) => {
     span.setAttribute(IEDORA_RESTAURANT_ID, restaurantId)
     try {
-      const { session, organizationId } = await requireActiveOrganization(auth)
+      const { session, tenantId } = await requireActiveOrganization(auth)
       const row = await auth.findRestaurantByIdInOrg({
         restaurantId,
-        organizationId,
+        tenantId,
       })
       if (!row) {
         span.setAttribute('iedora.auth.outcome', 'forbidden')
@@ -39,11 +39,11 @@ export async function requireRestaurantAccess(
       }
       // Seed the ALS store for the rest of the request's async chain.
       // Every downstream span (auto-instrumented or manual) picks up
-      // tenant.restaurant_id / tenant.organization_id from here on.
-      tenantContext.enterWith({ restaurantId, organizationId })
-      span.setAttribute(IEDORA_ORGANIZATION_ID, organizationId)
+      // tenant.restaurant_id / tenant.tenant_id from here on.
+      tenantContext.enterWith({ restaurantId, tenantId })
+      span.setAttribute(IEDORA_ORGANIZATION_ID, tenantId)
       span.setAttribute('iedora.auth.outcome', 'allowed')
-      return { session, organizationId, restaurantId }
+      return { session, tenantId, restaurantId }
     } finally {
       span.end()
     }

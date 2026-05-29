@@ -14,28 +14,28 @@ export interface PlansGateway {
    * org is missing. The use-cases coerce unknown / null values back to the
    * default plan via `getPlan`, so this stays a raw string.
    */
-  getOrgPlan(organizationId: string): Promise<string | null>
+  getOrgPlan(tenantId: string): Promise<string | null>
 
   /**
    * Counts the restaurants currently owned by the org. Plain integer, no
    * filtering — `canAddRestaurant` compares it against the plan's limit.
    */
-  countOrgRestaurants(organizationId: string): Promise<number>
+  countOrgRestaurants(tenantId: string): Promise<number>
 
   /**
    * Persists a new plan code on the organization. Returns true when a row
    * was updated, false when nothing matched (org missing). Schema enforces
    * the column type; the use-case enforces the registry membership.
    */
-  updateOrgPlan(organizationId: string, code: PlanCode): Promise<boolean>
+  updateOrgPlan(tenantId: string, code: PlanCode): Promise<boolean>
 
   /**
-   * Counts AI menu-import generations for `organizationId` newer than
+   * Counts AI menu-import generations for `tenantId` newer than
    * `since`. Used by `canGenerateAiMenu` to compare against the plan's
    * weekly limit.
    */
   countAiGenerationsSince(
-    organizationId: string,
+    tenantId: string,
     since: Date,
   ): Promise<number>
 
@@ -43,5 +43,5 @@ export interface PlansGateway {
    * Records that an AI menu-import generation just ran for the org.
    * One row per call — the weekly counter is derived, not stored.
    */
-  recordAiGeneration(organizationId: string): Promise<void>
+  recordAiGeneration(tenantId: string): Promise<void>
 }

@@ -9,7 +9,7 @@ import type { BillingReadPort } from '../ports'
  * table. Server-only — the Drizzle client never belongs on the client.
  */
 export const drizzleBilling: BillingReadPort = {
-  async listInvoiceYears(organizationId) {
+  async listInvoiceYears(tenantId) {
     // Postgres requires SELECT DISTINCT's ORDER BY expressions to match
     // exactly one of the select-list expressions; binding the year extract to
     // a single `sql` fragment ensures cast and sort agree on identity.
@@ -17,12 +17,12 @@ export const drizzleBilling: BillingReadPort = {
     const rows = await db
       .selectDistinct({ year: yearExpr })
       .from(invoice)
-      .where(eq(invoice.organizationId, organizationId))
+      .where(eq(invoice.tenantId, tenantId))
       .orderBy(desc(yearExpr))
     return rows.map((r) => Number(r.year))
   },
 
-  async listInvoicesForYear(organizationId, year) {
+  async listInvoicesForYear(tenantId, year) {
     const start = new Date(Date.UTC(year, 0, 1))
     const end = new Date(Date.UTC(year + 1, 0, 1))
     const rows = await db
@@ -30,7 +30,7 @@ export const drizzleBilling: BillingReadPort = {
       .from(invoice)
       .where(
         and(
-          eq(invoice.organizationId, organizationId),
+          eq(invoice.tenantId, tenantId),
           gte(invoice.issuedAt, start),
           lt(invoice.issuedAt, end),
         ),

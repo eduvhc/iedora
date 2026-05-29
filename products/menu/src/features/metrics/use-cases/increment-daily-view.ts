@@ -14,12 +14,12 @@ import { toDayString } from '../range'
 export async function incrementDailyView(
   metrics: MetricsGateway,
   restaurantId: string,
-  organizationId: string,
+  tenantId: string,
   language: LanguageCode,
 ): Promise<void> {
   await metrics.incrementDailyView({
     restaurantId,
-    organizationId,
+    tenantId,
     day: toDayString(),
     language,
   })

@@ -57,9 +57,9 @@ export async function analyzeMenuImage(
   imageUrl: string,
 ): Promise<AnalyzeResult> {
   // Auth guard: verifies the caller belongs to the restaurant's org.
-  const { organizationId } = await requireRestaurantBySlug(slug)
+  const { tenantId } = await requireRestaurantBySlug(slug)
 
-  const gate = await canGenerateAiMenu(organizationId)
+  const gate = await canGenerateAiMenu(tenantId)
   if (!gate.ok) {
     return {
       error: `Weekly AI menu limit reached (${gate.used}/${gate.limit}). Upgrade to Casa for 5 imports per week.`,
@@ -73,7 +73,7 @@ export async function analyzeMenuImage(
   const result = await runParseMenuImage(menuAnalysisAdapter, { imageUrl })
   if ('error' in result) return result
 
-  await recordAiGeneration(organizationId)
+  await recordAiGeneration(tenantId)
 
   return {
     categories: result.categories,
@@ -153,9 +153,9 @@ export async function analyzeMenuPatch(
   imageUrl: string,
   current: PatchCurrentMenu,
 ): Promise<AnalyzePatchResult> {
-  const { organizationId } = await requireRestaurantBySlug(slug)
+  const { tenantId } = await requireRestaurantBySlug(slug)
 
-  const gate = await canGenerateAiMenu(organizationId)
+  const gate = await canGenerateAiMenu(tenantId)
   if (!gate.ok) {
     return {
       error: `Weekly AI menu limit reached (${gate.used}/${gate.limit}). Upgrade to Casa for 5 imports per week.`,
@@ -172,7 +172,7 @@ export async function analyzeMenuPatch(
   })
   if ('error' in result) return result
 
-  await recordAiGeneration(organizationId)
+  await recordAiGeneration(tenantId)
 
   return {
     operations: result.operations,

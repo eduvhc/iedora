@@ -42,12 +42,12 @@ export interface AuthGateway {
   /** Look up a menu restaurant by id, scoped to a tenant org. */
   findRestaurantByIdInOrg(params: {
     restaurantId: string
-    organizationId: string
+    tenantId: string
   }): Promise<{ id: string } | null>
 
   /** Same, but resolved by URL slug. */
   findRestaurantBySlugInOrg(params: {
     slug: string
-    organizationId: string
+    tenantId: string
   }): Promise<{ id: string; name: string; slug: string } | null>
 }

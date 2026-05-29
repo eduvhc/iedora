@@ -16,19 +16,19 @@ import type { DailyPoint, OrgAnalytics } from '../types'
  */
 export async function getOrganizationAnalytics(
   metrics: MetricsGateway,
-  organizationId: string,
+  tenantId: string,
   range: AnalyticsRange,
 ): Promise<OrgAnalytics> {
   const { start, end, span } = rangeBounds(range)
   const today = toDayString()
 
   const [totalScans, todayScans, breakdownRows, content] = await Promise.all([
-    metrics.sumScans(organizationId, start, end),
-    metrics.sumScans(organizationId, today, today),
+    metrics.sumScans(tenantId, start, end),
+    metrics.sumScans(tenantId, today, today),
     span > 1
-      ? metrics.dailyBreakdown(organizationId, start, end)
+      ? metrics.dailyBreakdown(tenantId, start, end)
       : Promise.resolve([] as { day: string; count: number }[]),
-    metrics.getOrgContent(organizationId),
+    metrics.getOrgContent(tenantId),
   ])
 
   const dailyBreakdown =

@@ -13,11 +13,11 @@ const DISABLED = env.DISABLE_RATE_LIMIT === 'true'
 /**
  * Production entry point — bind the policy by name + caller-supplied actor.
  *
- *   const decision = await enforceRateLimit('presign', `org:${orgId}`)
+ *   const decision = await enforceRateLimit('presign', `org:${tenantId}`)
  *   if (!decision.ok) return { ok: false, error: `Try again in ${decision.retryAfterSec}s` }
  *
  * Key shape: `rl:{policy}:{actor}`. `actor` is whatever bucket you want to
- * throttle on — `org:{orgId}`, `user:{userId}`, `ip:{normalizedIp}`.
+ * throttle on — `org:{tenantId}`, `user:{userId}`, `ip:{normalizedIp}`.
  *
  * Honor the `DISABLE_RATE_LIMIT=true` env knob so e2e tests don't trip the
  * limiter when they create users / upload assets in a tight loop.

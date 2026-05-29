@@ -38,7 +38,7 @@ const tenantStorage = new AsyncLocalStorage<TenantAttrs>();
  * stamped on by TenantContextSpanProcessor.
  *
  *   // In requireRestaurantAccess, after the auth check:
- *   return tenantContext.run({ restaurantId, organizationId }, () =>
+ *   return tenantContext.run({ restaurantId, tenantId }, () =>
  *     loadRestaurantSnapshot(slug),
  *   )
  *
@@ -67,8 +67,8 @@ export const tenantContext = {
    *
    *   export async function requireRestaurantAccess(...) {
    *     // ... auth check ...
-   *     tenantContext.enterWith({ restaurantId, organizationId })
-   *     return { session, organizationId, restaurantId }
+   *     tenantContext.enterWith({ restaurantId, tenantId })
+   *     return { session, tenantId, restaurantId }
    *   }
    *
    * Returns the previous store (or undefined) so callers can manually

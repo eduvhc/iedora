@@ -12,8 +12,8 @@ import { listRestaurantsWithCounts as _listRestaurantsWithCounts } from './use-c
  * For unit tests, import the use-case functions directly from
  * `./use-cases/*` and pass a fake `DashboardReadPort`.
  */
-export const listRestaurantsWithCounts = cache((organizationId: string) =>
-  _listRestaurantsWithCounts(drizzleDashboardRead, organizationId),
+export const listRestaurantsWithCounts = cache((tenantId: string) =>
+  _listRestaurantsWithCounts(drizzleDashboardRead, tenantId),
 )
 
 export const listMenusWithCounts = cache((restaurantId: string) =>

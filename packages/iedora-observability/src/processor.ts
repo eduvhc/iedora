@@ -5,7 +5,7 @@ import type {
   SpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
 
-import { IEDORA_ORGANIZATION_ID, IEDORA_RESTAURANT_ID } from "./tenant";
+import { IEDORA_TENANT_ID, IEDORA_RESTAURANT_ID } from "./tenant";
 import { tenantContext } from "./tenant-context";
 
 /**
@@ -40,8 +40,8 @@ export class TenantContextSpanProcessor implements SpanProcessor {
     const tenant = tenantContext.get();
     if (!tenant) return;
     span.setAttribute(IEDORA_RESTAURANT_ID, tenant.restaurantId);
-    if (tenant.organizationId) {
-      span.setAttribute(IEDORA_ORGANIZATION_ID, tenant.organizationId);
+    if (tenant.tenantId) {
+      span.setAttribute(IEDORA_TENANT_ID, tenant.tenantId);
     }
   }
 

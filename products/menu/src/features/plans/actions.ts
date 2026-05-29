@@ -12,8 +12,8 @@ import type { PlanCode } from './types'
  * so the testable surface stays in `use-cases/set-organization-plan.ts`.
  */
 export async function setOrganizationPlan(target: PlanCode) {
-  const { organizationId } = await requireActiveOrganization()
-  const result = await run(drizzlePlans, organizationId, target)
+  const { tenantId } = await requireActiveOrganization()
+  const result = await run(drizzlePlans, tenantId, target)
   if ('error' in result) {
     return { error: 'Unknown plan' as const }
   }

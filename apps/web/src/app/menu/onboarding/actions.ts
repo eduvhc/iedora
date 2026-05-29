@@ -26,13 +26,13 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 async function insertRestaurantWithDefaultMenu(
   tx: Tx,
-  organizationId: string,
+  tenantId: string,
   restaurantName: string,
   slug: string,
 ): Promise<void> {
   const [created] = await tx
     .insert(restaurant)
-    .values({ organizationId, name: restaurantName, slug })
+    .values({ tenantId, name: restaurantName, slug })
     .returning({ id: restaurant.id })
   if (!created) throw new Error('onboarding: restaurant insert returned no rows')
 
@@ -92,13 +92,13 @@ export async function completeOnboarding(
 }
 
 async function addRestaurantToOrg(
-  organizationId: string,
+  tenantId: string,
   restaurantName: string,
   slug: string,
 ): Promise<OnboardingFormState> {
   try {
     await db.transaction((tx) =>
-      insertRestaurantWithDefaultMenu(tx, organizationId, restaurantName, slug),
+      insertRestaurantWithDefaultMenu(tx, tenantId, restaurantName, slug),
     )
   } catch (err) {
     console.error('[onboarding] restaurant creation under existing org failed', err)
@@ -117,7 +117,7 @@ async function createOrgAndFirstRestaurant(
   // schema, mints an owner-role membership for the caller, and returns
   // the id we stash on the restaurant row. The headers carry the
   // session cookie so the API knows who the owner is.
-  let organizationId: string
+  let tenantId: string
   try {
     const org = await auth.api.createOrganization({
       body: {
@@ -129,7 +129,7 @@ async function createOrgAndFirstRestaurant(
     if (!org?.id) {
       return { error: 'Could not create organization. Please try again.' }
     }
-    organizationId = org.id
+    tenantId = org.id
   } catch (err) {
     console.error('[onboarding] org creation failed', err)
     return { error: 'Could not create organization. Please try again.' }
@@ -140,14 +140,14 @@ async function createOrgAndFirstRestaurant(
   // here is recoverable on next sign-in (the user picks the org from
   // the switcher and we set it then).
   await auth.api.setActiveOrganization({
-    body: { organizationId },
+    body: { tenantId },
     headers: await headers(),
   }).catch(() => undefined)
 
   // Restaurant + default menu must commit together.
   try {
     await db.transaction((tx) =>
-      insertRestaurantWithDefaultMenu(tx, organizationId, restaurantName, slug),
+      insertRestaurantWithDefaultMenu(tx, tenantId, restaurantName, slug),
     )
   } catch (err) {
     console.error('[onboarding] restaurant creation failed', err)

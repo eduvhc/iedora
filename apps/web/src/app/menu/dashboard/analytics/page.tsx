@@ -18,8 +18,8 @@ export default async function AnalyticsPage({
 }: {
   searchParams: Promise<{ range?: string }>
 }) {
-  const { organizationId } = await requireActiveOrganization()
-  const plan = await getOrganizationPlan(organizationId)
+  const { tenantId } = await requireActiveOrganization()
+  const plan = await getOrganizationPlan(tenantId)
 
   // Free plans hit billing — analytics is the headline upgrade hook for Casa,
   // so funneling there is the right next step rather than a half-empty page.
@@ -33,7 +33,7 @@ export default async function AnalyticsPage({
   const range: AnalyticsRange =
     sp.range && isAnalyticsRange(sp.range) ? sp.range : DEFAULT_RANGE
 
-  const analytics = await getOrganizationAnalytics(organizationId, range)
+  const analytics = await getOrganizationAnalytics(tenantId, range)
   const numberFmt = new Intl.NumberFormat(locale)
 
   const peakValue = analytics.dailyBreakdown.reduce(

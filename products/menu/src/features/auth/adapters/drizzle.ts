@@ -35,21 +35,21 @@ async function readSession(): Promise<Session | null> {
 export const drizzleAuthGateway: AuthGateway = {
   getSession: readSession,
 
-  async findRestaurantByIdInOrg({ restaurantId, organizationId }) {
+  async findRestaurantByIdInOrg({ restaurantId, tenantId }) {
     const rows = await db
       .select({ id: restaurant.id })
       .from(restaurant)
       .where(
         and(
           eq(restaurant.id, restaurantId),
-          eq(restaurant.organizationId, organizationId),
+          eq(restaurant.tenantId, tenantId),
         ),
       )
       .limit(1)
     return rows[0] ?? null
   },
 
-  async findRestaurantBySlugInOrg({ slug, organizationId }) {
+  async findRestaurantBySlugInOrg({ slug, tenantId }) {
     const rows = await db
       .select({
         id: restaurant.id,
@@ -60,7 +60,7 @@ export const drizzleAuthGateway: AuthGateway = {
       .where(
         and(
           eq(restaurant.slug, slug),
-          eq(restaurant.organizationId, organizationId),
+          eq(restaurant.tenantId, tenantId),
         ),
       )
       .limit(1)

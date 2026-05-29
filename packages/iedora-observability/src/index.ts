@@ -27,7 +27,7 @@ export {
   withTenantSpan,
   tenantAttributes,
   IEDORA_RESTAURANT_ID,
-  IEDORA_ORGANIZATION_ID,
+  IEDORA_TENANT_ID,
   type TenantAttrs,
 } from "./tenant";
 export { tenantContext } from "./tenant-context";

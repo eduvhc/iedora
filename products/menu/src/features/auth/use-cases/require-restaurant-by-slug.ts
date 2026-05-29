@@ -22,10 +22,10 @@ export async function requireRestaurantBySlug(
     async (span) => {
       span.setAttribute('iedora.restaurant_slug', slug)
       try {
-        const { session, organizationId } = await requireActiveOrganization(auth)
+        const { session, tenantId } = await requireActiveOrganization(auth)
         const row = await auth.findRestaurantBySlugInOrg({
           slug,
-          organizationId,
+          tenantId,
         })
         if (!row) {
           span.setAttribute('iedora.auth.outcome', 'forbidden')
@@ -33,12 +33,12 @@ export async function requireRestaurantBySlug(
         }
         tenantContext.enterWith({
           restaurantId: row.id,
-          organizationId,
+          tenantId,
         })
-        span.setAttribute(IEDORA_ORGANIZATION_ID, organizationId)
+        span.setAttribute(IEDORA_ORGANIZATION_ID, tenantId)
         span.setAttribute(IEDORA_RESTAURANT_ID, row.id)
         span.setAttribute('iedora.auth.outcome', 'allowed')
-        return { session, organizationId, restaurant: row }
+        return { session, tenantId, restaurant: row }
       } finally {
         span.end()
       }

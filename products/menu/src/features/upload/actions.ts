@@ -35,15 +35,15 @@ function pickRestaurantId(raw: unknown): string | null {
 async function gate(
   input: unknown,
   policy: 'presign' | 'commit' | 'clear',
-): Promise<{ ok: true; orgId: string; restaurantId: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; tenantId: string; restaurantId: string } | { ok: false; error: string }> {
   const restaurantId = pickRestaurantId(input)
   if (!restaurantId) return { ok: false, error: 'Invalid input' }
-  const { organizationId } = await requireRestaurantAccess(restaurantId)
-  const decision = await enforceRateLimit(policy, `org:${organizationId}`)
+  const { tenantId } = await requireRestaurantAccess(restaurantId)
+  const decision = await enforceRateLimit(policy, `org:${tenantId}`)
   if (!decision.ok) {
     return { ok: false, error: `Too many requests. Try again in ${decision.retryAfterSec}s.` }
   }
-  return { ok: true, orgId: organizationId, restaurantId }
+  return { ok: true, tenantId: tenantId, restaurantId }
 }
 
 export async function requestUploadUrl(

@@ -69,7 +69,7 @@ const snapshotComputeDuration = meter.createHistogram(
 
 export type RestaurantSnapshot = {
   id: string
-  organizationId: string
+  tenantId: string
   name: string
   slug: string
   description: string | null
@@ -100,7 +100,7 @@ export async function loadRestaurantSnapshot(
               const rows = await db
                 .select({
                   id: restaurant.id,
-                  organizationId: restaurant.organizationId,
+                  tenantId: restaurant.tenantId,
                   name: restaurant.name,
                   slug: restaurant.slug,
                   description: restaurant.description,
@@ -127,11 +127,11 @@ export async function loadRestaurantSnapshot(
 
               inner.setAttribute('iedora.outcome', 'found')
               inner.setAttribute(IEDORA_RESTAURANT_ID, r.id)
-              inner.setAttribute(IEDORA_ORGANIZATION_ID, r.organizationId)
+              inner.setAttribute(IEDORA_ORGANIZATION_ID, r.tenantId)
               inner.setAttribute('iedora.tree_menu_count', tree.length)
               return {
                 id: r.id,
-                organizationId: r.organizationId,
+                tenantId: r.tenantId,
                 name: r.name,
                 slug: r.slug,
                 description: r.description,
@@ -155,14 +155,14 @@ export async function loadRestaurantSnapshot(
       span.setAttribute('iedora.outcome', outcome)
       if (result) {
         span.setAttribute(IEDORA_RESTAURANT_ID, result.id)
-        span.setAttribute(IEDORA_ORGANIZATION_ID, result.organizationId)
+        span.setAttribute(IEDORA_ORGANIZATION_ID, result.tenantId)
         // Seed the tenant context for the remainder of this request's
         // async chain. The public menu route (/r/[slug]) does NOT go
         // through requireRestaurantAccess (no auth), so without this
         // call the TenantContextSpanProcessor would never see the
         // restaurant id and downstream spans (Drizzle queries from
         // related slices, outbound fetches, render spans) would be
-        // missing tenant.restaurant_id / tenant.organization_id —
+        // missing tenant.restaurant_id / tenant.tenant_id —
         // breaking the per-tenant dashboards.
         //
         // The snapshot loader is the canonical chokepoint for both
@@ -173,7 +173,7 @@ export async function loadRestaurantSnapshot(
         // is harmless (same values).
         tenantContext.enterWith({
           restaurantId: result.id,
-          organizationId: result.organizationId,
+          tenantId: result.tenantId,
         })
       }
       return result
