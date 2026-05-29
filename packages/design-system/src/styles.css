@@ -286,6 +286,9 @@
 }
 .ds-btn:hover .ds-btn__arrow { color: var(--paper); transform: translate(3px, -3px); }
 
+/* secondary = outlined ink → solid hover. Default if no variant set. */
+.ds-btn--secondary { /* identical to .ds-btn base; explicit class for symmetry */ }
+
 .ds-btn--solid { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .ds-btn--solid:hover { background: transparent; color: var(--ink); }
 .ds-btn--solid:hover .ds-btn__arrow { color: var(--cinnabar); }
@@ -293,20 +296,80 @@
 .ds-btn--ghost { border-color: transparent; padding-left: 0; padding-right: 0; }
 .ds-btn--ghost:hover { background: transparent; color: var(--ink); box-shadow: inset 0 -1px 0 var(--ink); }
 
-.ds-btn--accent { border-color: var(--cinnabar); color: var(--cinnabar); }
-.ds-btn--accent:hover { background: var(--cinnabar); color: var(--paper); }
-.ds-btn--accent:hover .ds-btn__arrow { color: var(--paper); }
+/* primary = THE main destination CTA. Cinnabar solid; hover DARKENS
+   (does NOT invert to outline) so a hovered primary never looks like
+   an idle danger button — the two coexist on confirm dialogs. */
+.ds-btn--primary {
+  background: var(--cinnabar);
+  color: var(--paper);
+  border-color: var(--cinnabar);
+}
+.ds-btn--primary:hover {
+  background: var(--cinnabar-deep);
+  border-color: var(--cinnabar-deep);
+  color: var(--paper);
+}
+.ds-btn--primary .ds-btn__arrow { color: var(--paper); }
+.ds-btn--primary:hover .ds-btn__arrow { color: var(--paper); }
 
-.ds-btn[disabled] {
+/* danger = destructive. Starts outlined (signal: "this is dangerous,
+   look twice"), commits to the cinnabar fill on hover. Pair every
+   live use with a confirm dialog. */
+.ds-btn--danger {
+  background: transparent;
+  border-color: var(--cinnabar);
+  color: var(--cinnabar);
+}
+.ds-btn--danger:hover {
+  background: var(--cinnabar);
+  color: var(--paper);
+}
+.ds-btn--danger .ds-btn__arrow { color: var(--cinnabar); }
+.ds-btn--danger:hover .ds-btn__arrow { color: var(--paper); }
+
+/* ── Sizes ────────────────────────────────────────────────────── */
+.ds-btn--sm {
+  padding: 7px 12px;
+  font-size: calc(var(--t-xs) * 0.92);
+  letter-spacing: 0.12em;
+  gap: 6px;
+}
+.ds-btn--lg {
+  padding: 16px 26px;
+  font-size: var(--t-sm);
+  letter-spacing: 0.16em;
+  gap: 12px;
+}
+
+/* ── Disabled (universal) ─────────────────────────────────────── */
+.ds-btn[disabled],
+.ds-btn[aria-disabled="true"] {
   color: var(--ink-40);
   border-color: var(--ink-14);
   cursor: not-allowed;
   background: transparent;
+  pointer-events: none;
 }
-.ds-btn[disabled]:hover {
+.ds-btn[disabled]:hover,
+.ds-btn[aria-disabled="true"]:hover {
   background: transparent;
   color: var(--ink-40);
   box-shadow: none;
+}
+
+/* ── Loading (inline spinner) ─────────────────────────────────── */
+.ds-btn--loading { cursor: progress; }
+.ds-btn__spinner {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ds-btn-spin 0.7s linear infinite;
+}
+@keyframes ds-btn-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ─────────────────────────────────────────────────────────────

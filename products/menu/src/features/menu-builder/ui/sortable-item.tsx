@@ -415,7 +415,7 @@ export function SortableItem({
                     </Button>
                     <Button
                       type="button"
-                      variant="accent"
+                      variant="danger"
                       onClick={doDelete}
                       disabled={pending}
                       data-test-id={`menu-item-delete-confirm-${item.id}`}

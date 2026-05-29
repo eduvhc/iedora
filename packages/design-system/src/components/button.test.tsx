@@ -3,9 +3,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Button } from "./button";
 
 describe("Button", () => {
-  it("renders as a <button> with the base class by default", () => {
+  it("defaults to the secondary variant + base class", () => {
     const html = renderToStaticMarkup(<Button>Begin</Button>);
-    expect(html).toMatch(/^<button[^>]*class="ds-btn"[^>]*>/);
+    expect(html).toMatch(/^<button[^>]*class="ds-btn ds-btn--secondary"/);
   });
 
   it("defaults to type='button' to avoid form-submit surprises", () => {
@@ -18,24 +18,62 @@ describe("Button", () => {
     expect(html).toContain('type="submit"');
   });
 
-  it("applies the solid variant", () => {
-    const html = renderToStaticMarkup(<Button variant="solid">Send</Button>);
-    expect(html).toContain('class="ds-btn ds-btn--solid"');
+  describe("variants", () => {
+    it.each([
+      ["primary",   "ds-btn--primary"],
+      ["secondary", "ds-btn--secondary"],
+      ["solid",     "ds-btn--solid"],
+      ["ghost",     "ds-btn--ghost"],
+      ["danger",    "ds-btn--danger"],
+    ] as const)("%s → %s", (variant, klass) => {
+      const html = renderToStaticMarkup(<Button variant={variant}>x</Button>);
+      expect(html).toContain(`class="ds-btn ${klass}"`);
+    });
+
+    it("legacy `default` alias maps to ds-btn--secondary", () => {
+      const html = renderToStaticMarkup(<Button variant="default">x</Button>);
+      expect(html).toContain('class="ds-btn ds-btn--secondary"');
+    });
+
+    it("legacy `accent` alias maps to ds-btn--primary", () => {
+      const html = renderToStaticMarkup(<Button variant="accent">x</Button>);
+      expect(html).toContain('class="ds-btn ds-btn--primary"');
+    });
   });
 
-  it("applies the ghost variant", () => {
-    const html = renderToStaticMarkup(<Button variant="ghost">Quietly</Button>);
-    expect(html).toContain('class="ds-btn ds-btn--ghost"');
+  describe("sizes", () => {
+    it("md (default) emits no size class", () => {
+      const html = renderToStaticMarkup(<Button>x</Button>);
+      expect(html).not.toContain("ds-btn--sm");
+      expect(html).not.toContain("ds-btn--lg");
+    });
+
+    it.each([
+      ["sm", "ds-btn--sm"],
+      ["lg", "ds-btn--lg"],
+    ] as const)("%s emits %s", (size, klass) => {
+      const html = renderToStaticMarkup(<Button size={size}>x</Button>);
+      expect(html).toContain(klass);
+    });
   });
 
-  it("applies the accent variant", () => {
-    const html = renderToStaticMarkup(<Button variant="accent">Send</Button>);
-    expect(html).toContain('class="ds-btn ds-btn--accent"');
-  });
+  describe("loading state", () => {
+    it("emits the spinner, the modifier class, and busy/disabled state", () => {
+      const html = renderToStaticMarkup(<Button loading>Send</Button>);
+      expect(html).toContain("ds-btn--loading");
+      expect(html).toContain('aria-busy="true"');
+      expect(html).toContain("disabled");
+      expect(html).toContain("ds-btn__spinner");
+    });
 
-  it("applies the primary variant (solid cinnabar destination)", () => {
-    const html = renderToStaticMarkup(<Button variant="primary">Begin</Button>);
-    expect(html).toContain('class="ds-btn ds-btn--primary"');
+    it("suppresses the arrow while loading", () => {
+      const html = renderToStaticMarkup(
+        <Button loading arrow>
+          Send
+        </Button>,
+      );
+      expect(html).not.toContain("ds-btn__arrow");
+    });
   });
 
   it("renders a default cinnabar arrow when arrow=true", () => {
@@ -80,7 +118,7 @@ describe("Button", () => {
 
   it("appends a custom className alongside the base class", () => {
     const html = renderToStaticMarkup(<Button className="my-cta">x</Button>);
-    expect(html).toContain('class="ds-btn my-cta"');
+    expect(html).toContain('class="ds-btn ds-btn--secondary my-cta"');
   });
 
   it("wraps children in a <span> so the arrow lays out next to them", () => {

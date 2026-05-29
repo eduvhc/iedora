@@ -63,7 +63,7 @@ export function ConfirmDialog({
             <DialogActions>
               <Button
                 type="button"
-                variant="default"
+                variant="secondary"
                 onClick={() => setOpen(false)}
                 disabled={isPending}
               >

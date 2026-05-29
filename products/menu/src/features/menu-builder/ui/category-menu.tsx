@@ -113,7 +113,7 @@ export function CategoryMenu({
               </Button>
               <Button
                 type="button"
-                variant="accent"
+                variant="danger"
                 onClick={doDelete}
                 disabled={pending}
                 data-test-id={`menu-section-delete-confirm-${categoryId}`}

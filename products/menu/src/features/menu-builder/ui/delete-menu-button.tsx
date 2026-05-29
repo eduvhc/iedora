@@ -43,7 +43,7 @@ export function DeleteMenuButton({
           <Button onClick={() => setOpen(false)}>Cancel</Button>
           {/* destructive → accent (closest iedora visual for a danger action) */}
           <Button
-            variant="accent"
+            variant="danger"
             disabled={pending}
             onClick={() =>
               startTransition(async () => {

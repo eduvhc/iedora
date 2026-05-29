@@ -199,7 +199,7 @@ export function PropertyDetailView({
 
   const headerActions = (
     <div className="flex items-center gap-2">
-      <Button variant="accent" data-test-id="property-edit-button">
+      <Button variant="secondary" data-test-id="property-edit-button">
         {tCommon('edit')}
       </Button>
       <ConfirmDialog
@@ -213,7 +213,7 @@ export function PropertyDetailView({
         }}
       >
         <Button
-          variant="default"
+          variant="danger"
           data-test-id="property-delete-button"
           aria-label={t('delete')}
         >

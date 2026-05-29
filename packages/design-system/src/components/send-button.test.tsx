@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SendButton } from "./send-button";
 
-describe("SendButton (deprecated alias for <Button variant=accent arrow>)", () => {
-  it("renders a button with the accent variant class", () => {
+describe("SendButton (deprecated alias for <Button variant=primary arrow>)", () => {
+  it("renders a button with the primary variant class", () => {
     const html = renderToStaticMarkup(<SendButton />);
-    expect(html).toMatch(/^<button[^>]*class="ds-btn ds-btn--accent"[^>]*>/);
+    expect(html).toMatch(/^<button[^>]*class="ds-btn ds-btn--primary"[^>]*>/);
   });
 
   it("defaults to type='submit' for form usage", () => {
