@@ -528,51 +528,85 @@
         },
         "products": {
           "core": "Core (auth + admin)",
-          "menu": "Menu (restaurantes)"
+          "menu": "Menu (restaurantes)",
+          "imopush": "Imopush (publicação imobiliária)"
         },
         "kinds": {
           "staff": "Staff (cross-tenant)",
-          "tenant": "Per-tenant"
+          "tenant": "Por tenant"
         },
         "scopes": {
           "core": {
             "staff": {
-              "users": {
-                "read": "Listar e ver detalhes de users (incl. sessões).",
-                "ban": "Bloquear e desbloquear contas (lifecycle reversível).",
-                "set-role": "Atribuir ou revogar roles de staff. Privilegiado — só admin.",
-                "impersonate": "Entrar como outro user. Privilegiado — só admin."
+              "admin": {
+                "read": "Entrar no shell admin cross-tenant. Todos os roles de staff têm-no."
               },
-              "orgs": {
-                "list": "Listar todas as orgs (tenants).",
-                "get": "Ver membros e convites pendentes de uma org."
+              "audit": {
+                "read": "Ler o log de auditoria append-only de todas as mudanças de estado em auth + admin."
               },
               "members": {
-                "remove": "Remover um membro de uma org (troubleshooting).",
-                "update-role": "Promover ou despromover o role de um membro. Privilegiado — só admin (dá owner do tenant)."
-              },
-              "invitations": {
-                "cancel": "Cancelar um convite pendente."
+                "remove": "Remover um membro de qualquer tenant (troubleshooting cross-tenant).",
+                "update-scopes": "Reescrever os scopes numa membership (tenant, user). Privilegiado — só admin (dá owner do tenant)."
               },
               "sessions": {
                 "list": "Listar sessões ativas de todos os users.",
                 "revoke": "Matar uma sessão (singular ou todas-do-user)."
               },
-              "audit": {
-                "read": "Ler o log de auditoria append-only de todas as mudanças de estado em auth + admin."
+              "tenants": {
+                "list": "Listar todos os tenants da plataforma.",
+                "get": "Ver identidade, membros e subscriptions de um tenant.",
+                "delete": "Apagar um tenant com cascade nas memberships + subscriptions. Privilegiado — só admin."
               },
-              "admin": {
-                "read": "Entrar no shell admin cross-tenant. Todos os roles de staff têm-no."
+              "users": {
+                "read": "Listar e ver detalhes de users (incl. sessões).",
+                "ban": "Bloquear e desbloquear contas (lifecycle reversível).",
+                "set-role": "Atribuir ou revogar roles de staff. Privilegiado — só admin.",
+                "impersonate": "Entrar como outro user. Privilegiado — só admin."
+              }
+            },
+            "tenant": {
+              "billing": {
+                "read": "Ver subscriptions e faturas deste tenant.",
+                "change-plan": "Mudar o plano de qualquer subscription deste tenant.",
+                "update-payment": "Atualizar o método de pagamento das subscriptions deste tenant."
+              },
+              "members": {
+                "read": "Ver a lista de membros deste tenant.",
+                "invite": "Convidar um novo user para este tenant.",
+                "remove": "Remover um membro deste tenant.",
+                "grant": "Ajustar os scopes de um membro dentro deste tenant."
+              },
+              "tenant": {
+                "delete": "Apagar este tenant. Reservado ao owner."
               }
             }
           },
           "menu": {
             "tenant": {
+              "restaurants": {
+                "read": "Ver restaurantes deste tenant.",
+                "create": "Adicionar um restaurante novo a este tenant.",
+                "update": "Editar identidade, tema ou estrutura de menu de um restaurante.",
+                "delete": "Apagar um restaurante e os seus menus."
+              },
               "qr-codes": {
-                "read": "Ver QR codes da org.",
+                "read": "Ver QR codes deste tenant.",
                 "create": "Gerar QR codes novos (singular ou em bulk).",
                 "update": "Ligar um QR code existente a um restaurante.",
                 "delete": "Eliminar QR codes."
+              }
+            }
+          },
+          "imopush": {
+            "tenant": {
+              "properties": {
+                "read": "Ver imóveis deste tenant.",
+                "create": "Registar um imóvel novo.",
+                "update": "Editar os detalhes de um imóvel.",
+                "delete": "Remover um imóvel do catálogo."
+              },
+              "idealista": {
+                "publish": "Publicar um imóvel no Idealista."
               }
             }
           }

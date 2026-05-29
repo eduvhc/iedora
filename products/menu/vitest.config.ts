@@ -12,6 +12,7 @@ export default defineConfig({
     include: [
       'src/features/**/*.test.{ts,tsx}',
       'src/shared/**/*.test.{ts,tsx}',
+      'src/i18n/**/*.test.{ts,tsx}',
     ],
     // Playwright owns e2e — keep them out of Vitest. `*.live.test.ts`
     // hits real third-party APIs (Kimi, etc.) and only runs through the

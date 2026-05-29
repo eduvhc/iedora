@@ -584,7 +584,8 @@
         },
         "products": {
           "core": "Core (auth + admin)",
-          "menu": "Menu (restaurants)"
+          "menu": "Menu (restaurants)",
+          "imopush": "Imopush (real-estate publishing)"
         },
         "kinds": {
           "staff": "Staff (cross-tenant)",
@@ -593,42 +594,75 @@
         "scopes": {
           "core": {
             "staff": {
-              "users": {
-                "read": "List and inspect users (incl. their sessions).",
-                "ban": "Ban and unban accounts (reversible lifecycle).",
-                "set-role": "Grant or revoke staff roles. Privileged — admin-only.",
-                "impersonate": "Sign in as another user. Privileged — admin-only."
+              "admin": {
+                "read": "Enter the cross-tenant admin shell. Held by every staff role."
               },
-              "orgs": {
-                "list": "List every tenant organization.",
-                "get": "View an org's members and pending invitations."
+              "audit": {
+                "read": "Read the append-only audit log of every state change on the auth + admin surface."
               },
               "members": {
-                "remove": "Remove a member from an org (troubleshooting).",
-                "update-role": "Promote or demote a member's org role. Privileged — admin-only (grants tenant owner)."
-              },
-              "invitations": {
-                "cancel": "Cancel a pending invitation."
+                "remove": "Remove a member from any tenant (cross-tenant troubleshooting).",
+                "update-scopes": "Rewrite the scope set on any (tenant, user) membership. Privileged — admin-only (grants tenant owner)."
               },
               "sessions": {
                 "list": "List active sessions across every user.",
                 "revoke": "Kill a session (single or all-for-user)."
               },
-              "audit": {
-                "read": "Read the append-only audit log of every state change on the auth + admin surface."
+              "tenants": {
+                "list": "List every tenant in the platform.",
+                "get": "View a tenant's identity, members, and subscriptions.",
+                "delete": "Drop a tenant and cascade-delete its memberships + subscriptions. Privileged — admin-only."
               },
-              "admin": {
-                "read": "Enter the cross-tenant admin shell. Held by every staff role."
+              "users": {
+                "read": "List and inspect users (incl. their sessions).",
+                "ban": "Ban and unban accounts (reversible lifecycle).",
+                "set-role": "Grant or revoke staff roles. Privileged — admin-only.",
+                "impersonate": "Sign in as another user. Privileged — admin-only."
+              }
+            },
+            "tenant": {
+              "billing": {
+                "read": "View this tenant's subscriptions and invoices.",
+                "change-plan": "Change the plan on any of this tenant's product subscriptions.",
+                "update-payment": "Update the payment method backing this tenant's subscriptions."
+              },
+              "members": {
+                "read": "View this tenant's member roster.",
+                "invite": "Invite a new user to this tenant.",
+                "remove": "Remove a member from this tenant.",
+                "grant": "Adjust a member's scope set within this tenant."
+              },
+              "tenant": {
+                "delete": "Delete this tenant. Reserved for the tenant owner."
               }
             }
           },
           "menu": {
             "tenant": {
+              "restaurants": {
+                "read": "View restaurants belonging to this tenant.",
+                "create": "Add a new restaurant under this tenant.",
+                "update": "Edit a restaurant's identity, theme, or menu structure.",
+                "delete": "Delete a restaurant and its menus."
+              },
               "qr-codes": {
-                "read": "View QR codes belonging to the org.",
+                "read": "View QR codes belonging to this tenant.",
                 "create": "Mint new QR codes (single or bulk).",
                 "update": "Bind an existing QR code to a restaurant.",
                 "delete": "Delete QR codes."
+              }
+            }
+          },
+          "imopush": {
+            "tenant": {
+              "properties": {
+                "read": "View properties belonging to this tenant.",
+                "create": "Register a new property.",
+                "update": "Edit a property's listing details.",
+                "delete": "Remove a property from the catalogue."
+              },
+              "idealista": {
+                "publish": "Push a property listing to Idealista."
               }
             }
           }
