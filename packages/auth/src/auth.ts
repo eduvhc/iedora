@@ -59,6 +59,36 @@ function build() {
       schema,
       usePlural: false,
     }),
+    user: {
+      // Declare every column we layered onto `core.user` beyond
+      // better-auth's built-in shape. WITHOUT this, the drizzle
+      // adapter silently strips unknown keys from any insert /
+      // update payload — including the `scopes` array set by the
+      // bootstrap-admin hook below. The columns existed in the
+      // previous deployments via better-auth's `admin` + `organization`
+      // plugins; we dropped the plugins but kept the columns, so the
+      // declarations have to live here now.
+      //
+      // `input: false` blocks the field from being written through the
+      // public sign-up form — only server-side code (hooks, our own
+      // primitives in `./staff`) may touch it.
+      additionalFields: {
+        scopes: { type: 'string[]', required: false, defaultValue: null, input: false },
+        banned: { type: 'boolean', required: false, defaultValue: false, input: false },
+        banReason: { type: 'string', required: false, defaultValue: null, input: false },
+        banExpires: { type: 'date', required: false, defaultValue: null, input: false },
+      },
+    },
+    session: {
+      // Same story for session-level columns: `activeTenantId` (our
+      // tenancy pin) and `impersonatedBy` (admin act-as) were
+      // managed by the org + admin plugins; declare them so
+      // `setActiveTenant` / `impersonateUser` actually persist.
+      additionalFields: {
+        activeTenantId: { type: 'string', required: false, defaultValue: null, input: false },
+        impersonatedBy: { type: 'string', required: false, defaultValue: null, input: false },
+      },
+    },
     databaseHooks: {
       user: {
         create: {
