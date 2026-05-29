@@ -10,49 +10,38 @@ import {
   index,
 } from 'drizzle-orm/pg-core'
 import type { LanguageCode, LocalizedText } from '../../features/i18n/types'
-import type { PlanCode } from '../../features/plans/types'
 
-// Single Postgres schema for the menu product: `menu.*`. Identity lives
-// in the `core` schema (better-auth: user / session / account / organization
-// / member / invitation) on the SAME Postgres instance but a separate
+// Single Postgres schema for the menu product: `menu.*`. Identity +
+// tenancy + billing live in the `core` schema (managed by @iedora/auth
+// and @iedora/billing) on the SAME Postgres instance but a separate
 // schema — there's no FK from `menu.*` to `core.*` because the two
-// schemas are owned by different products and migrated independently.
+// schemas are owned by different products and migrated independently
+// (microservices-ready: each could move to its own DB tomorrow).
+//
+// `tenantId` columns mirror `core.tenant.id`. Plan info lives in
+// `core.tenant_subscription` (one row per (tenant, product='menu'));
+// invoice ledger lives in `core.invoice` filtered by `product='menu'`.
+// Both queried via `@iedora/billing` helpers.
 export const menuSchema = pgSchema('menu')
 
-// ─── Org plan (menu-owned billing metadata, keyed by org id) ────────────
-// `core.organization` (better-auth) owns the org row. The plan / tier is
-// a menu-domain concern (it gates restaurant counts, monthly views, etc.)
-// so it lives here. `organizationId` mirrors better-auth's org id; no FK
-// because the column belongs to a different schema and product.
-export const orgPlan = menuSchema.table('org_plan', {
-  organizationId: text('organization_id').primaryKey(),
-  plan: text('plan').$type<PlanCode>().notNull().default('free'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at')
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-})
-
-// One row per AI menu-import generation. Weekly quota is enforced by the
-// plans slice: a count of rows for `(organizationId, createdAt > now - 7d)`
-// against the plan's `aiMenuGenerationsPerWeek` limit. The org id mirrors
-// `core.organization.id` (same convention as `restaurant.organizationId`);
-// no FK because the column lives in a different schema/product.
+// One row per AI menu-import generation. Weekly quota is enforced by
+// the plans slice: a count of rows for `(tenantId, createdAt > now -
+// 7d)` against the plan's `aiMenuGenerationsPerWeek` limit. The
+// tenant id mirrors `core.tenant.id`; no FK across schemas.
 export const aiMenuGeneration = menuSchema.table(
   'ai_menu_generation',
   {
     id: text('id')
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    organizationId: text('organization_id').notNull(),
+    tenantId: text('tenant_id').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
   (t) => [
-    // Window query: COUNT(*) WHERE org = $1 AND created_at > now() - '7d'.
-    index('ai_menu_generation_org_time_idx').on(t.organizationId, t.createdAt),
+    // Window query: COUNT(*) WHERE tenant = $1 AND created_at > now() - '7d'.
+    index('ai_menu_generation_tenant_time_idx').on(t.tenantId, t.createdAt),
   ],
 )
 
@@ -92,10 +81,11 @@ export const restaurant = menuSchema.table(
     id: text('id')
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    // Better-auth organization id (mirrors `core.organization.id`). No FK
-    // because identity lives in a different schema/product. Tenancy is
-    // enforced at the DAL via `requireRestaurantAccess` (`@/features/auth`).
-    organizationId: text('organization_id').notNull(),
+    // Iedora tenant id (mirrors `core.tenant.id`). No FK because the
+    // column lives in a different schema/product; tenancy is enforced
+    // at the DAL via `requireRestaurantAccess` (`@/features/auth`)
+    // which checks `tenant_member.scopes` for the active tenant.
+    tenantId: text('tenant_id').notNull(),
     name: text('name').notNull(),
     slug: text('slug').notNull().unique(),
     description: text('description'),
@@ -118,7 +108,7 @@ export const restaurant = menuSchema.table(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (t) => [index('restaurant_org_idx').on(t.organizationId)],
+  (t) => [index('restaurant_tenant_idx').on(t.tenantId)],
 )
 
 export const menu = menuSchema.table(
@@ -267,8 +257,8 @@ export const viewSeen = menuSchema.table(
 export const dailyView = menuSchema.table(
   'daily_view',
   {
-    // Better-auth org id (mirrors `core.organization.id`); no FK across schemas.
-    organizationId: text('organization_id').notNull(),
+    // Iedora tenant id (mirrors `core.tenant.id`); no FK across schemas.
+    tenantId: text('tenant_id').notNull(),
     restaurantId: text('restaurant_id')
       .notNull()
       .references(() => restaurant.id, { onDelete: 'cascade' }),
@@ -278,44 +268,20 @@ export const dailyView = menuSchema.table(
   },
   (t) => [
     primaryKey({ columns: [t.restaurantId, t.day, t.language] }),
-    index('daily_view_org_day_idx').on(t.organizationId, t.day),
+    index('daily_view_tenant_day_idx').on(t.tenantId, t.day),
   ],
 )
 
-// ─── Billing ──────────────────────────────────────────────────────────────────
-
-export type InvoiceStatus = 'paid' | 'pending' | 'void'
-
-/**
- * One billing line per period, scoped to the organization. We persist the
- * plan code at the time of issuance so a rename or removal of a plan in code
- * never rewrites historical invoices. Stripe (or any PSP) will fill these in
- * later via webhook; for now the table is the single source of truth.
- *
- * `organizationId` mirrors `core.organization.id` (better-auth); no FK
- * across the menu / core schema boundary.
- */
-export const invoice = menuSchema.table(
-  'invoice',
-  {
-    id: text('id')
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    organizationId: text('organization_id').notNull(),
-    plan: text('plan').$type<PlanCode>().notNull(),
-    periodStart: timestamp('period_start').notNull(),
-    periodEnd: timestamp('period_end').notNull(),
-    amountCents: integer('amount_cents').notNull(),
-    currency: text('currency').notNull().default('EUR'),
-    status: text('status').$type<InvoiceStatus>().notNull().default('paid'),
-    issuedAt: timestamp('issued_at').notNull().defaultNow(),
-    paidAt: timestamp('paid_at'),
-  },
-  (t) => [
-    index('invoice_org_idx').on(t.organizationId),
-    index('invoice_issued_at_idx').on(t.issuedAt),
-  ],
-)
+// ─── Billing tables removed ──────────────────────────────────────────
+// `org_plan` + `invoice` lived here in the better-auth-organization era.
+// Both moved to `core` (managed by @iedora/billing) so plans + invoices
+// are uniform across products. Menu callers reach for the cross-product
+// helpers:
+//   - getSubscription(tenantId, PRODUCTS.menu)   → tenant_subscription row
+//   - listTenantInvoices(tenantId, {product: PRODUCTS.menu}) → invoices
+// The plan REGISTRY (free / casa with limits) stays under
+// `products/menu/src/features/plans/` — menu still owns "what does a
+// menu plan mean", core just owns the subscription row.
 
 // ─── QR codes ─────────────────────────────────────────────────────────────────
 // Physical-sticker registry. Each `code` is a short token printed on a sticker
