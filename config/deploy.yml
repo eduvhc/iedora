@@ -117,8 +117,7 @@ env:
     - CORE_SECRET
     - S3_ACCESS_KEY
     - S3_SECRET_KEY
-    # Descomenta quando a key existir em BWS:
-    # - DEEPSEEK_API_KEY
+    - DEEPSEEK_API_KEY
 
 proxy:
   app_port: 3000
