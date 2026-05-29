@@ -5,8 +5,11 @@ import {
   integer,
   jsonb,
   index,
+  uniqueIndex,
   pgSchema,
 } from 'drizzle-orm/pg-core'
+
+import type { Scope } from './scopes'
 
 /**
  * Drizzle schema for the iedora auth surface.
@@ -21,17 +24,21 @@ import {
  * in one place).
  *
  * Tables:
- *   - `user`         — identity row. `role` is the cross-tenant scalar
- *                       (null for tenants, `iedora-admin` for staff).
- *   - `session`      — opaque token + activeOrganizationId pointer.
- *   - `account`      — provider linkage. With email+password only, a row
- *                       per user with `providerId='credential'`.
- *   - `verification` — short-lived OTPs / email-change tokens.
- *   - `organization` — the tenant entity. Menu's `restaurants` row joins
- *                       to this via `organizationId`.
- *   - `member`       — (user, organization, role) join. `role` is one of
- *                       `owner` / `admin` / `member`.
- *   - `invitation`   — pending email invites with TTL.
+ *   - `user`           — identity row. `role` is the cross-tenant scalar
+ *                         (null for tenants, `iedora-admin` for staff).
+ *   - `session`        — opaque token + activeTenantId pointer.
+ *   - `account`        — provider linkage. With email+password only, a
+ *                         row per user with `providerId='credential'`.
+ *   - `verification`   — short-lived OTPs / email-change tokens.
+ *   - `tenant`         — the tenancy entity owned cross-product. Replaces
+ *                         better-auth's `organization` table; products
+ *                         reference it via a soft-FK `tenantId` string
+ *                         in their own schemas (no real FK across DBs,
+ *                         microservices-ready).
+ *   - `tenant_member`  — (user, tenant, scopes[]) join. Scopes are the
+ *                         authoritative permission list — roles like
+ *                         "owner" / "viewer" exist only as UI presets
+ *                         that expand to a scope array on the way in.
  *
  * All columns use snake_case at the database layer (Drizzle's
  * `casing: 'snake_case'` config in `drizzle.config.ts`).
@@ -46,12 +53,15 @@ export const user = coreSchema.table('user', {
   emailVerified: boolean('email_verified').notNull().default(false),
   image: text('image'),
   /**
-   * Cross-tenant role granted directly on the user. `null` for normal
-   * tenants; `'iedora-admin'` for staff. Resolved by better-auth's
-   * `admin` plugin to back `requireScope` / `hasScope`.
+   * Cross-tenant authority — the explicit scope set granted to this
+   * user. `null` for regular tenants (their authority lives in
+   * `tenant_member.scopes`, scoped to each tenant). Non-null for
+   * staff: the array IS the source of truth; preset labels like
+   * `'iedora-admin'` are detected by `detectStaffPreset(scopes)`
+   * in `./permissions` for UI display only.
    */
-  role: text('role'),
-  /** Set by the `admin` plugin when an account is banned. */
+  scopes: text('scopes').array().$type<Scope[]>(),
+  /** Flag flipped by `banUser()` (formerly better-auth admin plugin). */
   banned: boolean('banned'),
   banReason: text('ban_reason'),
   banExpires: timestamp('ban_expires'),
@@ -71,11 +81,13 @@ export const session = coreSchema.table('session', {
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   /**
-   * Set by the `organization` plugin. Points at the org the user is
-   * currently acting on. Authorisation checks resolve role + permission
-   * against the corresponding `member` row.
+   * Points at the tenant the user is currently acting on. Authorisation
+   * checks resolve scope inclusion against the matching `tenant_member`
+   * row. Lazy-revalidated on read: a stale id (member removed) returns
+   * `null` from `getActiveTenantId()` and the caller redirects to the
+   * picker / onboarding.
    */
-  activeOrganizationId: text('active_organization_id'),
+  activeTenantId: text('active_tenant_id'),
   /** Set by `admin` plugin during impersonation. */
   impersonatedBy: text('impersonated_by'),
 })
@@ -107,47 +119,58 @@ export const verification = coreSchema.table('verification', {
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
-export const organization = coreSchema.table('organization', {
+/**
+ * The tenancy entity — owned cross-product. Replaces better-auth's
+ * `organization`. Other products reference it via a soft-FK `tenantId`
+ * string column in their own DBs; no FK constraint is ever declared
+ * across product DBs (microservices-ready).
+ *
+ * Slug intentionally omitted today — menu's public URLs are restaurant-
+ * scoped (`/menu/r/<restaurant-slug>`), not tenant-scoped, so tenants
+ * stay invisible to end users. Add a `slug` column if/when a use case
+ * demands tenant-scoped URLs.
+ */
+export const tenant = coreSchema.table('tenant', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
-  slug: text('slug').unique(),
-  logo: text('logo'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-  /** Free-form JSON metadata (e.g. plan code, billing flags). */
-  metadata: text('metadata'),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
 
-export const member = coreSchema.table('member', {
-  id: text('id').primaryKey(),
-  organizationId: text('organization_id')
-    .notNull()
-    .references(() => organization.id, { onDelete: 'cascade' }),
-  userId: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  /**
-   * Role within the organization. One of the keys exported from
-   * `./permissions.ts` (`owner` / `admin` / `member`). Stored as raw
-   * text so a renamed role doesn't blow up reads — better-auth coerces
-   * unknown roles to `member` defensively.
-   */
-  role: text('role').notNull().default('member'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-})
-
-export const invitation = coreSchema.table('invitation', {
-  id: text('id').primaryKey(),
-  email: text('email').notNull(),
-  inviterId: text('inviter_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  organizationId: text('organization_id')
-    .notNull()
-    .references(() => organization.id, { onDelete: 'cascade' }),
-  role: text('role'),
-  status: text('status').notNull().default('pending'),
-  expiresAt: timestamp('expires_at').notNull(),
-})
+/**
+ * Tenant membership — (user, tenant) pair carrying the user's authority
+ * inside that tenant as an explicit array of scope strings.
+ *
+ * Why scopes (and not a role string): roles are UX presets, not data.
+ * `TENANT_ROLE_PRESETS` in `./permissions.ts` expand a label like
+ * `'owner'` / `'viewer'` to its scope array on the way in; on the way
+ * out, the same module's `detectPreset()` can reverse-map for display.
+ * Persisting only the scopes means a renamed/removed preset doesn't
+ * silently re-permission a member, AND custom multi-select grants
+ * (e.g. Mario-can-only-publish-to-idealista) cost zero new schema.
+ *
+ * GIN index on `scopes` will be added in a follow-up migration once
+ * we have query patterns that warrant it (`scopes @> ARRAY[...]`).
+ */
+export const tenantMember = coreSchema.table(
+  'tenant_member',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenant.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    scopes: text('scopes').array().$type<Scope[]>().notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('tenant_member_tenant_user_uniq').on(t.tenantId, t.userId),
+    index('tenant_member_user_idx').on(t.userId),
+    index('tenant_member_tenant_idx').on(t.tenantId),
+  ],
+)
 
 /**
  * Rate-limit table. Used by better-auth's built-in rate limiter when
@@ -207,7 +230,7 @@ export const auditLog = coreSchema.table(
     // Target(s) — populated when the event has one. Multiple may be
     // set (e.g. session.revoked has target_user_id + target_session_id).
     targetUserId: text('target_user_id'),
-    targetOrgId: text('target_org_id'),
+    targetTenantId: text('target_tenant_id'),
     targetSessionId: text('target_session_id'),
 
     // Caller context. `ipHash` is SHA-256 of the IP, hex — keeps the
@@ -230,7 +253,7 @@ export const auditLog = coreSchema.table(
     index('audit_log_at_idx').on(t.at),
     index('audit_log_actor_idx').on(t.actorUserId, t.at),
     index('audit_log_target_user_idx').on(t.targetUserId, t.at),
-    index('audit_log_target_org_idx').on(t.targetOrgId, t.at),
+    index('audit_log_target_tenant_idx').on(t.targetTenantId, t.at),
     index('audit_log_event_idx').on(t.event, t.at),
   ],
 )
@@ -240,9 +263,8 @@ export const schema = {
   session,
   account,
   verification,
-  organization,
-  member,
-  invitation,
+  tenant,
+  tenantMember,
   rateLimit,
   auditLog,
 }

@@ -36,7 +36,8 @@
  */
 
 import { createAccessControl } from 'better-auth/plugins/access'
-import { defaultStatements, adminAc, memberAc, ownerAc } from 'better-auth/plugins/organization/access'
+
+import { SCOPES, ALL_SCOPES, type Scope } from './scopes'
 
 /**
  * Resource → actions taxonomy. Extend by adding either a new key (new
@@ -51,18 +52,18 @@ import { defaultStatements, adminAc, memberAc, ownerAc } from 'better-auth/plugi
  * lifting that limitation.
  */
 export const statement = {
-  ...defaultStatements,
-
-  // ── Per-tenant: menu product (per-org consumers) ─────────────────
-  // CRUD-canonical: `read`/`create`/`update`/`delete`. Special verbs
-  // (`publish`) only when the action's blast radius differs from a
-  // normal mutation. `billing` stays read-only until a write surface
-  // exists — splitting `manage` from `update` was speculative.
+  // ── Per-tenant: menu product ─────────────────────────────────────
   'tenant.menu.restaurants': ['read', 'create', 'update', 'delete'],
-  'tenant.menu.menus':       ['read', 'create', 'update', 'delete', 'publish'],
   'tenant.menu.qr-codes':    ['read', 'create', 'update', 'delete'],
-  'tenant.menu.analytics':   ['read'],
-  'tenant.menu.billing':     ['read'],
+
+  // ── Per-tenant: imopush product ──────────────────────────────────
+  'tenant.imopush.properties': ['read', 'create', 'update', 'delete'],
+  'tenant.imopush.idealista':  ['publish'],
+
+  // ── Per-tenant: cross-product concerns owned by core ─────────────
+  'tenant.core.members': ['read', 'invite', 'remove', 'grant'],
+  'tenant.core.billing': ['read', 'change-plan', 'update-payment'],
+  'tenant.core.tenant':  ['delete'],
 
   // ── Control plane: core product (cross-tenant staff) ─────────────
   // `users` verbs split by blast radius:
@@ -109,182 +110,132 @@ export const statement = {
 } as const
 
 /**
- * The configured access-control instance. Passed to better-auth's
- * `organization` and `admin` plugins so role checks resolve against the
- * same taxonomy everywhere.
+ * AC instance — kept so the `statement` shape stays declarative and
+ * downstream tooling (admin Access page introspection) can still bind
+ * resources for visualisation. Better-auth's `organization` and
+ * `admin` plugins were dropped — authorisation now reads
+ * `tenant_member.scopes` (per-tenant) or `user.scopes` (staff)
+ * directly, without going through `ac.authorize()`.
  */
 export const ac = createAccessControl(statement)
 
-/**
- * Per-org role: `member`. Default for any user invited into an org.
- *
- * Inherits org/member/invitation visibility from better-auth's `memberAc`,
- * then adds iedora-specific read-only access to the restaurant + menu
- * surfaces so a regular member can browse the org's data without being
- * able to mutate it.
- */
-export const member = ac.newRole({
-  ...memberAc.statements,
-  'tenant.menu.restaurants': ['read'],
-  'tenant.menu.menus':       ['read'],
-})
+// ─── Role literal constants (single source of truth for staff IDs) ──
 
 /**
- * Per-org role: `admin`. Day-to-day operator — can shape menus, manage
- * QR codes, see analytics. Cannot delete the org or invoice ledger
- * (those stay on `owner`).
+ * Cross-tenant staff role literals — the two preset keys recognised
+ * across iedora. Every callsite that compares a value against
+ * `'iedora-admin'` / `'iedora-support'` imports these — no inline
+ * string literals.
  */
-export const admin = ac.newRole({
-  ...adminAc.statements,
-  'tenant.menu.restaurants': ['read', 'create', 'update'],
-  'tenant.menu.menus':       ['read', 'create', 'update', 'delete', 'publish'],
-  'tenant.menu.qr-codes':    ['read', 'create', 'update', 'delete'],
-  'tenant.menu.analytics':   ['read'],
-  'tenant.menu.billing':     ['read'],
-})
+export const IEDORA_ADMIN_ROLE = 'iedora-admin' as const
+export const IEDORA_SUPPORT_ROLE = 'iedora-support' as const
+export const STAFF_ROLES = [IEDORA_ADMIN_ROLE, IEDORA_SUPPORT_ROLE] as const
+export type StaffRoleKey = (typeof STAFF_ROLES)[number]
+
+// ─── Presets — UX shortcuts that expand to scope arrays ─────────────
+
+const STAFF_PREFIX = 'staff:'
+const TENANT_PREFIX = 'tenant:'
 
 /**
- * Per-org role: `owner`. Full control over the organization — every
- * action on every resource, including destructive ones (delete
- * restaurants, manage billing, remove members).
+ * Staff role presets — applied to `user.scopes` (text[] column).
+ * Adding a new staff role like `'iedora-auditor'` = one entry here,
+ * nothing else changes. `'iedora-admin'` wildcards every staff scope
+ * automatically via `ALL_SCOPES.filter` so new scopes are covered
+ * with zero drift.
  */
-export const owner = ac.newRole({
-  ...ownerAc.statements,
-  'tenant.menu.restaurants': ['read', 'create', 'update', 'delete'],
-  'tenant.menu.menus':       ['read', 'create', 'update', 'delete', 'publish'],
-  'tenant.menu.qr-codes':    ['read', 'create', 'update', 'delete'],
-  'tenant.menu.analytics':   ['read'],
-  'tenant.menu.billing':     ['read'],
-})
+export const STAFF_ROLE_PRESETS = {
+  [IEDORA_ADMIN_ROLE]: ALL_SCOPES.filter((s) => s.startsWith(STAFF_PREFIX)),
+  [IEDORA_SUPPORT_ROLE]: [
+    SCOPES.core.staff.admin.read,
+    SCOPES.core.staff.users.read,
+    SCOPES.core.staff.users.ban,
+    SCOPES.core.staff.orgs.list,
+    SCOPES.core.staff.orgs.get,
+    SCOPES.core.staff.members.remove,
+    SCOPES.core.staff.invitations.cancel,
+    SCOPES.core.staff.sessions.list,
+    SCOPES.core.staff.sessions.revoke,
+  ],
+} as const satisfies Record<StaffRoleKey, readonly Scope[]>
 
 /**
- * Build a wildcard role from a statement. Binds every (resource, verb)
- * pair declared in the statement to the resulting role. The single
- * source of truth for "what does `iedora-admin` cover" — adding a verb
- * to `statement` automatically lands on the wildcard, zero drift.
+ * Tenant role presets — applied to `tenant_member.scopes` when a UI
+ * picker chooses "Owner" / "Admin" / "Member" / "Viewer". The custom
+ * grant case (e.g. Mario-only-idealista) skips presets and writes a
+ * bespoke array directly.
  */
-function buildWildcardRole<S extends Record<string, readonly string[]>>(s: S) {
-  const wildcard: Record<string, readonly string[]> = {}
-  for (const [k, v] of Object.entries(s)) {
-    wildcard[k] = v
+export const TENANT_ROLE_PRESETS = {
+  owner: ALL_SCOPES.filter((s) => s.startsWith(TENANT_PREFIX)),
+  admin: ALL_SCOPES.filter(
+    (s) => s.startsWith(TENANT_PREFIX) && s !== SCOPES.core.tenant.tenant.delete,
+  ),
+  member: [
+    SCOPES.menu.tenant.restaurants.read,
+    SCOPES.menu.tenant.restaurants.create,
+    SCOPES.menu.tenant.restaurants.update,
+    SCOPES.menu.tenant.qrCodes.read,
+    SCOPES.menu.tenant.qrCodes.create,
+    SCOPES.menu.tenant.qrCodes.update,
+    SCOPES.imopush.tenant.properties.read,
+    SCOPES.imopush.tenant.properties.create,
+    SCOPES.imopush.tenant.properties.update,
+    SCOPES.core.tenant.members.read,
+    SCOPES.core.tenant.billing.read,
+  ],
+  viewer: ALL_SCOPES.filter(
+    (s) => s.startsWith(TENANT_PREFIX) && s.endsWith(':read'),
+  ),
+} as const satisfies Record<string, readonly Scope[]>
+
+export type TenantRolePresetKey = keyof typeof TENANT_ROLE_PRESETS
+export const TENANT_ROLE_PRESET_KEYS = Object.keys(
+  TENANT_ROLE_PRESETS,
+) as readonly TenantRolePresetKey[]
+
+// ─── Preset detection helpers (for UI labels) ───────────────────────
+
+function setsEqual<T>(a: readonly T[], b: readonly T[]): boolean {
+  if (a.length !== b.length) return false
+  const sb = new Set(b as readonly T[])
+  return a.every((x) => sb.has(x))
+}
+
+/**
+ * Reverse-lookup the staff role from a scope set. Returns `null`
+ * when the set doesn't match any preset (= "Custom" in the UI).
+ */
+export function detectStaffPreset(
+  scopes: readonly Scope[],
+): StaffRoleKey | null {
+  for (const key of STAFF_ROLES) {
+    if (setsEqual(scopes, STAFF_ROLE_PRESETS[key])) return key
   }
-  return ac.newRole(wildcard as never)
+  return null
 }
 
 /**
- * Cross-tenant role: `iedoraAdmin`. The wildcard. Granted directly on
- * the user (via the better-auth `admin` plugin's user-level role field —
- * NOT through org membership), so a single grant transcends every org.
- *
- * Derived from `statement` via `buildWildcardRole` — never written by
- * hand. New actions in the taxonomy land here automatically.
+ * Same as `detectStaffPreset` but for tenant memberships. Returns
+ * `null` for custom scope mixes.
  */
-export const iedoraAdmin = buildWildcardRole(statement)
-
-/**
- * Cross-tenant role: `iedoraSupport`. Lower-blast staff tier — can see
- * users, create them, and lock/unlock accounts during troubleshooting.
- * Explicitly cannot `set-role` (no self-escalation to iedora-admin)
- * nor `impersonate` (no acting-as another tenant).
- *
- * Granted directly on the user (via the better-auth `admin` plugin's
- * user-level role field — NOT through org membership). Verbose by
- * design — the explicit list is the audit trail.
- */
-export const iedoraSupport = ac.newRole({
-  // Admin shell entry — every staff role needs this.
-  'staff.core.admin':       ['read'],
-  // Users: read + troubleshooting lifecycle. No set-role (escalation),
-  // no impersonate (cross-tenant blast).
-  'staff.core.users':       ['read', 'ban'],
-  // Orgs: visibility only. No metadata mutation, no provisioning.
-  'staff.core.orgs':        ['list', 'get'],
-  // Membership: can kick a stuck user but cannot promote (no
-  // `update-role` — that grants tenant owner cross-tenant).
-  'staff.core.members':     ['remove'],
-  // Invitations: visibility + revoke (troubleshooting a stuck invite).
-  'staff.core.invitations': ['cancel'],
-  // Sessions: full lifecycle (troubleshooting "user can't log out").
-  'staff.core.sessions':    ['list', 'revoke'],
-})
-
-/**
- * The bound role registry passed to better-auth. Keys are the role
- * identifiers the library stores on `member.role` / `user.role`.
- */
-export const roles = { member, admin, owner } as const
-export type RoleKey = keyof typeof roles
-
-/**
- * Cross-tenant staff role registry. Keys are the literals the
- * `admin` plugin stores in `user.role`. Resolves against the
- * statement-level AC, NOT the org plugin's per-membership AC.
- */
-export const staffRoles = {
-  'iedora-admin': iedoraAdmin,
-  'iedora-support': iedoraSupport,
-} as const
-export type StaffRoleKey = keyof typeof staffRoles
-
-/**
- * Convert a `<kind>:<product>:<resource>:<verb>` scope string into the
- * AC permission shape `.authorize()` expects:
- *
- *   `staff:core:users:read` → `{ 'staff.core.users': ['read'] }`
- *
- * Last colon-separated segment is the verb; everything before, joined
- * by dots, is the statement key. Lives here (not in each product's
- * `scopes.ts`) so every consumer — Next-product wrappers, the audit
- * page introspection, tests — uses the same parser.
- *
- * Pure function. Throws on a malformed input rather than producing a
- * meaningless permission object.
- */
-export function scopeToPermission(scope: string): Record<string, string[]> {
-  const parts = scope.split(':')
-  const verb = parts.pop()
-  if (parts.length < 1 || !verb) {
-    throw new Error(`[iedora/auth] malformed scope ${scope}`)
+export function detectTenantPreset(
+  scopes: readonly Scope[],
+): TenantRolePresetKey | null {
+  for (const key of TENANT_ROLE_PRESET_KEYS) {
+    if (setsEqual(scopes, TENANT_ROLE_PRESETS[key])) return key
   }
-  return { [parts.join('.')]: [verb] }
+  return null
 }
 
 /**
- * Non-throwing scope probe for STAFF roles — the canonical "does this
- * `user.role` permit this scope?" primitive. Every product with a
- * staff surface (today: core; tomorrow: imopush staff, finance
- * staff, ...) builds its `hasScope` / `requireScope` guards on top
- * of this — so the role-resolution + `.authorize()` logic lives in
- * exactly ONE place.
- *
- * Each product wraps it with two thin Next-aware helpers:
- *
- *   - `hasScope(scope)` — read session, call `hasStaffScope`,
- *     return boolean. Use for UI gating (render IF scope held).
- *   - `requireScope(scope)` — same, but redirect/404 on miss + emit
- *     an `auth.denied` audit row. Use as a route/action guard.
- *
- * The split keeps Next-specific code (`headers()`, `redirect()`,
- * `notFound()`, audit hooks) out of `@iedora/auth` — this package
- * stays framework-free.
- *
- * Anonymous / tenant-only / unknown roles always return false.
- * Scope strings are the universal `<kind>:<product>:<resource>:<verb>`
- * format — callers DON'T translate to permission shape first.
+ * Type guard: is the value one of the staff role preset keys.
  */
-export async function hasStaffScope(
-  role: string | null | undefined,
-  scope: string,
-): Promise<boolean> {
-  if (role === null || role === undefined) return false
-  if (!(role in staffRoles)) return false
-  const { success } = await staffRoles[role as StaffRoleKey].authorize(
-    scopeToPermission(scope) as never,
-  )
-  return success
+export function isStaffRole(role: unknown): role is StaffRoleKey {
+  return typeof role === 'string' && (STAFF_ROLES as readonly string[]).includes(role)
 }
 
 /**
- * Statement type alias — useful for typing `hasPermission` calls.
+ * Statement type alias — useful for typing AC introspection on the
+ * admin Access page.
  */
 export type Statement = typeof statement

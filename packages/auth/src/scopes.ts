@@ -1,5 +1,3 @@
-import { hasStaffScope, type StaffRoleKey } from './permissions'
-
 /**
  * Centralised scope catalogue for every iedora product.
  *
@@ -156,27 +154,9 @@ const _all: string[] = []
 collectLeaves(SCOPES, _all)
 export const ALL_SCOPES: ReadonlyArray<Scope> = _all as ReadonlyArray<Scope>
 
-/**
- * Which scopes does a given staff role grant? Probes
- * `hasStaffScope` against every declared SCOPE — derived FROM the
- * AC binding, never duplicates the role definition. Used by the
- * admin Access page to render "what can role X do?" cards.
- *
- * Lives next to the catalogue so the cross-product probe is a
- * one-import operation. Imports `hasStaffScope` from `permissions`
- * via a local symbol because that module also re-uses
- * `scopeToPermission` defined there — circular-import safe because
- * both helpers are pure functions.
- */
-export async function listAllowedScopes(
-  roleKey: StaffRoleKey,
-): Promise<ReadonlyArray<Scope>> {
-  const allowed: Scope[] = []
-  for (const scope of ALL_SCOPES) {
-    if (await hasStaffScope(roleKey, scope)) allowed.push(scope)
-  }
-  return allowed
-}
+// `listAllowedScopes` was removed when AC bindings stopped being the
+// source of truth — callers now read `STAFF_ROLE_PRESETS[roleKey]` /
+// `TENANT_ROLE_PRESETS[presetKey]` from `./permissions` directly.
 
 /**
  * i18n key for a scope's description, anchored under the `scopes.*`

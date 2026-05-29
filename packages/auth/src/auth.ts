@@ -1,11 +1,10 @@
 import 'server-only'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { organization, admin } from 'better-auth/plugins'
 import { nextCookies } from 'better-auth/next-js'
 import { getCoreDb } from './db'
 import { schema } from './schema'
-import { ac, roles, iedoraAdmin, iedoraSupport } from './permissions'
+import { IEDORA_ADMIN_ROLE, STAFF_ROLE_PRESETS, detectStaffPreset } from './permissions'
 import { recordAudit } from './audit'
 
 /**
@@ -63,28 +62,34 @@ function build() {
     databaseHooks: {
       user: {
         create: {
-          // Bootstrap the founding iedora-admin on first signup. Avoids
-          // needing a manual SQL UPDATE after the first deploy — the
-          // founder's account is auto-promoted to the cross-tenant role
-          // as it's created. Idempotent: only fires on row creation.
+          // Bootstrap the founding iedora-admin on first signup. Sets
+          // `user.scopes` to the iedora-admin preset (every staff
+          // scope) so the founder lands in the admin surface without
+          // a post-deploy SQL UPDATE. Idempotent: only fires on row
+          // creation.
           before: async (user) => {
             if (bootstrapAdminEmails.has(user.email.toLowerCase())) {
-              return { data: { ...user, role: 'iedora-admin' } }
+              return {
+                data: {
+                  ...user,
+                  scopes: [...STAFF_ROLE_PRESETS[IEDORA_ADMIN_ROLE]],
+                },
+              }
             }
             return { data: user }
           },
-          // Audit: every signup. Outcome is always `success` here
-          // (better-auth's `before` already validated email +
-          // password rules). `bootstrap-admin` lands in meta so the
-          // audit trail explicitly records the auto-promotion.
           after: async (user) => {
             const promoted = bootstrapAdminEmails.has(user.email.toLowerCase())
+            // `detectStaffPreset` reverse-maps the scope array back to
+            // the named preset for audit display ("iedora-admin").
+            const scopes = (user.scopes as string[] | undefined) ?? null
+            const presetLabel = scopes ? detectStaffPreset(scopes as never) : null
             await recordAudit({
               event: 'user.signed-up',
               outcome: 'success',
               actor: {
                 userId: user.id,
-                role: (user.role as string | undefined) ?? null,
+                role: presetLabel,
                 email: user.email,
               },
               target: { userId: user.id },
@@ -98,12 +103,6 @@ function build() {
       },
       session: {
         create: {
-          // Audit every successful sign-in. better-auth populates IP +
-          // user-agent on the session row itself; we read them back
-          // and don't have a Headers object to pass through, so the
-          // ip_hash falls to `null` on the row — we record the IP
-          // directly in `meta` since the session model already stored
-          // it server-side (no extra PII exposure).
           after: async (session) => {
             await recordAudit({
               event: 'user.signed-in',
@@ -138,32 +137,17 @@ function build() {
       },
     },
     plugins: [
-      organization({
-        ac,
-        roles,
-        // No teams today — the org is the smallest tenancy boundary.
-        teams: { enabled: false },
-        // Members can NOT invite others; only admin/owner can. The
-        // permissions object below is consulted by the plugin itself
-        // alongside the AC bindings.
-        allowUserToCreateOrganization: true,
-      }),
-      admin({
-        ac,
-        // Cross-tenant staff roles. Both are recognised by the admin
-        // plugin (so its endpoints unlock for either), but our
-        // application-level `requireScope` gates the fine-grained
-        // verbs — `iedora-support` cannot reach `users:set-role` /
-        // `users:impersonate`, the AC binding refuses.
-        adminRoles: ['iedora-admin', 'iedora-support'],
-        roles: {
-          'iedora-admin': iedoraAdmin,
-          'iedora-support': iedoraSupport,
-        },
-      }),
-      // `nextCookies()` MUST be the last plugin — it patches the response
-      // pipeline to ship Set-Cookie headers through Next's server-action
-      // boundary correctly.
+      // Better-auth's `organization` and `admin` plugins were dropped
+      // in the tenancy + scope refactor. Tenants live in our own
+      // `core.tenant` / `core.tenant_member` tables (see
+      // `./tenants`, `./tenant-members`, `./sessions`). Staff powers
+      // live in `user.scopes` (see `./staff`). Both authorisations
+      // resolve through `userHasScope` / `hasScope` — no AC binding,
+      // no plugin coupling.
+      //
+      // `nextCookies()` MUST stay last — it patches the response
+      // pipeline to ship Set-Cookie headers through Next's server-
+      // action boundary correctly.
       nextCookies(),
     ],
   })
