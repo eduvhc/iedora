@@ -44,7 +44,7 @@ export type AuditInput = {
   } | null
   target?: {
     userId?: string | null
-    orgId?: string | null
+    tenantId?: string | null
     sessionId?: string | null
   } | null
   /**
@@ -94,7 +94,7 @@ export async function recordAudit(input: AuditInput): Promise<void> {
       actorRole: input.actor?.role ?? null,
       actorEmail: input.actor?.email ?? null,
       targetUserId: input.target?.userId ?? null,
-      targetOrgId: input.target?.orgId ?? null,
+      targetTenantId: input.target?.tenantId ?? null,
       targetSessionId: input.target?.sessionId ?? null,
       ipHash: hashIp(extractIp(input.headers ?? null)),
       userAgent: input.headers?.get('user-agent') ?? null,

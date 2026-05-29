@@ -20,7 +20,7 @@ export interface MetricsGateway {
    */
   incrementDailyView(input: {
     restaurantId: string
-    organizationId: string
+    tenantId: string
     day: string
     language: LanguageCode
   }): Promise<void>
@@ -29,14 +29,14 @@ export interface MetricsGateway {
    * Sums `daily_view.count` for an organization across a closed day range.
    * Returns 0 when no rows match.
    */
-  sumScans(organizationId: string, start: string, end: string): Promise<number>
+  sumScans(tenantId: string, start: string, end: string): Promise<number>
 
   /**
    * Per-day grouped scan totals for an organization, inclusive on both bounds.
    * Gaps (zero-scan days) are NOT filled — the caller stitches the timeline.
    */
   dailyBreakdown(
-    organizationId: string,
+    tenantId: string,
     start: string,
     end: string,
   ): Promise<DailyBreakdownRow[]>
@@ -47,5 +47,5 @@ export interface MetricsGateway {
    * Single round-trip per call site; the analytics reader runs this in
    * parallel with the scan queries.
    */
-  getOrgContent(organizationId: string): Promise<OrgContentSnapshot>
+  getOrgContent(tenantId: string): Promise<OrgContentSnapshot>
 }

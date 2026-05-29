@@ -9,7 +9,7 @@ import { metrics, type Meter } from "@opentelemetry/api";
  *   const counter = meter.createCounter('iedora.something_total', {
  *     description: 'What you are counting',
  *   })
- *   counter.add(1, tenantAttributes({ restaurantId, organizationId }))
+ *   counter.add(1, tenantAttributes({ restaurantId, tenantId }))
  *
  * Convention: instrument names are lowercase snake_case under the
  * `iedora.` namespace (e.g. `iedora.restaurant_views_total`). The OTel

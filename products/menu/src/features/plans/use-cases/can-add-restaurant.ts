@@ -13,11 +13,11 @@ export type RestaurantGate =
  */
 export async function canAddRestaurant(
   plans: PlansGateway,
-  organizationId: string,
+  tenantId: string,
 ): Promise<RestaurantGate> {
   const [code, current] = await Promise.all([
-    plans.getOrgPlan(organizationId),
-    plans.countOrgRestaurants(organizationId),
+    plans.getOrgPlan(tenantId),
+    plans.countOrgRestaurants(tenantId),
   ])
   const plan = getPlan(code)
   if (current >= plan.limits.restaurants) {

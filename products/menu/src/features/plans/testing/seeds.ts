@@ -8,22 +8,22 @@ import type { PlanCode } from '../types'
  * upgrade flow without re-seeding the row.
  */
 export async function setPlan(
-  organizationId: string,
+  tenantId: string,
   plan: PlanCode,
 ): Promise<void> {
   const sql = testDb()
   await sql`
-    INSERT INTO "menu"."org_plan" (organization_id, plan)
-    VALUES (${organizationId}, ${plan})
-    ON CONFLICT (organization_id) DO UPDATE
+    INSERT INTO "menu"."org_plan" (tenant_id, plan)
+    VALUES (${tenantId}, ${plan})
+    ON CONFLICT (tenant_id) DO UPDATE
       SET plan = EXCLUDED.plan, updated_at = now()
   `
 }
 
-export async function getPlan(organizationId: string): Promise<PlanCode | null> {
+export async function getPlan(tenantId: string): Promise<PlanCode | null> {
   const sql = testDb()
   const [row] = await sql<{ plan: PlanCode }[]>`
-    SELECT plan FROM "menu"."org_plan" WHERE organization_id = ${organizationId}
+    SELECT plan FROM "menu"."org_plan" WHERE tenant_id = ${tenantId}
   `
   return row?.plan ?? null
 }

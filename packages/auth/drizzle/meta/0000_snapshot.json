@@ -1,5 +1,5 @@
 {
-  "id": "5a7c71d9-11b9-4d39-a0db-0aae5471a219",
+  "id": "86df3170-1d37-4075-a10c-86871effbc45",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -165,8 +165,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "target_org_id": {
-          "name": "target_org_id",
+        "target_tenant_id": {
+          "name": "target_tenant_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -267,11 +267,11 @@
           "method": "btree",
           "with": {}
         },
-        "audit_log_target_org_idx": {
-          "name": "audit_log_target_org_idx",
+        "audit_log_target_tenant_idx": {
+          "name": "audit_log_target_tenant_idx",
           "columns": [
             {
-              "expression": "target_org_id",
+              "expression": "target_tenant_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -317,8 +317,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "core.invitation": {
-      "name": "invitation",
+    "core.invoice": {
+      "name": "invoice",
       "schema": "core",
       "columns": {
         "id": {
@@ -327,179 +327,57 @@
           "primaryKey": true,
           "notNull": true
         },
-        "email": {
-          "name": "email",
+        "tenant_id": {
+          "name": "tenant_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "inviter_id": {
-          "name": "inviter_id",
+        "product": {
+          "name": "product",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "text",
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
-        "role": {
-          "name": "role",
+        "currency": {
+          "name": "currency",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "status": {
           "name": "status",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "invitation_inviter_id_user_id_fk": {
-          "name": "invitation_inviter_id_user_id_fk",
-          "tableFrom": "invitation",
-          "tableTo": "user",
-          "schemaTo": "core",
-          "columnsFrom": [
-            "inviter_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "invitation_organization_id_organization_id_fk": {
-          "name": "invitation_organization_id_organization_id_fk",
-          "tableFrom": "invitation",
-          "tableTo": "organization",
-          "schemaTo": "core",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "core.member": {
-      "name": "member",
-      "schema": "core",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
           "notNull": true
         },
-        "organization_id": {
-          "name": "organization_id",
+        "plan_code": {
+          "name": "plan_code",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "role": {
-          "name": "role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'member'"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
+        "issued_at": {
+          "name": "issued_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "member_organization_id_organization_id_fk": {
-          "name": "member_organization_id_organization_id_fk",
-          "tableFrom": "member",
-          "tableTo": "organization",
-          "schemaTo": "core",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
         },
-        "member_user_id_user_id_fk": {
-          "name": "member_user_id_user_id_fk",
-          "tableFrom": "member",
-          "tableTo": "user",
-          "schemaTo": "core",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "core.organization": {
-      "name": "organization",
-      "schema": "core",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "slug": {
-          "name": "slug",
-          "type": "text",
+        "paid_at": {
+          "name": "paid_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "logo": {
-          "name": "logo",
+        "stripe_invoice_id": {
+          "name": "stripe_invoice_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -510,26 +388,76 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "metadata": {
-          "name": "metadata",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "invoice_tenant_issued_idx": {
+          "name": "invoice_tenant_issued_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "issued_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "invoice_tenant_product_issued_idx": {
+          "name": "invoice_tenant_product_issued_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "product",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "issued_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "invoice_status_idx": {
+          "name": "invoice_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "organization_slug_unique": {
-          "name": "organization_slug_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -625,8 +553,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "active_organization_id": {
-          "name": "active_organization_id",
+        "active_tenant_id": {
+          "name": "active_tenant_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -669,6 +597,310 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "core.tenant": {
+      "name": "tenant",
+      "schema": "core",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "core.tenant_member": {
+      "name": "tenant_member",
+      "schema": "core",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scopes": {
+          "name": "scopes",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "tenant_member_tenant_user_uniq": {
+          "name": "tenant_member_tenant_user_uniq",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tenant_member_user_idx": {
+          "name": "tenant_member_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tenant_member_tenant_idx": {
+          "name": "tenant_member_tenant_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "tenant_member_tenant_id_tenant_id_fk": {
+          "name": "tenant_member_tenant_id_tenant_id_fk",
+          "tableFrom": "tenant_member",
+          "tableTo": "tenant",
+          "schemaTo": "core",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "tenant_member_user_id_user_id_fk": {
+          "name": "tenant_member_user_id_user_id_fk",
+          "tableFrom": "tenant_member",
+          "tableTo": "user",
+          "schemaTo": "core",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "core.tenant_subscription": {
+      "name": "tenant_subscription",
+      "schema": "core",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "product": {
+          "name": "product",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plan": {
+          "name": "plan",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "current_period_start": {
+          "name": "current_period_start",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "current_period_end": {
+          "name": "current_period_end",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancel_at_period_end": {
+          "name": "cancel_at_period_end",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "stripe_subscription_id": {
+          "name": "stripe_subscription_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stripe_customer_id": {
+          "name": "stripe_customer_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "tenant_subscription_tenant_product_uniq": {
+          "name": "tenant_subscription_tenant_product_uniq",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "product",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tenant_subscription_tenant_idx": {
+          "name": "tenant_subscription_tenant_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tenant_subscription_product_idx": {
+          "name": "tenant_subscription_product_idx",
+          "columns": [
+            {
+              "expression": "product",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "core.user": {
       "name": "user",
       "schema": "core",
@@ -704,9 +936,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "role": {
-          "name": "role",
-          "type": "text",
+        "scopes": {
+          "name": "scopes",
+          "type": "text[]",
           "primaryKey": false,
           "notNull": false
         },

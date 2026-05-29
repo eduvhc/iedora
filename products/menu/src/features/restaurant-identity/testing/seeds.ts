@@ -13,11 +13,11 @@ export type SeededRestaurant = {
   restaurantId: string
   slug: string
   name: string
-  organizationId: string
+  tenantId: string
 }
 
 export type SeedRestaurantInput = {
-  organizationId: string
+  tenantId: string
   name: string
   slug: string
   defaultLanguage?: string
@@ -34,12 +34,12 @@ export async function seedRestaurant(
 
   const [row] = await sql<{ id: string }[]>`
     INSERT INTO "menu"."restaurant" (
-      id, organization_id, name, slug, description,
+      id, tenant_id, name, slug, description,
       default_language, supported_languages, updated_at
     )
     VALUES (
       gen_random_uuid()::text,
-      ${input.organizationId},
+      ${input.tenantId},
       ${input.name},
       ${input.slug},
       ${input.description ?? null},
@@ -53,6 +53,6 @@ export async function seedRestaurant(
     restaurantId: row!.id,
     slug: input.slug,
     name: input.name,
-    organizationId: input.organizationId,
+    tenantId: input.tenantId,
   }
 }

@@ -2,10 +2,15 @@
 
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { headers } from 'next/headers'
 import { z } from 'zod'
 import { getEffectiveOrganizationId, getSession } from '@iedora/product-menu/features/auth'
-import { auth } from '@iedora/auth'
+import {
+  createTenant,
+  setActiveTenant,
+  TENANT_ROLE_PRESETS,
+} from '@iedora/auth'
+import { createSubscription } from '@iedora/billing'
+import { PRODUCTS } from '@iedora/brand'
 import { nextAvailableSlug, slugify } from '@iedora/product-menu/features/restaurant-slug'
 import { signInUrl } from '@iedora/product-core/url'
 import { publicUrl } from '@iedora/product-menu/shared/url'
@@ -26,13 +31,13 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 async function insertRestaurantWithDefaultMenu(
   tx: Tx,
-  organizationId: string,
+  tenantId: string,
   restaurantName: string,
   slug: string,
 ): Promise<void> {
   const [created] = await tx
     .insert(restaurant)
-    .values({ organizationId, name: restaurantName, slug })
+    .values({ tenantId, name: restaurantName, slug })
     .returning({ id: restaurant.id })
   if (!created) throw new Error('onboarding: restaurant insert returned no rows')
 
@@ -92,13 +97,13 @@ export async function completeOnboarding(
 }
 
 async function addRestaurantToOrg(
-  organizationId: string,
+  tenantId: string,
   restaurantName: string,
   slug: string,
 ): Promise<OnboardingFormState> {
   try {
     await db.transaction((tx) =>
-      insertRestaurantWithDefaultMenu(tx, organizationId, restaurantName, slug),
+      insertRestaurantWithDefaultMenu(tx, tenantId, restaurantName, slug),
     )
   } catch (err) {
     console.error('[onboarding] restaurant creation under existing org failed', err)
@@ -113,41 +118,58 @@ async function createOrgAndFirstRestaurant(
   restaurantName: string,
   slug: string,
 ): Promise<OnboardingFormState> {
-  // Create the org via better-auth — it owns the org row in the `core`
-  // schema, mints an owner-role membership for the caller, and returns
-  // the id we stash on the restaurant row. The headers carry the
-  // session cookie so the API knows who the owner is.
-  let organizationId: string
+  const session = await getSession()
+  if (!session?.user) redirect(signInUrl(publicUrl('/menu/onboarding').toString()))
+
+  let tenantId: string
   try {
-    const org = await auth.api.createOrganization({
-      body: {
-        name: restaurantName,
-        slug,
+    // Create the tenant + add the founder as owner (all tenant scopes).
+    // Single transaction inside `createTenant`.
+    const tenant = await createTenant({
+      name: restaurantName,
+      founder: {
+        userId: session.user.id,
+        scopes: TENANT_ROLE_PRESETS.owner,
       },
-      headers: await headers(),
     })
-    if (!org?.id) {
-      return { error: 'Could not create organization. Please try again.' }
-    }
-    organizationId = org.id
+    tenantId = tenant.id
   } catch (err) {
-    console.error('[onboarding] org creation failed', err)
-    return { error: 'Could not create organization. Please try again.' }
+    console.error('[onboarding] tenant creation failed', err)
+    return { error: 'Could not create tenant. Please try again.' }
   }
 
-  // Make it the active org on the caller's session so subsequent
-  // page loads find the right tenant context. Best-effort — a failure
-  // here is recoverable on next sign-in (the user picks the org from
-  // the switcher and we set it then).
-  await auth.api.setActiveOrganization({
-    body: { organizationId },
-    headers: await headers(),
-  }).catch(() => undefined)
+  // Enrol the tenant in the menu product on the free plan. This is the
+  // cross-product signal "this tenant uses menu" — the menu landing
+  // picker + dashboard layout read from `tenant_subscription` to know.
+  try {
+    await createSubscription({
+      tenantId,
+      product: PRODUCTS.menu,
+      plan: 'free',
+      status: 'active',
+      actor: { userId: session.user.id, email: session.user.email },
+    })
+  } catch (err) {
+    console.error('[onboarding] subscription creation failed', err)
+    // Non-fatal — the tenant exists, plan lookups will fall back to
+    // 'free' via the registry's default. Surface as a soft warning.
+  }
+
+  // Pin the session to the new tenant so subsequent page loads find
+  // the right tenant context. `setActiveTenant` verifies membership
+  // (the founder we just added).
+  await setActiveTenant({
+    sessionId: session.session.id,
+    userId: session.user.id,
+    tenantId,
+  }).catch((err) => {
+    console.error('[onboarding] setActiveTenant failed', err)
+  })
 
   // Restaurant + default menu must commit together.
   try {
     await db.transaction((tx) =>
-      insertRestaurantWithDefaultMenu(tx, organizationId, restaurantName, slug),
+      insertRestaurantWithDefaultMenu(tx, tenantId, restaurantName, slug),
     )
   } catch (err) {
     console.error('[onboarding] restaurant creation failed', err)

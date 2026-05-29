@@ -10,8 +10,8 @@ import type { Plan } from '../types'
  */
 export async function getOrganizationPlan(
   plans: PlansGateway,
-  organizationId: string,
+  tenantId: string,
 ): Promise<Plan> {
-  const code = await plans.getOrgPlan(organizationId)
+  const code = await plans.getOrgPlan(tenantId)
   return getPlan(code)
 }

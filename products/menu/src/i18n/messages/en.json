@@ -453,6 +453,51 @@
     "admin": {
       "title": "Admin",
       "subtitle": "Iedora-staff surface.",
+      "tenants": {
+        "title": "Tenants",
+        "description": "{count, plural, =0 {No tenants yet.} one {# tenant in the system.} other {# tenants in the system.}}",
+        "crumbAdmin": "Admin",
+        "searchLabel": "Search",
+        "searchPlaceholder": "Filter by name…",
+        "searchSubmit": "Filter",
+        "empty": "No tenants match the current filter.",
+        "colName": "Tenant",
+        "colMembers": "Members",
+        "colCreated": "Created",
+        "paginationLabel": "Tenants pagination",
+        "paginationPosition": "Page {page} of {total}",
+        "paginationPrev": "Previous",
+        "paginationNext": "Next",
+        "detail": {
+          "crumbAdmin": "Admin",
+          "crumbTenants": "Tenants",
+          "description": "Membership, scope presets, and product subscriptions for this tenant.",
+          "identity": {
+            "heading": "Identity",
+            "id": "Id",
+            "created": "Created",
+            "members": "Members"
+          },
+          "members": {
+            "heading": "Members",
+            "empty": "No members yet. (Founder removed?)",
+            "colUser": "User",
+            "colPreset": "Authority",
+            "colJoined": "Joined",
+            "presetCustom": "Custom",
+            "scopeCount": "{count, plural, =0 {no scopes} one {# scope} other {# scopes}}"
+          },
+          "subscriptions": {
+            "heading": "Subscriptions",
+            "empty": "No product enrolments yet.",
+            "colProduct": "Product",
+            "colPlan": "Plan",
+            "colStatus": "Status",
+            "colPeriod": "Renews",
+            "willCancel": "Cancels at period end"
+          }
+        }
+      },
       "sessions": {
         "title": "Sessions",
         "subtitle": "Active sessions across every iedora product.",
@@ -481,7 +526,7 @@
         "overview": "Overview",
         "users": "Users",
         "access": "Access",
-        "organizations": "Organizations",
+        "tenants": "Tenants",
         "sessions": "Sessions",
         "audit": "Audit",
         "signOut": "Sign out"
@@ -590,10 +635,10 @@
           "count": "{count} total",
           "cta": "Manage users"
         },
-        "orgs": {
-          "title": "Organizations",
+        "tenants": {
+          "title": "Tenants",
           "count": "{count} total",
-          "cta": "Manage organizations"
+          "cta": "Manage tenants"
         },
         "sessions": {
           "title": "Sessions",

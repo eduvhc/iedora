@@ -7,7 +7,7 @@ import {
 
 import { TenantContextSpanProcessor } from "../processor";
 import { tenantContext } from "../tenant-context";
-import { IEDORA_ORGANIZATION_ID, IEDORA_RESTAURANT_ID } from "../tenant";
+import { IEDORA_TENANT_ID, IEDORA_RESTAURANT_ID } from "../tenant";
 
 /**
  * TenantContextSpanProcessor stamps tenant.restaurant_id /
@@ -42,7 +42,7 @@ describe("TenantContextSpanProcessor", () => {
     const tracer = provider.getTracer("test");
 
     tenantContext.run(
-      { restaurantId: "r_alpha", organizationId: "o_alpha" },
+      { restaurantId: "r_alpha", tenantId: "o_alpha" },
       () => {
         const span = tracer.startSpan("operation-inside-tenant");
         span.end();
@@ -52,7 +52,7 @@ describe("TenantContextSpanProcessor", () => {
     const [exported] = exporter.getFinishedSpans();
     expect(exported).toBeDefined();
     expect(exported?.attributes[IEDORA_RESTAURANT_ID]).toBe("r_alpha");
-    expect(exported?.attributes[IEDORA_ORGANIZATION_ID]).toBe("o_alpha");
+    expect(exported?.attributes[IEDORA_TENANT_ID]).toBe("o_alpha");
   });
 
   it("omits organization_id when not set on the context", () => {
@@ -67,7 +67,7 @@ describe("TenantContextSpanProcessor", () => {
     // Important: omit, not set-to-undefined. OpenObserve treats undefined
     // attributes as the literal string "undefined" in dashboards — would
     // show up as a fake "(undefined)" bucket on every org-grouped chart.
-    expect(IEDORA_ORGANIZATION_ID in (exported?.attributes ?? {})).toBe(false);
+    expect(IEDORA_TENANT_ID in (exported?.attributes ?? {})).toBe(false);
   });
 
   it("does NOT stamp attributes when no tenant is set", () => {
@@ -78,7 +78,7 @@ describe("TenantContextSpanProcessor", () => {
 
     const [exported] = exporter.getFinishedSpans();
     expect(IEDORA_RESTAURANT_ID in (exported?.attributes ?? {})).toBe(false);
-    expect(IEDORA_ORGANIZATION_ID in (exported?.attributes ?? {})).toBe(false);
+    expect(IEDORA_TENANT_ID in (exported?.attributes ?? {})).toBe(false);
   });
 
   it("stamps the tenant of the scope the span was started in, not a later scope", () => {
@@ -102,10 +102,10 @@ describe("TenantContextSpanProcessor", () => {
     const tracer = provider.getTracer("test");
 
     tenantContext.run(
-      { restaurantId: "r_outer", organizationId: "o_outer" },
+      { restaurantId: "r_outer", tenantId: "o_outer" },
       () => {
         tenantContext.run(
-          { restaurantId: "r_inner", organizationId: "o_inner" },
+          { restaurantId: "r_inner", tenantId: "o_inner" },
           () => {
             tracer.startSpan("inner-span").end();
           },
@@ -115,7 +115,7 @@ describe("TenantContextSpanProcessor", () => {
 
     const [exported] = exporter.getFinishedSpans();
     expect(exported?.attributes[IEDORA_RESTAURANT_ID]).toBe("r_inner");
-    expect(exported?.attributes[IEDORA_ORGANIZATION_ID]).toBe("o_inner");
+    expect(exported?.attributes[IEDORA_TENANT_ID]).toBe("o_inner");
   });
 
   it("forceFlush and shutdown resolve cleanly (lifecycle no-ops)", async () => {

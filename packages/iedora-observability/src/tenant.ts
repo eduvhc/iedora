@@ -10,13 +10,13 @@ import { tracer } from "./tracer";
  * resource (which is per-process). See the iedora-observability README.
  */
 export const IEDORA_RESTAURANT_ID = "tenant.restaurant_id" as const;
-export const IEDORA_ORGANIZATION_ID = "tenant.organization_id" as const;
+export const IEDORA_TENANT_ID = "tenant.id" as const;
 
 export type TenantAttrs = {
   /** Required. The restaurant whose data the span touches. */
   restaurantId: string;
   /** The owning organization, when known. Recommended. */
-  organizationId?: string;
+  tenantId?: string;
 };
 
 /**
@@ -27,7 +27,7 @@ export type TenantAttrs = {
  * both signals.
  *
  *   const counter = meter.createCounter('iedora.foo_total')
- *   counter.add(1, tenantAttributes({ restaurantId, organizationId }))
+ *   counter.add(1, tenantAttributes({ restaurantId, tenantId }))
  *
  * Returns a plain attribute object — safe to spread with other
  * non-tenant attributes (`{ ...tenantAttributes(t), 'iedora.language': 'pt' }`).
@@ -38,8 +38,8 @@ export function tenantAttributes(
   const out: Record<string, string> = {
     [IEDORA_RESTAURANT_ID]: attrs.restaurantId,
   };
-  if (attrs.organizationId) {
-    out[IEDORA_ORGANIZATION_ID] = attrs.organizationId;
+  if (attrs.tenantId) {
+    out[IEDORA_TENANT_ID] = attrs.tenantId;
   }
   return out;
 }
@@ -50,7 +50,7 @@ export function tenantAttributes(
  * and exceptions are surfaced both as a span status AND re-thrown so the
  * caller's error handling still runs.
  *
- *   await withTenantSpan('load-public-menu', { restaurantId, organizationId }, async () => {
+ *   await withTenantSpan('load-public-menu', { restaurantId, tenantId }, async () => {
  *     return loadRestaurantSnapshot(slug)
  *   })
  *
@@ -64,8 +64,8 @@ export async function withTenantSpan<T>(
 ): Promise<T> {
   return tracer.startActiveSpan(spanName, async (span) => {
     span.setAttribute(IEDORA_RESTAURANT_ID, attrs.restaurantId);
-    if (attrs.organizationId) {
-      span.setAttribute(IEDORA_ORGANIZATION_ID, attrs.organizationId);
+    if (attrs.tenantId) {
+      span.setAttribute(IEDORA_TENANT_ID, attrs.tenantId);
     }
     try {
       return await fn();

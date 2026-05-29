@@ -12,13 +12,13 @@ import { getInvoicesForYear as _getInvoicesForYear } from './use-cases/get-invoi
  * For unit tests, import the use-case functions directly from
  * `./use-cases/*` and pass a fake `BillingReadPort`.
  */
-export const getInvoiceYears = cache((organizationId: string) =>
-  _getInvoiceYears(drizzleBilling, organizationId),
+export const getInvoiceYears = cache((tenantId: string) =>
+  _getInvoiceYears(drizzleBilling, tenantId),
 )
 
 export const getInvoicesForYear = cache(
-  (organizationId: string, year: number) =>
-    _getInvoicesForYear(drizzleBilling, organizationId, year),
+  (tenantId: string, year: number) =>
+    _getInvoicesForYear(drizzleBilling, tenantId, year),
 )
 
 export type { Invoice } from './types'

@@ -16,22 +16,22 @@ import { recordAiGeneration as _recordAiGeneration } from './use-cases/record-ai
  * For unit tests, import the use-case functions directly from
  * `./use-cases/*` and pass a fake `PlansGateway`.
  */
-export const getOrganizationPlan = cache((organizationId: string) =>
-  _getOrganizationPlan(drizzlePlans, organizationId),
+export const getOrganizationPlan = cache((tenantId: string) =>
+  _getOrganizationPlan(drizzlePlans, tenantId),
 )
 
-export const getOrganizationRestaurantCount = cache((organizationId: string) =>
-  _getOrganizationRestaurantCount(drizzlePlans, organizationId),
+export const getOrganizationRestaurantCount = cache((tenantId: string) =>
+  _getOrganizationRestaurantCount(drizzlePlans, tenantId),
 )
 
-export const canAddRestaurant = (organizationId: string) =>
-  _canAddRestaurant(drizzlePlans, organizationId)
+export const canAddRestaurant = (tenantId: string) =>
+  _canAddRestaurant(drizzlePlans, tenantId)
 
-export const canGenerateAiMenu = (organizationId: string) =>
-  _canGenerateAiMenu(drizzlePlans, organizationId)
+export const canGenerateAiMenu = (tenantId: string) =>
+  _canGenerateAiMenu(drizzlePlans, tenantId)
 
-export const recordAiGeneration = (organizationId: string) =>
-  _recordAiGeneration(drizzlePlans, organizationId)
+export const recordAiGeneration = (tenantId: string) =>
+  _recordAiGeneration(drizzlePlans, tenantId)
 
 // Pure helpers (no I/O) re-exported directly.
 export { planHas } from './use-cases/plan-has'

@@ -11,8 +11,7 @@ import {
   SidebarTrigger,
   Wordmark,
 } from '@iedora/design-system'
-import { hasStaffScope } from '@iedora/auth/permissions'
-import { SCOPES } from '@iedora/auth/scopes'
+import { SCOPES, type Scope } from '@iedora/auth/scopes'
 import { ActiveSidebarLinks, type ActiveSidebarItem } from '@iedora/design-system'
 
 /**
@@ -28,19 +27,21 @@ import { ActiveSidebarLinks, type ActiveSidebarItem } from '@iedora/design-syste
 export async function AdminShell({
   children,
   userEmail,
-  userRole,
+  userScopes,
+  staffRoleLabel,
 }: {
   children: React.ReactNode
   userEmail: string
-  userRole: string | null
+  /** Cross-tenant scope set (from `user.scopes`). Null for tenant-only users. */
+  userScopes: readonly Scope[] | null
+  /** UI label for the chip — e.g. `'iedora-admin'`. Detected by `detectStaffPreset`. */
+  staffRoleLabel: string | null
 }) {
   const t = await getTranslations('Core.admin.nav')
 
-  // Scope-aware nav: links to surfaces the caller can't reach are
-  // omitted. Mirrors the gating in each page's `requireScope` call so
-  // the sidebar never advertises a 404. The wildcard role binding
-  // means iedora-admin sees everything automatically.
-  const canSeeAudit = await hasStaffScope(userRole, SCOPES.core.staff.audit.read)
+  // Scope-aware nav: omits links the caller can't reach. Reads scopes
+  // directly from the array (no AC binding indirection).
+  const canSeeAudit = userScopes?.includes(SCOPES.core.staff.audit.read) ?? false
 
   const items: ReadonlyArray<ActiveSidebarItem> = [
     {
@@ -65,9 +66,9 @@ export async function AdminShell({
       testId: 'admin-nav-access',
     },
     {
-      href: '/core/admin/organizations',
-      label: t('organizations'),
-      testId: 'admin-nav-organizations',
+      href: '/core/admin/tenants',
+      label: t('tenants'),
+      testId: 'admin-nav-tenants',
     },
     {
       href: '/core/admin/sessions',
@@ -122,12 +123,12 @@ export async function AdminShell({
               >
                 {userEmail}
               </span>
-              {userRole ? (
+              {staffRoleLabel ? (
                 <Badge
-                  variant={userRole === 'iedora-admin' ? 'accent' : 'ink'}
+                  variant={staffRoleLabel === 'iedora-admin' ? 'accent' : 'ink'}
                   data-test-id="admin-user-role"
                 >
-                  {userRole}
+                  {staffRoleLabel}
                 </Badge>
               ) : null}
             </div>

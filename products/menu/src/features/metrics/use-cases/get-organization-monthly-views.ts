@@ -8,8 +8,8 @@ import { currentMonthBounds } from '../range'
  */
 export async function getOrganizationMonthlyViews(
   metrics: MetricsGateway,
-  organizationId: string,
+  tenantId: string,
 ): Promise<number> {
   const { start, end } = currentMonthBounds()
-  return metrics.sumScans(organizationId, start, end)
+  return metrics.sumScans(tenantId, start, end)
 }

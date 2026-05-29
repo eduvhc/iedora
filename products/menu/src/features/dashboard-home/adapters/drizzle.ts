@@ -22,7 +22,7 @@ import type { DashboardReadPort } from '../ports'
  * number end-to-end.
  */
 export const drizzleDashboardRead: DashboardReadPort = {
-  async listRestaurantsWithCounts(organizationId) {
+  async listRestaurantsWithCounts(tenantId) {
     const restaurants = await db
       .select({
         id: restaurant.id,
@@ -31,7 +31,7 @@ export const drizzleDashboardRead: DashboardReadPort = {
         updatedAt: restaurant.updatedAt,
       })
       .from(restaurant)
-      .where(eq(restaurant.organizationId, organizationId))
+      .where(eq(restaurant.tenantId, tenantId))
       .orderBy(restaurant.createdAt)
 
     if (restaurants.length === 0) return []

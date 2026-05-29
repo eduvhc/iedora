@@ -14,7 +14,7 @@ import type { AnalyticsRange } from './range'
  * lazily at module load via the global iedora Meter; safe even before
  * `registerIedoraOtel` has run (no-op meter degrades cleanly).
  *
- * Labels are tenant attributes (restaurant_id, organization_id) plus
+ * Labels are tenant attributes (restaurant_id, tenant_id) plus
  * the language picked at render time. Language fanout is bounded by the
  * language registry (en/pt/es/fr today, ~10 long-term) so it's safe to
  * tag without blowing up cardinality.
@@ -40,18 +40,18 @@ const restaurantViewsCounter = meter.createCounter('iedora.restaurant_views_tota
  * For unit tests, import the use-case functions directly from
  * `./use-cases/*` and pass a fake `MetricsGateway`.
  */
-export const getOrganizationMonthlyViews = cache((organizationId: string) =>
-  _getOrganizationMonthlyViews(drizzleMetrics, organizationId),
+export const getOrganizationMonthlyViews = cache((tenantId: string) =>
+  _getOrganizationMonthlyViews(drizzleMetrics, tenantId),
 )
 
 export const getOrganizationAnalytics = cache(
-  (organizationId: string, range: AnalyticsRange) =>
-    _getOrganizationAnalytics(drizzleMetrics, organizationId, range),
+  (tenantId: string, range: AnalyticsRange) =>
+    _getOrganizationAnalytics(drizzleMetrics, tenantId, range),
 )
 
 export const incrementDailyView = async (
   restaurantId: string,
-  organizationId: string,
+  tenantId: string,
   language: LanguageCode,
 ) => {
   // Increment the OTel counter FIRST, before the DB write. Two reasons:
@@ -65,11 +65,11 @@ export const incrementDailyView = async (
   restaurantViewsCounter.add(
     1,
     {
-      ...tenantAttributes({ restaurantId, organizationId }),
+      ...tenantAttributes({ restaurantId, tenantId }),
       'iedora.language': language,
     },
   )
-  await _incrementDailyView(drizzleMetrics, restaurantId, organizationId, language)
+  await _incrementDailyView(drizzleMetrics, restaurantId, tenantId, language)
 }
 
 // Pure helpers (no I/O) re-exported directly.

@@ -1,203 +1,153 @@
 import { describe, it, expect } from 'vitest'
 import {
-  ac,
-  statement,
-  member,
-  admin,
-  owner,
-  iedoraAdmin,
-  iedoraSupport,
-  roles,
-  staffRoles,
+  STAFF_ROLES,
+  IEDORA_ADMIN_ROLE,
+  IEDORA_SUPPORT_ROLE,
+  STAFF_ROLE_PRESETS,
+  TENANT_ROLE_PRESETS,
+  TENANT_ROLE_PRESET_KEYS,
+  detectStaffPreset,
+  detectTenantPreset,
+  isStaffRole,
 } from './permissions'
+import { SCOPES, ALL_SCOPES } from './scopes'
 
 /**
- * Pure-function checks over the access-control taxonomy. No better-auth
- * boot, no database — just the role-bound resource/action pairs.
+ * Contract for the preset registry. Three invariants:
  *
- * The contract these specs lock in:
- *   - Every role exists and is a `ac.newRole` instance.
- *   - `owner` is a strict superset of `admin` for every iedora-defined
- *     resource (defence against accidental privilege regressions).
- *   - `iedoraAdmin` (derived via `buildWildcardRole`) covers every
- *     (resource, action) pair declared in `statement` — wildcard
- *     contract for the staff super-role.
- *   - `iedoraSupport` is strictly bounded to non-escalating verbs.
+ *   1. Staff/tenant role literal constants are stable and exhaustive.
+ *   2. Presets contain ONLY valid scopes from the `SCOPES` tree.
+ *   3. `detect*Preset` is a perfect inverse of preset expansion —
+ *      `detect(PRESET[key]) === key`.
+ *
+ * Pure module: no DB, no Next, no `server-only`.
  */
 
-// Per-tenant menu resources — `member`/`admin`/`owner` are tenant roles
-// and see only these. Staff resources are tested separately below.
-const TENANT_MENU_RESOURCES = [
-  'tenant.menu.qr-codes',
-  'tenant.menu.analytics',
-  'tenant.menu.billing',
-  'tenant.menu.restaurants',
-  'tenant.menu.menus',
-] as const
-
-describe('permissions taxonomy', () => {
-  it('exposes the bound roles', () => {
-    expect(roles).toMatchObject({ member, admin, owner })
+describe('STAFF_ROLES', () => {
+  it('lists exactly the two staff role literals', () => {
+    expect(STAFF_ROLES).toEqual([IEDORA_ADMIN_ROLE, IEDORA_SUPPORT_ROLE])
   })
 
-  it('declares actions for every tenant.menu resource', () => {
-    for (const r of TENANT_MENU_RESOURCES) {
-      expect(statement[r]).toBeDefined()
-      expect(Array.isArray(statement[r])).toBe(true)
-      expect(statement[r].length).toBeGreaterThan(0)
+  it('STAFF_ROLE_PRESETS keyed exactly by STAFF_ROLES literals', () => {
+    expect(Object.keys(STAFF_ROLE_PRESETS).sort()).toEqual(
+      [...STAFF_ROLES].sort(),
+    )
+  })
+
+  it('iedora-admin preset wildcards every staff scope', () => {
+    const expected = ALL_SCOPES.filter((s) => s.startsWith('staff:'))
+    expect([...STAFF_ROLE_PRESETS[IEDORA_ADMIN_ROLE]].sort()).toEqual(
+      [...expected].sort(),
+    )
+  })
+
+  it('iedora-support preset is a strict subset of iedora-admin', () => {
+    const adminSet = new Set(STAFF_ROLE_PRESETS[IEDORA_ADMIN_ROLE])
+    for (const s of STAFF_ROLE_PRESETS[IEDORA_SUPPORT_ROLE]) {
+      expect(adminSet.has(s)).toBe(true)
+    }
+    // …and strict — support must NOT carry every admin scope.
+    expect(STAFF_ROLE_PRESETS[IEDORA_SUPPORT_ROLE].length).toBeLessThan(
+      STAFF_ROLE_PRESETS[IEDORA_ADMIN_ROLE].length,
+    )
+  })
+
+  it('iedora-support cannot impersonate or set roles', () => {
+    const support = STAFF_ROLE_PRESETS[IEDORA_SUPPORT_ROLE] as readonly string[]
+    expect(support.includes(SCOPES.core.staff.users.impersonate)).toBe(false)
+    expect(support.includes(SCOPES.core.staff.users.setRole)).toBe(false)
+  })
+})
+
+describe('TENANT_ROLE_PRESETS', () => {
+  it('exposes the four canonical preset keys', () => {
+    expect(TENANT_ROLE_PRESET_KEYS).toEqual(['owner', 'admin', 'member', 'viewer'])
+  })
+
+  it('owner preset covers every tenant scope', () => {
+    const expected = ALL_SCOPES.filter((s) => s.startsWith('tenant:'))
+    expect([...TENANT_ROLE_PRESETS.owner].sort()).toEqual([...expected].sort())
+  })
+
+  it('admin preset excludes only tenant deletion', () => {
+    expect(TENANT_ROLE_PRESETS.admin).not.toContain(
+      SCOPES.core.tenant.tenant.delete,
+    )
+    const adminSet = new Set(TENANT_ROLE_PRESETS.admin)
+    for (const s of TENANT_ROLE_PRESETS.owner) {
+      if (s === SCOPES.core.tenant.tenant.delete) continue
+      expect(adminSet.has(s)).toBe(true)
     }
   })
 
-  it('uses `createAccessControl` to bind roles', () => {
-    expect(typeof member.authorize).toBe('function')
-    expect(typeof admin.authorize).toBe('function')
-    expect(typeof owner.authorize).toBe('function')
-    expect(typeof iedoraAdmin.authorize).toBe('function')
-  })
-
-  it('owner can read every tenant.menu resource', async () => {
-    for (const r of TENANT_MENU_RESOURCES) {
-      const res = await owner.authorize({ [r]: ['read'] } as never)
-      expect(res.success, `owner can read ${r}`).toBe(true)
+  it('viewer preset contains only :read scopes', () => {
+    for (const s of TENANT_ROLE_PRESETS.viewer) {
+      expect(s.endsWith(':read')).toBe(true)
     }
   })
 
-  it('admin cannot delete restaurants but owner can', async () => {
-    const adminRes = await admin.authorize({
-      'tenant.menu.restaurants': ['delete'],
-    } as never)
-    const ownerRes = await owner.authorize({
-      'tenant.menu.restaurants': ['delete'],
-    } as never)
-    expect(adminRes.success).toBe(false)
-    expect(ownerRes.success).toBe(true)
+  it('viewer covers every tenant :read scope (no read holes)', () => {
+    const allTenantReads = ALL_SCOPES.filter(
+      (s) => s.startsWith('tenant:') && s.endsWith(':read'),
+    )
+    expect([...TENANT_ROLE_PRESETS.viewer].sort()).toEqual(
+      [...allTenantReads].sort(),
+    )
   })
 
-  it('member is read-only over tenant.menu resources', async () => {
-    const okRead = await member.authorize({
-      'tenant.menu.restaurants': ['read'],
-    } as never)
-    const denyCreate = await member.authorize({
-      'tenant.menu.menus': ['create'],
-    } as never)
-    const denyPublish = await member.authorize({
-      'tenant.menu.menus': ['publish'],
-    } as never)
-    expect(okRead.success).toBe(true)
-    expect(denyCreate.success).toBe(false)
-    expect(denyPublish.success).toBe(false)
+  it('member preset is a strict subset of admin', () => {
+    const adminSet = new Set(TENANT_ROLE_PRESETS.admin)
+    for (const s of TENANT_ROLE_PRESETS.member) {
+      expect(adminSet.has(s)).toBe(true)
+    }
   })
+})
 
-  it('ac is created from the statement', () => {
-    expect(typeof ac.newRole).toBe('function')
-  })
-
-  // ── buildWildcardRole contract: iedora-admin covers everything ──
-  it('iedora-admin (wildcard) authorizes every action of every statement entry', async () => {
-    for (const [resource, verbs] of Object.entries(statement)) {
-      for (const verb of verbs as readonly string[]) {
-        const res = await iedoraAdmin.authorize({ [resource]: [verb] } as never)
-        expect(
-          res.success,
-          `iedora-admin should permit ${resource}:${verb}`,
-        ).toBe(true)
-      }
+describe('detect*Preset (reverse mapping)', () => {
+  it('round-trips every staff preset', () => {
+    for (const key of STAFF_ROLES) {
+      expect(detectStaffPreset(STAFF_ROLE_PRESETS[key])).toBe(key)
     }
   })
 
-  // ── iedora-support: cross-tenant staff sub-role ──
-  it('exposes iedora-support in the staffRoles registry', () => {
-    expect(staffRoles).toMatchObject({
-      'iedora-admin': iedoraAdmin,
-      'iedora-support': iedoraSupport,
-    })
-  })
-
-  it('iedora-support can read and ban users', async () => {
-    for (const action of ['read', 'ban'] as const) {
-      const res = await iedoraSupport.authorize({
-        'staff.core.users': [action],
-      } as never)
-      expect(res.success, `support can ${action} users`).toBe(true)
+  it('round-trips every tenant preset', () => {
+    for (const key of TENANT_ROLE_PRESET_KEYS) {
+      expect(detectTenantPreset(TENANT_ROLE_PRESETS[key])).toBe(key)
     }
   })
 
-  it('iedora-support cannot set-role nor impersonate (no self-escalation)', async () => {
-    const setRole = await iedoraSupport.authorize({
-      'staff.core.users': ['set-role'],
-    } as never)
-    const impersonate = await iedoraSupport.authorize({
-      'staff.core.users': ['impersonate'],
-    } as never)
-    expect(setRole.success).toBe(false)
-    expect(impersonate.success).toBe(false)
+  it('returns null for custom (non-preset) scope mixes', () => {
+    expect(
+      detectTenantPreset([SCOPES.imopush.tenant.idealista.publish]),
+    ).toBeNull()
+    expect(
+      detectStaffPreset([SCOPES.core.staff.audit.read]),
+    ).toBeNull()
   })
 
-  it('iedora-support has zero access to per-org resources', async () => {
-    const restaurants = await iedoraSupport.authorize({
-      'tenant.menu.restaurants': ['read'],
-    } as never)
-    const menus = await iedoraSupport.authorize({
-      'tenant.menu.menus': ['read'],
-    } as never)
-    expect(restaurants.success).toBe(false)
-    expect(menus.success).toBe(false)
+  it('returns null for an empty scope set', () => {
+    expect(detectStaffPreset([])).toBeNull()
+    expect(detectTenantPreset([])).toBeNull()
   })
 
-  it('iedora-support can view orgs/sessions/members/invitations', async () => {
-    const checks = [
-      { 'staff.core.orgs': ['list'] },
-      { 'staff.core.orgs': ['get'] },
-      { 'staff.core.sessions': ['list'] },
-      { 'staff.core.sessions': ['revoke'] },
-      { 'staff.core.members': ['remove'] },
-      { 'staff.core.invitations': ['cancel'] },
-    ] as const
-    for (const c of checks) {
-      const res = await iedoraSupport.authorize(c as never)
-      expect(res.success, `support permits ${JSON.stringify(c)}`).toBe(true)
-    }
+  it('is order-insensitive (set equality)', () => {
+    const reversed = [...TENANT_ROLE_PRESETS.member].reverse()
+    expect(detectTenantPreset(reversed)).toBe('member')
+  })
+})
+
+describe('isStaffRole type guard', () => {
+  it('returns true for canonical staff literals', () => {
+    expect(isStaffRole(IEDORA_ADMIN_ROLE)).toBe(true)
+    expect(isStaffRole(IEDORA_SUPPORT_ROLE)).toBe(true)
   })
 
-  it('iedora-support cannot escalate via members:update-role', async () => {
-    const membersUpdateRole = await iedoraSupport.authorize({
-      'staff.core.members': ['update-role'],
-    } as never)
-    expect(membersUpdateRole.success).toBe(false)
-  })
-
-  // Anti-drift: every read-shaped verb on the resources support is
-  // bound to must remain reachable. `staff.core.audit` is deliberately
-  // EXCLUDED — audit visibility is admin-only by design (a future
-  // narrow "Auditor" role could carry just `audit:read`).
-  const SUPPORT_READABLE_RESOURCES = [
-    'staff.core.users',
-    'staff.core.orgs',
-    'staff.core.members',
-    'staff.core.invitations',
-    'staff.core.sessions',
-  ] as const
-  it('iedora-support permits every read-shaped verb on its bound resources', async () => {
-    const readShaped = new Set(['list', 'get', 'read'])
-    for (const resource of SUPPORT_READABLE_RESOURCES) {
-      const verbs = statement[resource] as readonly string[]
-      for (const verb of verbs) {
-        if (!readShaped.has(verb)) continue
-        const res = await iedoraSupport.authorize({
-          [resource]: [verb],
-        } as never)
-        expect(
-          res.success,
-          `iedora-support should permit ${resource}:${verb} (read-shaped)`,
-        ).toBe(true)
-      }
-    }
-  })
-
-  it('iedora-support cannot read the audit log (admin-only)', async () => {
-    const res = await iedoraSupport.authorize({
-      'staff.core.audit': ['read'],
-    } as never)
-    expect(res.success).toBe(false)
+  it('returns false for tenant-only / unknown values', () => {
+    expect(isStaffRole(null)).toBe(false)
+    expect(isStaffRole(undefined)).toBe(false)
+    expect(isStaffRole('')).toBe(false)
+    expect(isStaffRole('owner')).toBe(false)
+    expect(isStaffRole('iedora-admin-typo')).toBe(false)
+    expect(isStaffRole(42)).toBe(false)
   })
 })

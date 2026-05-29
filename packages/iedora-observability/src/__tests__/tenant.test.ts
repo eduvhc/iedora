@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { IEDORA_ORGANIZATION_ID, IEDORA_RESTAURANT_ID, withTenantSpan } from "../tenant";
+import { IEDORA_TENANT_ID, IEDORA_RESTAURANT_ID, withTenantSpan } from "../tenant";
 
 /**
  * No SDK is registered in tests (registerIedoraOtel returns early when
@@ -16,7 +16,7 @@ describe("withTenantSpan", () => {
   it("returns the wrapped function's value", async () => {
     const result = await withTenantSpan(
       "load-snapshot",
-      { restaurantId: "r_123", organizationId: "o_456" },
+      { restaurantId: "r_123", tenantId: "o_456" },
       async () => 42,
     );
     expect(result).toBe(42);
@@ -34,7 +34,7 @@ describe("withTenantSpan", () => {
     ).rejects.toThrow("boom");
   });
 
-  it("accepts optional organizationId", async () => {
+  it("accepts optional tenantId", async () => {
     // Just exercises the branch that conditionally sets the attribute —
     // no throw is the success criterion.
     await expect(
@@ -45,6 +45,6 @@ describe("withTenantSpan", () => {
   it("attribute key constants are stable", () => {
     // Pinned literals — dashboards filter on these exact strings.
     expect(IEDORA_RESTAURANT_ID).toBe("tenant.restaurant_id");
-    expect(IEDORA_ORGANIZATION_ID).toBe("tenant.organization_id");
+    expect(IEDORA_TENANT_ID).toBe("tenant.id");
   });
 });

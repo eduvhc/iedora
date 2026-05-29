@@ -1,4 +1,3 @@
-import { headers } from 'next/headers'
 import { getTranslations } from 'next-intl/server'
 import {
   Card,
@@ -10,11 +9,13 @@ import {
 } from '@iedora/design-system'
 import { requireScope } from '@iedora/product-core'
 import { SCOPES } from '@iedora/auth/scopes'
+import { detectStaffPreset } from '@iedora/auth'
+import type { Scope } from '@iedora/auth/scopes'
+import { listUsers } from '@iedora/auth/server'
 import {
-  drizzleAdminOrgsGateway,
-  listOrgs,
-} from '@iedora/product-core/features/admin-orgs'
-import { auth } from '@iedora/auth'
+  drizzleAdminTenantsGateway,
+  listTenants,
+} from '@iedora/product-core/features/admin-tenants'
 import { AdminPage } from '@iedora/product-core/shared/ui/admin-page'
 
 /**
@@ -35,24 +36,21 @@ import { AdminPage } from '@iedora/product-core/shared/ui/admin-page'
 export default async function CoreAdminOverview() {
   const session = await requireScope(SCOPES.core.staff.admin.read)
   const t = await getTranslations('Core.admin.overview')
-  const h = await headers()
 
-  // Cheap aggregates — both endpoints already return a `total`
-  // envelope. Cap at 1 row to skip scrolling actual data.
-  const [usersResponse, orgsResult] = await Promise.all([
-    auth.api.listUsers({
-      query: { limit: 1, sortBy: 'createdAt', sortDirection: 'desc' },
-      headers: h,
-    }),
-    listOrgs(drizzleAdminOrgsGateway(), {
-      page: 1,
-      pageSize: 1,
-      sortBy: 'createdAt',
-      sortDirection: 'desc',
-    }),
-  ])
-  const totalUsers = usersResponse.total ?? usersResponse.users?.length ?? 0
-  const totalOrgs = orgsResult.total
+  // Cheap aggregates — both list helpers paginate; we just probe a
+  // single row + the `hasMore`/`total` hint.
+  const usersPage = await listUsers({ limit: 1 })
+  const totalUsers = usersPage.users.length + (usersPage.hasMore ? 1 : 0)
+  const tenantsPage = await listTenants(drizzleAdminTenantsGateway(), {
+    page: 1,
+    pageSize: 1,
+    sortBy: 'createdAt',
+    sortDirection: 'desc',
+  })
+  const totalTenants = tenantsPage.total
+  const userScopes =
+    ((session.user as { scopes?: string[] | null }).scopes ?? []) as readonly Scope[]
+  const staffPreset = detectStaffPreset(userScopes)
 
   return (
     <AdminPage
@@ -82,10 +80,10 @@ export default async function CoreAdminOverview() {
             ) : null}
           </div>
           <Badge
-            variant={session.user.role === 'iedora-admin' ? 'accent' : 'ink'}
+            variant={staffPreset === 'iedora-admin' ? 'accent' : 'ink'}
             data-test-id="admin-overview-identity-role"
           >
-            {session.user.role}
+            {staffPreset ?? 'staff'}
           </Badge>
         </div>
       </Card>
@@ -105,17 +103,12 @@ export default async function CoreAdminOverview() {
             </Button>
           </CardFoot>
         </Card>
-        <Card data-test-id="admin-overview-card-orgs">
-          <CardTitle as="h2">{t('orgs.title')}</CardTitle>
-          <CardDesc>{t('orgs.count', { count: totalOrgs })}</CardDesc>
+        <Card data-test-id="admin-overview-card-tenants">
+          <CardTitle as="h2">{t('tenants.title')}</CardTitle>
+          <CardDesc>{t('tenants.count', { count: totalTenants })}</CardDesc>
           <CardFoot>
-            <Button
-              as="a"
-              href="/core/admin/organizations"
-              variant="ghost"
-              arrow
-            >
-              {t('orgs.cta')}
+            <Button as="a" href="/core/admin/tenants" variant="ghost" arrow>
+              {t('tenants.cta')}
             </Button>
           </CardFoot>
         </Card>

@@ -55,14 +55,14 @@ export default async function BillingPage({
 }: {
   searchParams: Promise<{ year?: string }>
 }) {
-  const { organizationId } = await requireActiveOrganization()
+  const { tenantId } = await requireActiveOrganization()
   const sp = await searchParams
   const t = await getTranslations('Billing')
   const locale = await getLocale()
 
   const [current, years] = await Promise.all([
-    getOrganizationPlan(organizationId),
-    getInvoiceYears(organizationId),
+    getOrganizationPlan(tenantId),
+    getInvoiceYears(tenantId),
   ])
 
   const currentYear = new Date().getFullYear()
@@ -73,7 +73,7 @@ export default async function BillingPage({
       ? requested
       : (availableYears[0] ?? currentYear)
 
-  const invoices = await getInvoicesForYear(organizationId, selectedYear)
+  const invoices = await getInvoicesForYear(tenantId, selectedYear)
 
   return (
     <DashboardPage
@@ -212,7 +212,7 @@ export default async function BillingPage({
                   {t(`plans.${inv.plan}.name`)}
                   <span aria-hidden="true"> · </span>
                   <span className="billing-invoice__period">
-                    {formatPeriod(inv.periodStart, inv.periodEnd, locale)}
+                    {inv.issuedAt.toLocaleDateString(locale)}
                   </span>
                 </p>
                 <p className="billing-invoice__amount">

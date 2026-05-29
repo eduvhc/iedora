@@ -11,7 +11,7 @@ import type { DashboardReadPort, RestaurantWithCounts } from '../ports'
  */
 export async function listRestaurantsWithCounts(
   dashboard: DashboardReadPort,
-  organizationId: string,
+  tenantId: string,
 ): Promise<RestaurantWithCounts[]> {
-  return dashboard.listRestaurantsWithCounts(organizationId)
+  return dashboard.listRestaurantsWithCounts(tenantId)
 }

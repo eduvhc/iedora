@@ -4,7 +4,7 @@ import type { AuthGateway } from '../ports'
 import { verifySession } from './verify-session'
 
 /**
- * Guarantees an authenticated session AND a resolved organizationId.
+ * Guarantees an authenticated session AND a resolved tenantId.
  * Redirects to /onboarding when the user has no active organization yet
  * (first sign-in before they've created or accepted one).
  *
@@ -13,7 +13,7 @@ import { verifySession } from './verify-session'
  */
 export async function requireActiveOrganization(auth: AuthGateway) {
   const session = await verifySession(auth)
-  const organizationId = session.session.activeOrganizationId
-  if (!organizationId) redirect('/menu/onboarding')
-  return { session, organizationId }
+  const tenantId = session.session.activeTenantId
+  if (!tenantId) redirect('/menu/onboarding')
+  return { session, tenantId }
 }

@@ -77,7 +77,7 @@ describe('metrics barrel — restaurant_views_total wiring', () => {
     expect(counter!.dataPoints).toHaveLength(1)
     expect(counter!.dataPoints[0]!.attributes).toEqual({
       'tenant.restaurant_id': 'r_pasta_place',
-      'tenant.organization_id': 'o_lisbon_co',
+      'tenant.id': 'o_lisbon_co',
       'iedora.language': 'pt',
     })
     expect(counter!.dataPoints[0]!.value).toBe(1)
@@ -163,11 +163,11 @@ describe('metrics barrel — restaurant_views_total wiring', () => {
   })
 
   it('omits the organization label when the caller passes an empty string', async () => {
-    // Edge case: while the route always has organizationId from the
+    // Edge case: while the route always has tenantId from the
     // snapshot, a future caller could pass an empty string (the type
     // says `string` — empty is technically valid). `tenantAttributes`
     // treats falsy strings the same as undefined and OMITS the label
-    // entirely — better than emitting `'tenant.organization_id': ''`
+    // entirely — better than emitting `'tenant.id': ''`
     // which would create a phantom empty bucket in OO dashboards.
     await metricsModule.incrementDailyView('r_solo', '', 'en')
 
@@ -177,6 +177,6 @@ describe('metrics barrel — restaurant_views_total wiring', () => {
     const attrs = counter!.dataPoints[0]!.attributes
     expect(attrs['tenant.restaurant_id']).toBe('r_solo')
     // Key not present (vs present-but-undefined or present-but-empty).
-    expect('tenant.organization_id' in attrs).toBe(false)
+    expect('tenant.id' in attrs).toBe(false)
   })
 })

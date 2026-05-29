@@ -8,7 +8,7 @@ import {
 import { metrics, type Meter } from "@opentelemetry/api";
 
 import {
-  IEDORA_ORGANIZATION_ID,
+  IEDORA_TENANT_ID,
   IEDORA_RESTAURANT_ID,
   tenantAttributes,
 } from "../tenant";
@@ -31,11 +31,11 @@ describe("metrics surface", () => {
     it("returns a record with the canonical attribute keys", () => {
       const attrs = tenantAttributes({
         restaurantId: "r_abc",
-        organizationId: "o_xyz",
+        tenantId: "o_xyz",
       });
       expect(attrs).toEqual({
         [IEDORA_RESTAURANT_ID]: "r_abc",
-        [IEDORA_ORGANIZATION_ID]: "o_xyz",
+        [IEDORA_TENANT_ID]: "o_xyz",
       });
     });
 
@@ -45,17 +45,17 @@ describe("metrics surface", () => {
       // Important: we OMIT the key rather than set it to undefined. Setting
       // undefined would create a phantom label in OpenObserve and break
       // dashboards that group by organization_id.
-      expect(IEDORA_ORGANIZATION_ID in attrs).toBe(false);
+      expect(IEDORA_TENANT_ID in attrs).toBe(false);
     });
 
     it("can be spread alongside non-tenant attributes", () => {
       const attrs = {
-        ...tenantAttributes({ restaurantId: "r_1", organizationId: "o_1" }),
+        ...tenantAttributes({ restaurantId: "r_1", tenantId: "o_1" }),
         "iedora.language": "pt",
       };
       expect(attrs).toEqual({
         [IEDORA_RESTAURANT_ID]: "r_1",
-        [IEDORA_ORGANIZATION_ID]: "o_1",
+        [IEDORA_TENANT_ID]: "o_1",
         "iedora.language": "pt",
       });
     });
@@ -65,7 +65,7 @@ describe("metrics surface", () => {
       // metric labels need the SAME key as span attributes so cross-signal
       // joins work. Don't change these without coordinating with OO dashboards.
       expect(IEDORA_RESTAURANT_ID).toBe("tenant.restaurant_id");
-      expect(IEDORA_ORGANIZATION_ID).toBe("tenant.organization_id");
+      expect(IEDORA_TENANT_ID).toBe("tenant.id");
     });
   });
 
@@ -98,7 +98,7 @@ describe("metrics surface", () => {
 
       counter.add(
         1,
-        tenantAttributes({ restaurantId: "r_abc", organizationId: "o_xyz" }),
+        tenantAttributes({ restaurantId: "r_abc", tenantId: "o_xyz" }),
       );
 
       await provider.forceFlush();
@@ -116,7 +116,7 @@ describe("metrics surface", () => {
       expect(ourMetric!.dataPoints.length).toBe(1);
       expect(ourMetric!.dataPoints[0]!.attributes).toEqual({
         [IEDORA_RESTAURANT_ID]: "r_abc",
-        [IEDORA_ORGANIZATION_ID]: "o_xyz",
+        [IEDORA_TENANT_ID]: "o_xyz",
       });
       expect(ourMetric!.dataPoints[0]!.value).toBe(1);
     });
@@ -129,10 +129,10 @@ describe("metrics surface", () => {
       // silently aggregate across tenants.
       const counter = scopedMeter.createCounter("iedora.test_total");
 
-      counter.add(1, tenantAttributes({ restaurantId: "r_a", organizationId: "o_1" }));
-      counter.add(1, tenantAttributes({ restaurantId: "r_b", organizationId: "o_2" }));
+      counter.add(1, tenantAttributes({ restaurantId: "r_a", tenantId: "o_1" }));
+      counter.add(1, tenantAttributes({ restaurantId: "r_b", tenantId: "o_2" }));
       // Same restaurant, second hit — must aggregate into r_a's bucket.
-      counter.add(1, tenantAttributes({ restaurantId: "r_a", organizationId: "o_1" }));
+      counter.add(1, tenantAttributes({ restaurantId: "r_a", tenantId: "o_1" }));
 
       await provider.forceFlush();
       const ourMetric = exporter

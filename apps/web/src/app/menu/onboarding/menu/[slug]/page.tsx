@@ -19,8 +19,8 @@ export default async function Page({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  const { restaurant, organizationId } = await requireRestaurantBySlug(slug)
-  const gate = await canGenerateAiMenu(organizationId)
+  const { restaurant, tenantId } = await requireRestaurantBySlug(slug)
+  const gate = await canGenerateAiMenu(tenantId)
 
   return (
     <MenuOnboardingPage

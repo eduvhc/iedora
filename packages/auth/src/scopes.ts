@@ -1,5 +1,3 @@
-import { hasStaffScope, type StaffRoleKey } from './permissions'
-
 /**
  * Centralised scope catalogue for every iedora product.
  *
@@ -38,16 +36,29 @@ export const SCOPES = {
         setRole:     'staff:core:users:set-role',
         impersonate: 'staff:core:users:impersonate',
       },
-      orgs: {
-        list: 'staff:core:orgs:list',
-        get:  'staff:core:orgs:get',
+      /**
+       * Cross-tenant management surface — staff acting on tenants
+       * other than their own. Used by `/core/admin/tenants/*` pages
+       * for growth metrics, support troubleshooting, and lifecycle
+       * operations.
+       *
+       * Replaces the dropped `orgs.*` + `invitations.*` taxonomies
+       * (better-auth organization plugin gone). `members.*` here
+       * keeps the cross-tenant blast radius (kicking a member from
+       * any tenant); the per-tenant analog lives under
+       * `tenant.core.members.*`.
+       */
+      tenants: {
+        list:   'staff:core:tenants:list',
+        get:    'staff:core:tenants:get',
+        // Drop the whole tenant + cascade.
+        delete: 'staff:core:tenants:delete',
       },
       members: {
-        remove:     'staff:core:members:remove',
-        updateRole: 'staff:core:members:update-role',
-      },
-      invitations: {
-        cancel: 'staff:core:invitations:cancel',
+        // Remove a user's membership from any tenant.
+        remove:       'staff:core:members:remove',
+        // Edit the scope set on any (tenant, user) membership.
+        updateScopes: 'staff:core:members:update-scopes',
       },
       sessions: {
         list:   'staff:core:sessions:list',
@@ -62,11 +73,44 @@ export const SCOPES = {
         read: 'staff:core:admin:read',
       },
     },
+    /**
+     * Cross-tenant concerns that aren't product-specific (a tenant's
+     * own member management + its billing + tenant lifecycle). Lives
+     * under `core` because core owns the tenant + billing schemas.
+     */
+    tenant: {
+      members: {
+        read:   'tenant:core:members:read',
+        invite: 'tenant:core:members:invite',
+        remove: 'tenant:core:members:remove',
+        // Edit another member's scopes (delegating authority within
+        // the tenant). Owner-ish scope by default.
+        grant:  'tenant:core:members:grant',
+      },
+      billing: {
+        read:        'tenant:core:billing:read',
+        // Granular billing verbs — split on blast radius. Today only
+        // these three exist; add specific verbs (e.g. `cancel`) when
+        // a surface needs them gated independently.
+        changePlan:  'tenant:core:billing:change-plan',
+        updatePayment: 'tenant:core:billing:update-payment',
+      },
+      tenant: {
+        // Delete the whole tenant. Owner-only by convention.
+        delete: 'tenant:core:tenant:delete',
+      },
+    },
   },
 
   // ── menu: restaurant SaaS ──────────────────────────────────────
   menu: {
     tenant: {
+      restaurants: {
+        read:   'tenant:menu:restaurants:read',
+        create: 'tenant:menu:restaurants:create',
+        update: 'tenant:menu:restaurants:update',
+        delete: 'tenant:menu:restaurants:delete',
+      },
       qrCodes: {
         read:   'tenant:menu:qr-codes:read',
         create: 'tenant:menu:qr-codes:create',
@@ -76,8 +120,23 @@ export const SCOPES = {
     },
   },
 
-  // Future products land here as siblings:
-  //   imopush: { tenant: { listings: { ... } }, staff: { ... } }
+  // ── imopush: realestate listings + portal distribution ─────────
+  imopush: {
+    tenant: {
+      properties: {
+        read:   'tenant:imopush:properties:read',
+        create: 'tenant:imopush:properties:create',
+        update: 'tenant:imopush:properties:update',
+        delete: 'tenant:imopush:properties:delete',
+      },
+      idealista: {
+        // Publish a property to Idealista. Standalone verb so an
+        // operator like Mario can be granted publish-to-idealista
+        // without write access to property data itself.
+        publish: 'tenant:imopush:idealista:publish',
+      },
+    },
+  },
 } as const
 
 /**
@@ -108,27 +167,9 @@ const _all: string[] = []
 collectLeaves(SCOPES, _all)
 export const ALL_SCOPES: ReadonlyArray<Scope> = _all as ReadonlyArray<Scope>
 
-/**
- * Which scopes does a given staff role grant? Probes
- * `hasStaffScope` against every declared SCOPE — derived FROM the
- * AC binding, never duplicates the role definition. Used by the
- * admin Access page to render "what can role X do?" cards.
- *
- * Lives next to the catalogue so the cross-product probe is a
- * one-import operation. Imports `hasStaffScope` from `permissions`
- * via a local symbol because that module also re-uses
- * `scopeToPermission` defined there — circular-import safe because
- * both helpers are pure functions.
- */
-export async function listAllowedScopes(
-  roleKey: StaffRoleKey,
-): Promise<ReadonlyArray<Scope>> {
-  const allowed: Scope[] = []
-  for (const scope of ALL_SCOPES) {
-    if (await hasStaffScope(roleKey, scope)) allowed.push(scope)
-  }
-  return allowed
-}
+// `listAllowedScopes` was removed when AC bindings stopped being the
+// source of truth — callers now read `STAFF_ROLE_PRESETS[roleKey]` /
+// `TENANT_ROLE_PRESETS[presetKey]` from `./permissions` directly.
 
 /**
  * i18n key for a scope's description, anchored under the `scopes.*`

@@ -8,7 +8,7 @@ import type { PlansGateway } from '../ports'
  */
 export async function getOrganizationRestaurantCount(
   plans: PlansGateway,
-  organizationId: string,
+  tenantId: string,
 ): Promise<number> {
-  return plans.countOrgRestaurants(organizationId)
+  return plans.countOrgRestaurants(tenantId)
 }

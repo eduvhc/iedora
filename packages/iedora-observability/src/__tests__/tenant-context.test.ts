@@ -18,12 +18,12 @@ describe("tenantContext", () => {
 
   it("propagates tenant inside run() to synchronous callbacks", () => {
     const captured = tenantContext.run(
-      { restaurantId: "r_sync", organizationId: "o_sync" },
+      { restaurantId: "r_sync", tenantId: "o_sync" },
       () => tenantContext.get(),
     );
     expect(captured).toEqual({
       restaurantId: "r_sync",
-      organizationId: "o_sync",
+      tenantId: "o_sync",
     });
   });
 

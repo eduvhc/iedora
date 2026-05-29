@@ -31,13 +31,13 @@ const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000
  */
 export async function canGenerateAiMenu(
   plans: PlansGateway,
-  organizationId: string,
+  tenantId: string,
   now: Date = new Date(),
 ): Promise<AiGenerationGate> {
   const since = new Date(now.getTime() - ONE_WEEK_MS)
   const [code, used] = await Promise.all([
-    plans.getOrgPlan(organizationId),
-    plans.countAiGenerationsSince(organizationId, since),
+    plans.getOrgPlan(tenantId),
+    plans.countAiGenerationsSince(tenantId, since),
   ])
   const plan = getPlan(code)
   const limit = plan.limits.aiMenuGenerationsPerWeek

@@ -9,6 +9,7 @@
     "./schema": "./src/schema.ts",
     "./client": "./src/client.ts",
     "./next": "./src/next.ts",
+    "./server": "./src/server/index.ts",
     "./permissions": "./src/permissions.ts",
     "./scopes": "./src/scopes.ts",
     "./audit": "./src/audit.ts"
@@ -23,6 +24,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@iedora/billing": "workspace:*",
     "@iedora/db": "workspace:*",
     "better-auth": "^1.6.11",
     "drizzle-orm": "catalog:",
@@ -30,11 +32,18 @@
     "server-only": "^0.0.1",
     "zod": "catalog:"
   },
+  "peerDependencies": {
+    "next": "^16.0.0",
+    "react": "^19.0.0"
+  },
   "devDependencies": {
     "@iedora/eslint-config": "workspace:*",
     "@types/node": "^22.19.19",
+    "@types/react": "catalog:",
     "drizzle-kit": "catalog:",
     "eslint": "catalog:",
+    "next": "catalog:",
+    "react": "catalog:",
     "typescript": "catalog:",
     "typescript-eslint": "catalog:",
     "vitest": "catalog:"

@@ -41,8 +41,8 @@ async function gateIdentity(slug: string): Promise<
   | { ok: true; restaurantId: string }
   | { ok: false; error: string }
 > {
-  const { restaurant: r, organizationId } = await requireRestaurantBySlug(slug)
-  const decision = await enforceRateLimit('identity', `org:${organizationId}`)
+  const { restaurant: r, tenantId } = await requireRestaurantBySlug(slug)
+  const decision = await enforceRateLimit('identity', `org:${tenantId}`)
   if (!decision.ok) {
     return { ok: false, error: `Too many requests. Try again in ${decision.retryAfterSec}s.` }
   }

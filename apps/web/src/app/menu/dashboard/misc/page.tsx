@@ -13,13 +13,13 @@ function formatReset(date: Date, locale: string) {
 }
 
 export default async function MiscPage() {
-  const { organizationId } = await requireActiveOrganization()
+  const { tenantId } = await requireActiveOrganization()
   const t = await getTranslations('Misc')
   const locale = await getLocale()
 
   const [plan, ai] = await Promise.all([
-    getOrganizationPlan(organizationId),
-    canGenerateAiMenu(organizationId),
+    getOrganizationPlan(tenantId),
+    canGenerateAiMenu(tenantId),
   ])
 
   const limit = ai.limit
