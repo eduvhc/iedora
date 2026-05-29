@@ -1,7 +1,11 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Wordmark } from '@iedora/design-system'
-import { getSession } from '@iedora/product-menu/features/auth'
+import {
+  getEffectiveOrganizationId,
+  getSession,
+} from '@iedora/product-menu/features/auth'
+import { findPendingOnboardingRestaurant } from '@iedora/product-menu/features/menu-onboarding'
 import { signInUrl } from '@iedora/product-core/url'
 import { publicUrl } from '@iedora/product-menu/shared/url'
 import { OnboardingForm } from './onboarding-form'
@@ -10,11 +14,26 @@ export default async function OnboardingPage() {
   const session = await getSession()
   if (!session?.user) redirect(signInUrl(publicUrl('/menu/onboarding').toString()))
 
-  // No org-existence gate here: /onboarding doubles as the "add another
-  // restaurant" form for existing users. The action (`completeOnboarding`)
-  // branches between creating an org + first restaurant vs. adding a
-  // restaurant under the existing org (with plan-limit check). The dashboard
-  // `+ new restaurant` link points here for that second case.
+  // Resume gate: if the active tenant has any restaurant where the
+  // post-create wizard never finished (`onboarding_completed_at IS NULL`),
+  // bounce the operator back into it. Without this, a back-nav from
+  // step 2 lands them on this form and a second submit silently
+  // creates a duplicate restaurant row.
+  //
+  // No tenant pinned → first-time user; render the form (they're
+  // creating their first restaurant + tenant in one shot).
+  const tenantId = await getEffectiveOrganizationId()
+  if (tenantId) {
+    const pending = await findPendingOnboardingRestaurant(tenantId)
+    if (pending) redirect(`/menu/onboarding/menu/${pending.slug}`)
+  }
+
+  // No pending wizard: /onboarding doubles as the "add another
+  // restaurant" form for existing users. The action
+  // (`completeOnboarding`) branches between creating a tenant + first
+  // restaurant vs. adding a restaurant under the existing tenant
+  // (with plan-limit check). The dashboard "+ new restaurant" link
+  // points here for that second case.
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--paper)]">

@@ -1,6 +1,7 @@
 import { requireRestaurantBySlug } from '@iedora/product-menu/features/auth'
 import { MenuOnboardingPage } from '@iedora/product-menu/features/menu-onboarding'
 import { canGenerateAiMenu } from '@iedora/product-menu/features/plans'
+import { markMenuOnboardingComplete } from './actions'
 
 /**
  * Step 2 of onboarding — AI menu setup. Auth-gates by slug (the
@@ -22,11 +23,20 @@ export default async function Page({
   const { restaurant, tenantId } = await requireRestaurantBySlug(slug)
   const gate = await canGenerateAiMenu(tenantId)
 
+  // Bind the slug into a server-action closure the wizard can call
+  // from a client-side completion handler. Keeps the slice free of
+  // any direct DB import.
+  async function onComplete() {
+    'use server'
+    await markMenuOnboardingComplete({ slug: restaurant.slug })
+  }
+
   return (
     <MenuOnboardingPage
       slug={restaurant.slug}
       restaurantId={restaurant.id}
       initialQuota={{ used: gate.used, limit: gate.limit }}
+      onComplete={onComplete}
     />
   )
 }
