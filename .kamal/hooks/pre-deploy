@@ -42,5 +42,5 @@ echo "[pre-deploy] migrating DBs against version $KAMAL_VERSION..."
 # Falha de qualquer migração curto-circuita + aborta o deploy.
 kamal app exec --primary --version="$KAMAL_VERSION" \
   --destination="$KAMAL_DESTINATION" \
-  'sh -c "node /app/packages/auth/migrate.mjs && node /app/products/menu/migrate.mjs && node /app/products/imopush/migrate.mjs"'
+  'sh -c "node /app/packages/core-auth/migrate.mjs && node /app/products/menu/migrate.mjs && node /app/products/imopush/migrate.mjs"'
 echo "[pre-deploy] migrations ok."

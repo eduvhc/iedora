@@ -136,8 +136,8 @@ COPY --from=builder --chown=nextjs:nextjs /workspace/apps/web/public ./apps/web/
 # Wrappers usam import relativo para o helper (sem dependência de
 # node_modules entre workspaces).
 COPY --from=builder --chown=nextjs:nextjs /workspace/packages/db/src/migrate.mjs ./packages/db/src/migrate.mjs
-COPY --from=builder --chown=nextjs:nextjs /workspace/packages/auth/drizzle     ./packages/auth/drizzle
-COPY --from=builder --chown=nextjs:nextjs /workspace/packages/auth/migrate.mjs ./packages/auth/migrate.mjs
+COPY --from=builder --chown=nextjs:nextjs /workspace/packages/core-auth/drizzle     ./packages/core-auth/drizzle
+COPY --from=builder --chown=nextjs:nextjs /workspace/packages/core-auth/migrate.mjs ./packages/core-auth/migrate.mjs
 COPY --from=builder --chown=nextjs:nextjs /workspace/products/menu/drizzle     ./products/menu/drizzle
 COPY --from=builder --chown=nextjs:nextjs /workspace/products/menu/migrate.mjs ./products/menu/migrate.mjs
 COPY --from=builder --chown=nextjs:nextjs /workspace/products/imopush/drizzle     ./products/imopush/drizzle
