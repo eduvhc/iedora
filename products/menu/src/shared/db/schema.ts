@@ -107,6 +107,17 @@ export const restaurant = menuSchema.table(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
+    /**
+     * When the post-create wizard (`/menu/onboarding/menu/[slug]`)
+     * was either completed or explicitly skipped. NULL = the
+     * restaurant is still mid-onboarding; `/menu/onboarding` will
+     * redirect the operator back into the wizard instead of letting
+     * them start a brand-new restaurant from step 1 (which would
+     * create a duplicate row on submit). Existing rows are
+     * backfilled to `created_at` by the migration so legacy
+     * restaurants don't bounce anyone into the wizard.
+     */
+    onboardingCompletedAt: timestamp('onboarding_completed_at'),
   },
   (t) => [index('restaurant_tenant_idx').on(t.tenantId)],
 )

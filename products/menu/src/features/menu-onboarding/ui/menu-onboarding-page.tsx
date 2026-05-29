@@ -26,15 +26,36 @@ export function MenuOnboardingPage({
   slug,
   restaurantId,
   initialQuota,
+  onComplete,
 }: {
   slug: string
   restaurantId: string
   initialQuota?: { used: number; limit: number }
+  /**
+   * Fired before the dashboard redirect on both completion paths
+   * (Skip + AI import). The route entry passes the server action
+   * that flips `restaurant.onboarding_completed_at` so the resume
+   * gate at `/menu/onboarding` stops bouncing this user back into
+   * the wizard. Optional so the slice's existing unit tests keep
+   * working without a fake.
+   */
+  onComplete?: () => Promise<void>
 }) {
   const t = useTranslations('Onboarding.menu')
   const router = useRouter()
 
-  function goToDashboard() {
+  async function goToDashboard() {
+    if (onComplete) {
+      try {
+        await onComplete()
+      } catch (err) {
+        // Best-effort: a flag-write failure must not block the
+        // redirect. The user gets a stale resume bounce next time
+        // at worst; surface in the console so operators see it.
+        // eslint-disable-next-line no-console
+        console.error('[menu-onboarding] markComplete failed', err)
+      }
+    }
     router.push('/menu/dashboard')
     router.refresh()
   }
