@@ -40,7 +40,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.4.5",
     "@iedora/eslint-config": "workspace:*",
-    "@types/node": "^22.19.19",
+    "@types/node": "^25.9.1",
     "@types/react": "catalog:",
     "drizzle-kit": "catalog:",
     "eslint": "catalog:",
