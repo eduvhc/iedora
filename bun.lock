@@ -55,7 +55,7 @@
         "zod": "catalog:",
       },
       "devDependencies": {
-        "@electric-sql/pglite": "^0.4.5",
+        "@electric-sql/pglite": "^0.4.6",
         "@iedora/eslint-config": "workspace:*",
         "@types/node": "^22.19.19",
         "@types/react": "catalog:",
@@ -147,7 +147,7 @@
         "server-only": "^0.0.1",
       },
       "devDependencies": {
-        "@electric-sql/pglite": "^0.4.5",
+        "@electric-sql/pglite": "^0.4.6",
         "@iedora/eslint-config": "workspace:*",
         "@types/node": "^22.19.19",
         "eslint": "catalog:",
@@ -156,7 +156,7 @@
         "vitest": "catalog:",
       },
       "peerDependencies": {
-        "@electric-sql/pglite": "^0.4.5",
+        "@electric-sql/pglite": "^0.4.6",
       },
       "optionalPeers": [
         "@electric-sql/pglite",
@@ -345,7 +345,7 @@
         "zod": "catalog:",
       },
       "devDependencies": {
-        "@electric-sql/pglite": "^0.4.5",
+        "@electric-sql/pglite": "^0.4.6",
         "@iedora/eslint-config": "workspace:*",
         "@iedora/testing-integration": "workspace:*",
         "@opentelemetry/api": "^1.9.1",

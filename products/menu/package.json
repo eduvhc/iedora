@@ -92,7 +92,7 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.4.5",
+    "@electric-sql/pglite": "^0.4.6",
     "@iedora/eslint-config": "workspace:*",
     "@iedora/testing-integration": "workspace:*",
     "@opentelemetry/api": "^1.9.1",
