@@ -42,7 +42,7 @@
     "@iedora/design-system": "workspace:*",
     "@iedora/observability": "workspace:*",
     "drizzle-orm": "catalog:",
-    "lucide-react": "^1.16.0",
+    "lucide-react": "^1.17.0",
     "next-intl": "catalog:",
     "postgres": "^3.4.9",
     "server-only": "^0.0.1",
