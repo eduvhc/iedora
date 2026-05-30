@@ -16,7 +16,7 @@
     "lint": "eslint src --cache --cache-location node_modules/.cache/.eslintcache"
   },
   "dependencies": {
-    "@ai-sdk/openai-compatible": "^2.0.47",
+    "@ai-sdk/openai-compatible": "^2.0.48",
     "ai": "^6.0.190"
   },
   "devDependencies": {
