@@ -43,7 +43,7 @@
     "@typescript/native-preview": "^7.0.0-dev.20260527.2"
   },
   "overrides": {
-    "esbuild": "^0.25.12",
+    "esbuild": "^0.28.0",
     "postcss": "^8.5.14"
   }
 }
