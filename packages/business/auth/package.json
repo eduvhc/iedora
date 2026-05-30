@@ -28,7 +28,7 @@
     "@iedora/billing": "workspace:*",
     "@iedora/db": "workspace:*",
     "@iedora/tenancy": "workspace:*",
-    "better-auth": "^1.6.11",
+    "better-auth": "^1.6.12",
     "drizzle-orm": "catalog:",
     "postgres": "^3.4.9",
     "server-only": "^0.0.1",
