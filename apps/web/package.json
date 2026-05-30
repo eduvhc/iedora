@@ -20,7 +20,7 @@
     "@iedora/product-core": "workspace:*",
     "@iedora/product-imopush": "workspace:*",
     "@iedora/product-menu": "workspace:*",
-    "lucide-react": "^1.16.0",
+    "lucide-react": "^1.17.0",
     "next": "catalog:",
     "next-intl": "catalog:",
     "react": "catalog:",
