@@ -75,7 +75,7 @@
     "@iedora/design-system": "workspace:*",
     "@iedora/product-core": "workspace:*",
     "@iedora/observability": "workspace:*",
-    "ai": "^6.0.190",
+    "ai": "^6.0.193",
     "clsx": "^2.1.1",
     "drizzle-orm": "catalog:",
     "pino": "^10.3.1",
