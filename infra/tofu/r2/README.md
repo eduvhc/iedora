@@ -15,7 +15,7 @@ Vive aqui, junto ao código, e não no [`homelab-iac`](https://github.com/eduvhc
 ## Dependência cross-repo
 
 Os secrets/identifiers vêm do homelab IaC. Tem de estar checked out
-em `~/projects/personal/iedora-iac` e o ficheiro `iac/.envrc` ter sido
+em `~/projects/personal/homelab-iac` e o ficheiro `iac/.envrc` ter sido
 criado a partir do `.envrc.example` (uma vez).
 
 A `.envrc` do homelab exporta:
@@ -33,7 +33,7 @@ mas com prefixo por consumidor — zero acoplamento de runtime.
 
 ```bash
 # 1. Carregar env do homelab (primeira vez por shell)
-cd ~/projects/personal/iedora-iac/iac && source .envrc && cd -
+cd ~/projects/personal/homelab-iac/iac && source .envrc && cd -
 
 # 2. Init + apply
 cd ~/projects/personal/iedora/infra/tofu/r2

@@ -6,18 +6,18 @@
 variable "tf_state_passphrase" {
   type        = string
   sensitive   = true
-  description = "Passphrase do state encryption. Vem do iedora-iac via TF_VAR_tf_state_passphrase (source iedora-iac/iac/.envrc)."
+  description = "Passphrase do state encryption. Vem do homelab-iac via TF_VAR_tf_state_passphrase (source homelab-iac/iac/.envrc)."
 }
 
 variable "cf_api_token" {
   type        = string
   sensitive   = true
-  description = "CF API token. Vem do iedora-iac via TF_VAR_cf_api_token (source iedora-iac/iac/.envrc)."
+  description = "CF API token. Vem do homelab-iac via TF_VAR_cf_api_token (source homelab-iac/iac/.envrc)."
 }
 
 variable "r2_account_id" {
   type        = string
-  description = "CF account ID para R2. Vem do iedora-iac via TF_VAR_r2_account_id (identificador, não-secret)."
+  description = "CF account ID para R2. Vem do homelab-iac via TF_VAR_r2_account_id (identificador, não-secret)."
 }
 
 variable "bucket_name" {

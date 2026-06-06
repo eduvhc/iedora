@@ -1,7 +1,7 @@
 terraform {
   required_version = ">= 1.12"
 
-  # State partilha o bucket R2 do homelab (iedora-iac gere-o), prefixo
+  # State partilha o bucket R2 do homelab (homelab-iac gere-o), prefixo
   # próprio para a app. O homelab é dono do bucket de state como infra
   # transversal; a app só lá grava o seu objecto.
   backend "s3" {
