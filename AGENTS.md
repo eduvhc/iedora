@@ -14,7 +14,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 > `bun install` runs ONCE at the repo root and resolves every workspace.
 >
 > Deploy: **Coolify** no homelab — infra é managed pelo repo
-> [`iedora-iac`](https://github.com/eduvhc/iedora-iac); este repo só ship
+> [`homelab-iac`](https://github.com/eduvhc/homelab-iac); este repo só ship
 > app code + Dockerfile. Detalhes em [`docs/runbook.deploy.md`](docs/runbook.deploy.md).
 
 ## What this is
@@ -34,7 +34,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **shadcn/ui** + Tailwind v4 — menu only. Editorial primitives from **`@iedora/design-system`**.
 - **@dnd-kit** — menu's drag-and-drop builder.
 - **Bun** — package manager, test runner, dev orchestrator. **Production runtime is Node** — `bun + next build` is unstable as of 2026 (oven-sh/bun#23944); `next start` runs under Node in the production container.
-- **Coolify** — self-hosted PaaS; builds + deploys from GitHub via webhook on push to `main`. Runs on the homelab (`iedora-iac` manages the platform).
+- **Coolify** — self-hosted PaaS; builds + deploys from GitHub via webhook on push to `main`. Runs on the homelab (`homelab-iac` manages the platform).
 
 ## Hard rules — cross-product
 

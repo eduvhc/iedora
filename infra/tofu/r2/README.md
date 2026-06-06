@@ -1,7 +1,7 @@
 # infra/tofu/r2 — Cloudflare R2 (bucket + creds)
 
 Infra externa que a app `iedora-web` precisa para funcionar (uploads).
-Vive aqui, junto ao código, e não no [`iedora-iac`](https://github.com/eduvhc/iedora-iac)
+Vive aqui, junto ao código, e não no [`homelab-iac`](https://github.com/eduvhc/homelab-iac)
 (esse é homelab-only — agnóstico de apps).
 
 ## O que gere

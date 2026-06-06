@@ -8,7 +8,7 @@ host-based rewrites.
 - **House** (`iedora.com`) — brand landing
 
 Deploy: **Coolify** no homelab (gerido por
-[`iedora-iac`](https://github.com/eduvhc/iedora-iac)). Ver
+[`homelab-iac`](https://github.com/eduvhc/homelab-iac)). Ver
 [`docs/runbook.deploy.md`](docs/runbook.deploy.md).
 
 ## Quick start

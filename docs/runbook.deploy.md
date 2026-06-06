@@ -6,7 +6,7 @@ Single-node homelab. Deploy é **`git push origin main`** → Coolify webhook
 ## Stack
 
 - **Coolify** v4.1.x — UI em `https://coolify.iedora.com` (atrás de Authelia).
-  Plataforma gerida por [`iedora-iac`](https://github.com/eduvhc/iedora-iac).
+  Plataforma gerida por [`homelab-iac`](https://github.com/eduvhc/homelab-iac).
 - **Runner**: `coolify-runner-01` LXC (Docker + Traefik). Builds + serve.
 - **Ingress**: Cloudflare tunnel `coolify-iedora` (HA, 8 conexões).
   Wildcard `*.iedora.com` → Traefik no runner → app pelo Host header.
@@ -86,7 +86,7 @@ Coolify. Marca cada key de `.env.prod` como "Is Secret" ✓ na Coolify UI.
 
 Recipients (who can decrypt) are listed in [`.sops.yaml`](../.sops.yaml).
 To onboard a new operator machine or revoke one, see the workflow in
-[`iedora-iac/docs/setup-from-scratch.md`](https://github.com/eduvhc/iedora-iac/blob/main/docs/setup-from-scratch.md#onboarding-a-new-machine-existing-operator-with-a-working-key-required)
+[`homelab-iac/docs/setup-from-scratch.md`](https://github.com/eduvhc/homelab-iac/blob/main/docs/setup-from-scratch.md#onboarding-a-new-machine-existing-operator-with-a-working-key-required)
 and remember to run `bun prod:env:updatekeys` here too.
 
 **Database URLs — Coolify UI only, tied to Coolify-managed Postgres:**
@@ -144,7 +144,7 @@ ssh root@192.168.50.210 'docker exec -it $(docker ps -qf "name=iedora-pg") psql 
 
 UI Coolify → Application → Domains → adicionar/remover. Coolify regenera
 Traefik routing. CF tunnel wildcard `*.iedora.com` já cobre subdominios
-— apex `iedora.com` precisa de route explícita no `iedora-iac`
+— apex `iedora.com` precisa de route explícita no `homelab-iac`
 (`services/coolify-runner-01/tunnel-routes.yaml`).
 
 ## Backups & recovery
@@ -173,5 +173,5 @@ iedora/
 ```
 
 Tudo o que é homelab (LXCs, CF tunnel, DNS, Coolify install) vive em
-[`iedora-iac`](https://github.com/eduvhc/iedora-iac). Tudo o que é
+[`homelab-iac`](https://github.com/eduvhc/homelab-iac). Tudo o que é
 app-específico (incluindo a sua infra externa) vive aqui.
