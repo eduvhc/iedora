@@ -94,7 +94,7 @@
   },
   "peerDependencies": {
     "next": "^16.2.6",
-    "next-intl": "^4.9.2",
+    "next-intl": "^4.13.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
