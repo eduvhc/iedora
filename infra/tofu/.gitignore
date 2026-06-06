@@ -1,0 +1,11 @@
+# OpenTofu / Terraform local state + provider caches (per-stack).
+**/.terraform/
+**/.terraform.tfstate.lock.info
+*.tfstate
+*.tfstate.backup
+*.tfvars
+crash.log
+crash.*.log
+
+# Keep .terraform.lock.hcl (dep version pinning — should be committed).
+!**/.terraform.lock.hcl

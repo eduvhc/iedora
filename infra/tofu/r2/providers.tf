@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.12"
+  required_version = ">= 1.10"
 
   # State partilha o bucket R2 do homelab (homelab-iac gere-o), prefixo
   # próprio para a app. O homelab é dono do bucket de state como infra
