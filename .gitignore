@@ -80,6 +80,9 @@ yarn-debug.log*
 !apps/web/.env.test
 !apps/web/.env.prod
 
+# sops edit/set leftover (decrypted plaintext) — never commit
+.decrypted~*
+
 # home-infra/<service>/.env é COMMITTED — só config non-secret (ex:
 # email, domain). Secrets ficam em BWS, injectados em runtime via
 # `bws run`. Negate a rule `.env` global acima para estes paths:
