@@ -549,7 +549,7 @@ function SocialProof({ c }: { c: Copy }) {
         <div className="testimonials-grid">
           {c.social.testimonials.map((t, i) => (
             <article key={i} className="testimonial-card reveal" style={{ "--rd": `${i * 80}ms` } as React.CSSProperties}>
-              <blockquote className="testimonial-quote">"{t.quote}"</blockquote>
+              <blockquote className="testimonial-quote">&ldquo;{t.quote}&rdquo;</blockquote>
               <footer className="testimonial-author">
                 <strong>{t.name}</strong>
                 <span className="testimonial-role">{t.role}</span>
