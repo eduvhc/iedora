@@ -74,10 +74,13 @@ export default function HouseLanding() {
         <section data-test-id="house-products">
           <SectionHeader title="What we build" hint="Products" />
 
-          <div className="ds-house-grid">
+          <div
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+            style={{ marginTop: 24 }}
+          >
             <a
               href={menuUrl}
-              className="ds-card ds-card--linked"
+              className="ds-card no-underline"
               data-test-id="house-product-menu"
             >
               <CardTitle>Menu</CardTitle>
