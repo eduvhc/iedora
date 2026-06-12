@@ -259,7 +259,7 @@ jobs:
   # never a PR gate). Skips cleanly (warning, not failure) if the PAT is unset.
   notify-infra:
     needs: image
-    if: ${{ github.event_name != 'pull_request' && needs.image.result == 'success' }}
+    if: ${{ !cancelled() && needs.image.result == 'success' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
