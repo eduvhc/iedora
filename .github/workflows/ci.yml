@@ -307,4 +307,4 @@ jobs:
           # entry env = staging: new images auto-deploy to staging; prod ships
           # via the infra promotion PR (promote.yml), not this dispatch.
           client-payload: |
-            {"repo": "${{ github.repository }}", "sha": "${{ github.sha }}", "env": "staging", "bumps": [{"role": "frontend", "key": "frontend", "digest": "${{ steps.resolve.outputs.digest }}"}]}
+            {"repo": "${{ github.repository }}", "sha": "${{ github.sha }}", "env": "prod", "bumps": [{"role": "frontend", "key": "frontend", "digest": "${{ steps.resolve.outputs.digest }}"}]}
